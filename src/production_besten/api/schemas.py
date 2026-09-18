@@ -1,0 +1,273 @@
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import Any, Literal
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class ApiModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class CreateProjectRequest(ApiModel):
+    customer_id: UUID
+    priority_id: UUID
+    code: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    description: str | None = None
+    committed_date: date | None = None
+    desired_start_at: datetime | None = None
+    status: Literal["draft", "active", "inactive", "archived"] = "draft"
+
+
+class ProjectResponse(ApiModel):
+    id: UUID
+    code: str
+    name: str
+    description: str | None
+    status: str
+    customer_id: UUID
+    priority_id: UUID
+    plant_id: UUID
+    committed_date: date | None
+    desired_start_at: datetime | None
+
+
+class CreateBatchRequest(ApiModel):
+    code: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    description: str | None = None
+    sequence_no: int | None = Field(default=None, gt=0)
+    quantity: float | None = Field(default=None, gt=0)
+    unit: str | None = None
+    status: Literal["draft", "active", "inactive", "archived"] = "draft"
+    hardware_status: Literal["unknown", "pending", "partial", "ready", "not_required"] = "unknown"
+    hardware_available_at: datetime | None = None
+
+
+class BatchResponse(ApiModel):
+    id: UUID
+    project_id: UUID
+    code: str
+    name: str
+    description: str | None
+    sequence_no: int
+    quantity: float | None
+    unit: str | None
+    status: str
+    hardware_status: str
+    hardware_available_at: datetime | None
+
+
+class DefineRouteRequest(ApiModel):
+    route_version_id: UUID
+    effective_at: datetime
+    reason: str | None = None
+
+
+class MutationResponse(ApiModel):
+    id: UUID
+    planning_state_revision_id: UUID | None = None
+    planning_state_revision_number: int | None = None
+    idempotent_replay: bool = False
+
+
+class CreateOperationRequest(ApiModel):
+    operation_definition_id: UUID
+    route_step_id: UUID | None = None
+    code: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    operation_kind: str = "production"
+    status: Literal["draft", "active", "inactive", "archived"] = "draft"
+    earliest_start_at: datetime | None = None
+    settings: dict[str, Any] = Field(default_factory=dict)
+    predecessor_operation_ids: list[UUID] = Field(default_factory=list)
+    successor_operation_ids: list[UUID] = Field(default_factory=list)
+    precedence_type: Literal["finish_start", "start_start", "finish_finish"] = "finish_start"
+    lag_minutes: int = 0
+
+
+class LaborRequirementRequest(ApiModel):
+    skill_id: UUID
+    min_people: int = Field(ge=1)
+    max_people: int = Field(ge=1)
+    work_minutes: int = Field(ge=0)
+    productivity_curve: dict[str, Any] = Field(default_factory=dict)
+    is_mandatory: bool = True
+
+
+class PhysicalRequirementRequest(ApiModel):
+    quantity: float = Field(gt=0)
+    capacity_units: float = Field(gt=0)
+    usage_mode: Literal["active_use", "occupation"]
+    physical_resource_type_id: UUID | None = None
+    physical_resource_group_id: UUID | None = None
+    work_center_id: UUID | None = None
+    is_mandatory: bool = True
+
+    @model_validator(mode="after")
+    def selector_required(self):
+        if not any((self.physical_resource_type_id, self.physical_resource_group_id, self.work_center_id)):
+            raise ValueError("a physical selector is required")
+        return self
+
+
+class GateRequest(ApiModel):
+    timing: Literal["before_start", "before_finish"]
+    gate_type: str = Field(min_length=1)
+    material_requirement_id: UUID | None = None
+    drawing_package_id: UUID | None = None
+    hardware_project_lot_id: UUID | None = None
+    milestone_definition_id: UUID | None = None
+    available_at: datetime | None = None
+    config: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def one_target(self):
+        values = (self.material_requirement_id, self.drawing_package_id,
+                  self.hardware_project_lot_id, self.milestone_definition_id,
+                  self.available_at)
+        if sum(value is not None for value in values) != 1:
+            raise ValueError("exactly one gate target is required")
+        return self
+
+
+class CreatePhaseRequest(ApiModel):
+    sequence_no: int = Field(gt=0)
+    code: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    estimate_kind: str
+    original_estimate_minutes: int = Field(ge=0)
+    split_policy: Literal["non_splittable", "splittable", "continuous"]
+    route_step_phase_template_id: UUID | None = None
+    status: Literal["draft", "active", "inactive", "archived"] = "draft"
+    earliest_start_at: datetime | None = None
+    labor_requirements: list[LaborRequirementRequest] = Field(default_factory=list)
+    physical_requirements: list[PhysicalRequirementRequest] = Field(default_factory=list)
+    gates: list[GateRequest] = Field(default_factory=list)
+
+
+class FreezeDefinitionRequest(ApiModel):
+    reason: str = Field(min_length=1)
+
+
+class ProductDefinitionRevisionResponse(ApiModel):
+    revision_id: UUID
+    revision_number: int
+    snapshot_hash: str
+    created_at: datetime
+    reused_existing_revision: bool
+    idempotent_replay: bool
+    planning_state_revision_id: UUID | None = None
+    planning_state_revision_number: int | None = None
+
+
+class StartOperationRequest(ApiModel):
+    phase_id: UUID
+    started_at: datetime
+    origin_plan_version_id: UUID | None = None
+    origin_operation_plan_result_id: UUID | None = None
+
+
+class StartOperationResponse(ApiModel):
+    execution_id: UUID
+    event_id: UUID
+    planning_state_revision_id: UUID
+    planning_state_revision_number: int
+    remaining_estimate_revision_id: UUID
+    idempotent_replay: bool
+
+
+class HumanUsageRequest(ApiModel):
+    employee_id: UUID
+    work_minutes: int = Field(gt=0)
+
+
+class PhysicalUsageRequest(ApiModel):
+    physical_resource_id: UUID
+    work_minutes: int = Field(ge=0)
+    capacity_units: float = Field(default=1, gt=0)
+
+
+class PhysicalOccupationRequest(ApiModel):
+    physical_resource_id: UUID
+    started_at: datetime
+    ended_at: datetime
+
+
+class RegisterSegmentRequest(ApiModel):
+    phase_id: UUID
+    started_at: datetime
+    ended_at: datetime
+    work_minutes: int = Field(ge=0)
+    humans: list[HumanUsageRequest] = Field(default_factory=list)
+    physical_usages: list[PhysicalUsageRequest] = Field(default_factory=list)
+    occupations: list[PhysicalOccupationRequest] = Field(default_factory=list)
+    origin_assignment_segment_id: UUID | None = None
+
+
+class SegmentResponse(ApiModel):
+    segment_id: UUID
+    segment_number: int
+    event_id: UUID
+    planning_state_revision_id: UUID
+    planning_state_revision_number: int
+    idempotent_replay: bool
+
+
+class FinishOperationRequest(ApiModel):
+    phase_id: UUID
+    completed_at: datetime
+
+
+class FinishOperationResponse(ApiModel):
+    execution_id: UUID
+    phase_id: UUID
+    operation_completed: bool
+    event_id: UUID
+    planning_state_revision_id: UUID
+    planning_state_revision_number: int
+    original_labor_minutes: int
+    actual_labor_minutes: int
+    variance_labor_minutes: int
+    idempotent_replay: bool
+
+
+class RemainingInputRequest(ApiModel):
+    dimension: Literal["LABOR_WORK", "ACTIVE_PHYSICAL_USE", "PHYSICAL_OCCUPATION"]
+    minutes: int | None = Field(default=None, ge=0)
+    expected_release_at: datetime | None = None
+    phase_id: UUID | None = None
+    skill_id: UUID | None = None
+    min_people: int | None = Field(default=None, ge=1)
+    max_people: int | None = Field(default=None, ge=1)
+    physical_requirement_id: UUID | None = None
+    physical_resource_id: UUID | None = None
+    capacity_units: float | None = Field(default=None, gt=0)
+    details: dict[str, Any] | None = None
+
+
+class UpdateRemainingEstimateRequest(ApiModel):
+    cutoff_at: datetime
+    reason: str | None = None
+    remaining: list[RemainingInputRequest] = Field(min_length=1)
+    input_mode: Literal["delta", "remaining_duration", "expected_finish"] = "remaining_duration"
+
+
+class RemainingEstimateResponse(ApiModel):
+    revision_id: UUID
+    revision_number: int
+    original_minutes: int
+    executed_minutes: int
+    remaining_minutes: int
+    updated_total_minutes: int
+    planning_state_revision_id: UUID
+    planning_state_revision_number: int
+    effective_event_id: UUID
+    current_plan_version_id: UUID | None
+
+
+class HealthResponse(ApiModel):
+    status: str

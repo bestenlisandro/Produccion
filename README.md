@@ -1,0 +1,72 @@
+# Producción Besten
+
+Sistema web de planificación y programación de producción de muebles de melamina a medida.
+
+El producto se diseña como un APS de capacidad finita: considera simultáneamente operaciones, precedencias, materiales, planos, personas, habilidades, máquinas, bancos, calendarios, instalaciones y restricciones del cliente.
+
+## Principios no negociables
+
+- Los recursos, habilidades, operaciones, rutas y calendarios son datos configurables.
+- El planificador debe producir programas factibles, explicables y reproducibles.
+- Una simulación nunca modifica el programa vigente.
+- Toda reprogramación sigue el flujo: evento, impacto, escenario, comparación, confirmación y publicación.
+- El portal del cliente usa una proyección pública separada de los datos internos.
+- La futura integración con la aplicación de Compras se realizará mediante contratos versionados, nunca compartiendo tablas.
+
+## Documentación funcional inicial
+
+- [Decisiones funcionales V1](docs/00-decisiones-funcionales-v1.md)
+- [Límites de módulos e integración con Compras](docs/01-modulos-e-integracion-compras.md)
+- [Casos de aceptación del planificador](docs/02-casos-aceptacion-planificador.md)
+- [Modelo lógico de datos V1](docs/03-modelo-logico-v1.md)
+- [Casos difíciles del modelo](docs/04-casos-dificiles-modelo.md)
+- [Auditoría formal del modelo lógico V1](docs/05-auditoria-modelo-logico-v1.md)
+- [Cierre definitivo del modelo lógico V1](docs/06-cierre-modelo-logico-v1.md)
+- [Ajuste de estimación restante durante ejecución](docs/07-ajuste-estimacion-restante-v1.md)
+- [Esquema físico PostgreSQL V1](docs/07-esquema-fisico-postgresql-v1.md)
+- [Diccionario de datos V1](docs/08-diccionario-datos-v1.md)
+- [Validación UX de reprogramación V1](docs/09-validacion-ux-reprogramacion-v1.md)
+- [Auditoría de simplificación del esquema V1](docs/10-auditoria-simplificacion-esquema-v1.md)
+- [Cierre del esquema físico PostgreSQL V1](docs/11-cierre-esquema-fisico-v1.md)
+- [Plan de migraciones PostgreSQL V1](docs/12-plan-migraciones-postgresql-v1.md)
+- [Seguridad y estrategia RLS V1](docs/13-seguridad-rls-v1.md)
+- [Validación de migraciones PostgreSQL V1](docs/14-validacion-migraciones-v1.md)
+- [Entorno de validación PostgreSQL V1](docs/15-entorno-validacion-postgresql-v1.md)
+- [Cierre de migraciones PostgreSQL V1](docs/16-cierre-migraciones-postgresql-v1.md)
+- [Arquitectura backend V1](docs/17-arquitectura-backend-v1.md)
+- [Validación del primer incremento backend V1](docs/18-validacion-backend-base-v1.md)
+- [Plan RLS V1](docs/19-plan-rls-v1.md)
+- [Contrato de API interna V1](docs/20-contrato-api-interna-v1.md)
+- [Motor de planificación factible V1](docs/21-motor-planificacion-v1.md)
+- [Capacidad acumulativa V1](docs/22-capacidad-acumulativa-v1.md)
+
+## Entorno backend reproducible
+
+La configuración no contiene credenciales. Copiar `.env.example` sólo como referencia local y proporcionar `DATABASE_URL` o `TEST_DATABASE_URL` mediante variables de entorno.
+
+En esta PC, donde pip necesita integrar el almacén de certificados de Windows, el procedimiento validado es:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install truststore==0.10.4
+.\.venv\Scripts\python.exe -m pip install --use-feature=truststore --no-build-isolation -r requirements.lock
+.\.venv\Scripts\python.exe -m pip install --use-feature=truststore --no-build-isolation -e .
+```
+
+No se usa `--trusted-host` ni se desactiva TLS.
+
+## Estado
+
+Etapa 3.1 cerrada: M0–M10 fueron validadas y reproducidas sobre PostgreSQL 18.6 real.
+
+Etapa 5.1 cerrada: existe un scheduler greedy hacia adelante de capacidad finita,
+determinista y explicable, validado sobre PostgreSQL real en el checkpoint
+`BASIC_FINITE_CAPACITY_SCHEDULER_VALIDATED`.
+
+Etapa 5.2 validada en `v1-greedy-2`: agrega capacidad acumulativa por eventos,
+demanda por fase, convivencia con personas/skills y recursos exclusivos, usos reales
+y blockers explicables. Sobre PostgreSQL 18.6 se recreó una base descartable, se
+aplicaron M0–M10 y pasaron 172/172 pruebas en 12,40 s. Incluye benchmarks PostgreSQL
+de 112,36 ms para 3 proyectos/12 operaciones y 898,40 ms para 20 proyectos/100
+operaciones. No existen todavía frontend, portal, optimización global ni promoción
+automática de escenarios.

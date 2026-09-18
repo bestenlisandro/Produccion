@@ -1,0 +1,29 @@
+from __future__ import annotations
+
+from fastapi import FastAPI
+from sqlalchemy import Engine
+
+from production_besten.api.context import DevRequestContextProvider
+from production_besten.api.dependencies import ApiContainer
+from production_besten.api.errors import install_error_handlers
+from production_besten.api.routes import router
+from production_besten.infrastructure.settings import Settings
+from production_besten.persistence.database import create_database_engine
+
+
+def create_app(*, engine: Engine | None = None, enable_dev_context: bool | None = None,
+               failpoints: dict[str, str] | None = None) -> FastAPI:
+    if engine is None:
+        settings = Settings()
+        engine = create_database_engine(settings.sqlalchemy_database_url())
+        enabled = settings.app_env in {"development", "testing"}
+    else:
+        enabled = True
+    if enable_dev_context is not None:
+        enabled = enable_dev_context
+    app = FastAPI(title="Producción Besten API", version="1.0.0",
+                  description="API interna mínima sobre servicios de dominio validados.")
+    app.state.container = ApiContainer(engine, DevRequestContextProvider(enabled=enabled), failpoints or {})
+    install_error_handlers(app)
+    app.include_router(router)
+    return app

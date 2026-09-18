@@ -1,0 +1,46 @@
+from __future__ import annotations
+
+from typing import Protocol
+
+from production_besten.domain.remaining_estimate import (
+    RemainingEstimateResult,
+    UpdateRemainingEstimate,
+)
+from production_besten.domain.execution import (
+    FinishOperation,
+    FinishOperationResult,
+    RegisterExecutionSegment,
+    RegisterExecutionSegmentResult,
+    StartOperation,
+    StartOperationResult,
+)
+from production_besten.domain.product_definition import (
+    CreateProductDefinitionRevision, CreateProductionBatch, CreateProject,
+    CreateRequiredOperation, CreateRequiredOperationPhase, DefineBatchRoute,
+    DefinitionMutationResult, ProductDefinitionRevisionResult,
+)
+from production_besten.domain.scheduling.models import GenerateSchedule, ScheduleGenerationResult
+
+
+class RemainingEstimateUnitOfWork(Protocol):
+    def __enter__(self) -> "RemainingEstimateUnitOfWork": ...
+    def __exit__(self, exc_type, exc, traceback) -> bool | None: ...
+    def update_remaining_estimate(
+        self, command: UpdateRemainingEstimate
+    ) -> RemainingEstimateResult: ...
+    def start_operation(self, command: StartOperation) -> StartOperationResult: ...
+    def register_execution_segment(
+        self, command: RegisterExecutionSegment
+    ) -> RegisterExecutionSegmentResult: ...
+    def finish_operation(self, command: FinishOperation) -> FinishOperationResult: ...
+    def create_project(self, command: CreateProject) -> DefinitionMutationResult: ...
+    def create_production_batch(self, command: CreateProductionBatch) -> DefinitionMutationResult: ...
+    def define_batch_route(self, command: DefineBatchRoute) -> DefinitionMutationResult: ...
+    def create_required_operation(self, command: CreateRequiredOperation) -> DefinitionMutationResult: ...
+    def create_required_operation_phase(self, command: CreateRequiredOperationPhase) -> DefinitionMutationResult: ...
+    def create_product_definition_revision(self, command: CreateProductDefinitionRevision) -> ProductDefinitionRevisionResult: ...
+    def generate_schedule(self, command: GenerateSchedule) -> ScheduleGenerationResult: ...
+
+
+class UnitOfWorkFactory(Protocol):
+    def __call__(self) -> RemainingEstimateUnitOfWork: ...
