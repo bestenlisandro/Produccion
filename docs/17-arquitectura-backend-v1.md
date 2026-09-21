@@ -66,6 +66,19 @@ del snapshot y del algoritmo versionado. No se agregaron tablas ni migraciones.
 
 El dominio no importa FastAPI ni SQLAlchemy. Los endpoints no contienen reglas de negocio.
 
+### Evolución de replanning 5.3
+
+`domain/replanning.py` define los contratos de simulación y rechazo;
+`application/replanning_services.py` conserva servicios finos; y
+`persistence/scheduling_uow.py` coordina locks, frontera, snapshot, motor,
+comparación e impactos en una sola transacción. El flujo se apoya en las tablas
+existentes y no agregó migraciones. El adaptador HTTP se difiere deliberadamente:
+primero se validó el servicio PostgreSQL.
+
+La realidad, el plan publicado, la estimación restante y el escenario son cuatro
+estados distintos. Sólo los comandos de ejecución/estimación modifican realidad;
+replan genera una alternativa y reject cambia únicamente el lifecycle del escenario.
+
 ## 4. Agregados y repositorios iniciales
 
 No se crea un repositorio por tabla. Los repositorios iniciales se alinean a operaciones coherentes:

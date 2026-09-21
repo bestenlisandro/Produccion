@@ -39,6 +39,7 @@ El producto se diseña como un APS de capacidad finita: considera simultáneamen
 - [Contrato de API interna V1](docs/20-contrato-api-interna-v1.md)
 - [Motor de planificación factible V1](docs/21-motor-planificacion-v1.md)
 - [Capacidad acumulativa V1](docs/22-capacidad-acumulativa-v1.md)
+- [Reprogramación ante desvíos V1](docs/23-reprogramacion-desvios-v1.md)
 
 ## Entorno backend reproducible
 
@@ -70,3 +71,8 @@ aplicaron M0–M10 y pasaron 172/172 pruebas en 12,40 s. Incluye benchmarks Post
 de 112,36 ms para 3 proyectos/12 operaciones y 898,40 ms para 20 proyectos/100
 operaciones. No existen todavía frontend, portal, optimización global ni promoción
 automática de escenarios.
+
+Etapa 5.3 implementada como `v1-replan-1`: `REPLAN_FROM_OPERATION`,
+`REPLAN_PROJECT` y `REJECT_REPLAN` producen escenarios incrementales aislados,
+comparables e idempotentes desde realidad/estimación restante. No existe todavía
+promoción automática y el plan publicado permanece inmutable.

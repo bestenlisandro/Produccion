@@ -56,3 +56,7 @@ class InvalidSchedulingInput(DomainError):
 
 class SchedulingBaseStale(DomainError):
     """The requested frozen base is no longer the current schedulable state."""
+
+
+class ReplanConflict(DomainError):
+    """A replan scenario changed concurrently or cannot accept the command."""

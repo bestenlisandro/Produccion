@@ -4,7 +4,7 @@ import hashlib
 import json
 import time as clock
 from collections import defaultdict
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, is_dataclass, replace
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from math import ceil
@@ -13,7 +13,13 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import Connection, Engine, text
 
-from production_besten.domain.errors import EntityNotFound, InvalidSchedulingInput, SchedulingBaseStale
+from production_besten.domain.errors import (
+    EntityNotFound, IdempotencyConflict, InvalidSchedulingInput, ReplanConflict, RevisionConflict,
+    SchedulingBaseStale,
+)
+from production_besten.domain.replanning import (
+    RejectReplan, RejectReplanResult, ReplanRequest, ReplanResult,
+)
 from production_besten.domain.scheduling.engine import GreedyFiniteCapacityScheduler
 from production_besten.domain.scheduling.models import (
     CalendarData, CalendarException, CalendarInterval, CapacityUsage, EmployeeData, GateData,
@@ -130,6 +136,180 @@ class PostgresSchedulingUnitOfWork:
             counts["planned_phases"], counts["blocked_phases"], counts["out_of_horizon_phases"],
             solution_hash.hex(), elapsed_ms)
 
+    def replan(self, command: ReplanRequest) -> ReplanResult:
+        """Materialize an isolated, comparable replan; never publish it."""
+        command.validate()
+        plant = self.conn.execute(text("""
+            SELECT current_plan_version_id,current_product_definition_revision_id
+              FROM core.plants
+             WHERE organization_id=:org AND id=:plant FOR UPDATE
+        """), {"org": command.organization_id, "plant": command.plant_id}).mappings().one_or_none()
+        if plant is None:
+            raise EntityNotFound("plant not found in organization")
+        head = self.conn.execute(text("""
+            SELECT current_revision_id FROM planning.planning_state_heads
+             WHERE organization_id=:org AND plant_id=:plant FOR UPDATE
+        """), {"org": command.organization_id, "plant": command.plant_id}).mappings().one_or_none()
+        if head is None:
+            raise EntityNotFound("planning state head not found in organization")
+        if (plant["current_plan_version_id"] != command.base_plan_version_id
+                or plant["current_product_definition_revision_id"] != command.product_definition_revision_id
+                or head["current_revision_id"] != command.planning_state_revision_id):
+            raise SchedulingBaseStale("replan base is stale")
+        self.conn.execute(text("""
+            UPDATE planning.scenarios
+               SET status='stale',updated_at=now(),row_version=row_version+1
+             WHERE organization_id=:org AND plant_id=:plant
+               AND scenario_kind='replan' AND status='ready'
+               AND (base_plan_version_id<>:plan OR base_state_revision_id<>:state
+                    OR base_product_definition_revision_id<>:definition)
+        """), {"org": command.organization_id, "plant": command.plant_id,
+                 "plan": command.base_plan_version_id,
+                 "state": command.planning_state_revision_id,
+                 "definition": command.product_definition_revision_id})
+
+        replay = self.conn.execute(text("""
+            SELECT s.id AS scenario_id,sol.id AS solution_id,s.status,sol.solution_sha256,
+                   sol.metrics,sol.comparison,s.parameters
+              FROM planning.scenarios s
+              JOIN planning.schedule_solutions sol
+                ON sol.organization_id=s.organization_id AND sol.scenario_id=s.id
+             WHERE s.organization_id=:org AND s.plant_id=:plant
+               AND s.parameters->>'idempotency_key'=:key
+        """), {"org": command.organization_id, "plant": command.plant_id,
+                 "key": command.idempotency_key.strip()}).mappings().one_or_none()
+        if replay is not None:
+            replay_meta = replay["parameters"].get("replan", {})
+            expected_target = (str(command.trigger_operation_id)
+                               if command.trigger_operation_id else str(command.project_id))
+            stored_target = (replay_meta.get("trigger_operation_id")
+                             or replay_meta.get("trigger_project_id"))
+            if (replay["parameters"].get("command") != command.command_name
+                    or replay_meta.get("cutoff_at") != command.cutoff_at.isoformat()
+                    or stored_target != expected_target):
+                raise IdempotencyConflict(
+                    "idempotency key was reused with incompatible replan data"
+                )
+            comparison = replay["comparison"] or {}
+            metrics = replay["metrics"] or {}
+            return ReplanResult(
+                replay["scenario_id"], replay["solution_id"], replay["status"],
+                bool(metrics.get("complete", replay["status"] == "ready")),
+                tuple(UUID(x) for x in comparison.get("frontier_project_ids", [])),
+                tuple(UUID(x) for x in comparison.get("frontier_operation_ids", [])),
+                int(comparison.get("changed_operations", 0)),
+                int(comparison.get("customer_date_alerts", 0)),
+                replay["solution_sha256"].hex() if replay["solution_sha256"] else None,
+                int(metrics.get("elapsed_ms", 0)), True,
+            )
+
+        baseline_solution_id = self.conn.scalar(text("""
+            SELECT schedule_solution_id FROM planning.plan_versions
+             WHERE organization_id=:org AND plant_id=:plant AND id=:plan
+        """), {"org": command.organization_id, "plant": command.plant_id,
+                 "plan": command.base_plan_version_id})
+        if baseline_solution_id is None:
+            raise EntityNotFound("base plan not found in organization and plant")
+        frontier_projects, frontier_operations = self._impact_frontier(
+            command, baseline_solution_id
+        )
+        parameters = {
+            **(command.parameters or {}),
+            "command": command.command_name,
+            "replan_version": "v1-replan-1",
+            "idempotency_key": command.idempotency_key.strip(),
+            "replan": {
+                "cutoff_at": command.cutoff_at.isoformat(),
+                "base_solution_id": str(baseline_solution_id),
+                "frontier_operation_ids": [str(x) for x in frontier_operations],
+                "trigger_operation_id": (str(command.trigger_operation_id)
+                                         if command.trigger_operation_id else None),
+                "trigger_project_id": (str(command.project_id)
+                                       if command.project_id else None),
+            },
+        }
+        generated = self.generate_schedule(GenerateSchedule(
+            command.organization_id, command.plant_id, command.actor_id,
+            command.code, command.name, command.cutoff_at, command.horizon_end,
+            command.product_definition_revision_id, command.planning_state_revision_id,
+            frontier_projects, parameters,
+        ))
+        self.conn.execute(text("""
+            UPDATE planning.scenarios SET scenario_kind='replan'
+             WHERE organization_id=:org AND id=:scenario
+        """), {"org": command.organization_id, "scenario": generated.scenario_id})
+        comparison = self._compare_replan(
+            command, baseline_solution_id, generated.solution_id,
+            frontier_projects, frontier_operations,
+        )
+        self.conn.execute(text("""
+            UPDATE planning.schedule_solutions
+               SET baseline_solution_id=:baseline,
+                   impact_summary=CAST(:impact AS jsonb),
+                   comparison=CAST(:comparison AS jsonb),
+                   metrics=metrics || CAST(:extra_metrics AS jsonb)
+             WHERE organization_id=:org AND id=:solution
+        """), {"baseline": baseline_solution_id,
+                 "impact": _json(comparison["impact_summary"]),
+                 "comparison": _json(comparison),
+                 "extra_metrics": _json({"complete": generated.complete}),
+                 "org": command.organization_id, "solution": generated.solution_id})
+        for item in comparison["operations"]:
+            if not item["changed"]:
+                continue
+            self.conn.execute(text("""
+                INSERT INTO planning.impact_items
+                  (organization_id,schedule_solution_id,project_id,required_operation_id,
+                   impact_kind,delta_minutes,old_value,new_value,reason)
+                VALUES (:org,:solution,:project,:operation,:kind,:delta,
+                        CAST(:old AS jsonb),CAST(:new AS jsonb),CAST(:reason AS jsonb))
+            """), {"org": command.organization_id, "solution": generated.solution_id,
+                    "project": UUID(item["project_id"]),
+                    "operation": UUID(item["operation_id"]),
+                    "kind": item["impact_kind"], "delta": item["delta_minutes"],
+                    "old": _json(item["old"]), "new": _json(item["new"]),
+                    "reason": _json(item["reason"])})
+        return ReplanResult(
+            generated.scenario_id, generated.solution_id, generated.status,
+            generated.complete, frontier_projects, frontier_operations,
+            comparison["changed_operations"], comparison["customer_date_alerts"],
+            generated.solution_sha256, generated.elapsed_ms,
+        )
+
+    def reject_replan(self, command: RejectReplan) -> RejectReplanResult:
+        command.validate()
+        if not self.conn.scalar(text("""
+            SELECT EXISTS(SELECT 1 FROM core.user_profiles
+             WHERE organization_id=:org AND id=:actor)
+        """), {"org": command.organization_id, "actor": command.actor_id}):
+            raise EntityNotFound("actor not found in organization")
+        row = self.conn.execute(text("""
+            SELECT status,row_version,scenario_kind FROM planning.scenarios
+             WHERE organization_id=:org AND plant_id=:plant AND id=:scenario FOR UPDATE
+        """), {"org": command.organization_id, "plant": command.plant_id,
+                 "scenario": command.scenario_id}).mappings().one_or_none()
+        if row is None:
+            raise EntityNotFound("replan scenario not found in organization and plant")
+        if row["scenario_kind"] != "replan":
+            raise ReplanConflict("only replan scenarios can be rejected")
+        if row["status"] == "rejected":
+            return RejectReplanResult(command.scenario_id, "rejected", row["row_version"], True)
+        if row["status"] not in {"ready", "stale"}:
+            raise ReplanConflict(f"scenario in status {row['status']} cannot be rejected")
+        if row["row_version"] != command.expected_row_version:
+            raise RevisionConflict(
+                f"expected row version {command.expected_row_version}, current is {row['row_version']}"
+            )
+        updated = self.conn.execute(text("""
+            UPDATE planning.scenarios
+               SET status='rejected',rejected_at=now(),rejection_reason=:reason,
+                   updated_at=now(),row_version=row_version+1
+             WHERE organization_id=:org AND id=:scenario
+             RETURNING row_version
+        """), {"reason": command.reason.strip(), "org": command.organization_id,
+                 "scenario": command.scenario_id}).scalar_one()
+        return RejectReplanResult(command.scenario_id, "rejected", updated)
+
     def _lock_and_validate_base(self, command):
         plant = self.conn.execute(text("""
             SELECT id,base_calendar_id,current_product_definition_revision_id,current_plan_version_id
@@ -171,6 +351,9 @@ class PostgresSchedulingUnitOfWork:
             WHERE ro.organization_id=:org AND ro.project_id=ANY(:projects)
               AND ro.status IN ('draft','active') AND ro.cancelled_at IS NULL ORDER BY ro.code
         """), {"org": command.organization_id, "projects": project_ids}).mappings().all() if project_ids else []
+        if command.parameters.get("replan"):
+            allowed = {UUID(value) for value in command.parameters["replan"]["frontier_operation_ids"]}
+            operation_rows = [row for row in operation_rows if row["id"] in allowed]
         operation_ids = [row["id"] for row in operation_rows]
         phase_rows = self.conn.execute(text("""
             SELECT ph.*,ro.project_id,ro.project_lot_id,ro.code AS operation_code,
@@ -198,17 +381,258 @@ class PostgresSchedulingUnitOfWork:
             row["split_policy"], max(filter(None, (row["operation_earliest"], row["earliest_start_at"])), default=None),
             bool(row["settings"].get("scalable_labor", False)), tuple(labor_by[row["id"]]),
             tuple(physical_by[row["id"]]), tuple(gates[row["id"]])) for row in phase_rows)
+        remaining_revision_by_phase = {}
+        if command.parameters.get("replan"):
+            phases, remaining_revision_by_phase = self._apply_replanning_state(
+                command, phases
+            )
+        self._remaining_revision_by_phase = remaining_revision_by_phase
         precedence_rows = self.conn.execute(text("SELECT predecessor_operation_id,successor_operation_id,precedence_type,lag_minutes FROM production.operation_precedences WHERE organization_id=:org AND active AND predecessor_operation_id=ANY(:operations) AND successor_operation_id=ANY(:operations) ORDER BY predecessor_operation_id,successor_operation_id"), {"org": command.organization_id, "operations": operation_ids}).mappings().all() if operation_ids else []
         precedences = tuple(PrecedenceData(
             row["predecessor_operation_id"], row["successor_operation_id"],
             row["precedence_type"], row["lag_minutes"],
         ) for row in precedence_rows)
         employees, resources, calendars, unavailability, occupations, actual_capacity, overtime = self._load_capacity(command, scenario_id)
+        active_operation_ids = {phase.operation_id for phase in phases}
+        precedences = tuple(
+            edge for edge in precedences
+            if edge.predecessor_operation_id in active_operation_ids
+            and edge.successor_operation_id in active_operation_ids
+        )
         return SchedulingInput(command.organization_id, command.plant_id,
             self.conn.scalar(text("SELECT base_calendar_id FROM core.plants WHERE organization_id=:org AND id=:plant"), {"org": command.organization_id, "plant": command.plant_id}),
             command.horizon_start, command.horizon_end, command.product_definition_revision_id,
             command.planning_state_revision_id, base_plan, projects, phases, precedences, calendars,
             employees, resources, unavailability, occupations, actual_capacity, overtime), definition["canonical_snapshot"]
+
+    def _impact_frontier(self, command, baseline_solution_id):
+        operations = self.conn.execute(text("""
+            SELECT ro.id,ro.project_id
+              FROM production.required_operations ro
+              JOIN core.projects p ON p.organization_id=ro.organization_id AND p.id=ro.project_id
+             WHERE ro.organization_id=:org AND p.plant_id=:plant
+               AND ro.status IN ('draft','active') AND ro.cancelled_at IS NULL
+        """), {"org": command.organization_id,
+                 "plant": command.plant_id}).mappings().all()
+        project_by_operation = {row["id"]: row["project_id"] for row in operations}
+        if command.trigger_operation_id:
+            if command.trigger_operation_id not in project_by_operation:
+                raise EntityNotFound("trigger operation not found in organization and plant")
+            frontier = {command.trigger_operation_id}
+        else:
+            if command.project_id not in set(project_by_operation.values()):
+                raise EntityNotFound("project not found in organization and plant")
+            frontier = {op for op, project in project_by_operation.items()
+                        if project == command.project_id}
+        edges = self.conn.execute(text("""
+            SELECT predecessor_operation_id,successor_operation_id
+              FROM production.operation_precedences
+             WHERE organization_id=:org AND active
+        """), {"org": command.organization_id}).all()
+
+        def add_successors(values):
+            changed = True
+            while changed:
+                changed = False
+                for predecessor, successor in edges:
+                    if predecessor in values and successor in project_by_operation and successor not in values:
+                        values.add(successor)
+                        changed = True
+
+        add_successors(frontier)
+        allocations = self.conn.execute(text("""
+            SELECT DISTINCT opr.required_operation_id,ro.project_id,
+                   h.employee_id,r.physical_resource_id
+              FROM planning.operation_plan_results opr
+              JOIN production.required_operations ro
+                ON ro.organization_id=opr.organization_id AND ro.id=opr.required_operation_id
+              LEFT JOIN planning.phase_plan_results p
+                ON p.organization_id=opr.organization_id AND p.operation_plan_result_id=opr.id
+              LEFT JOIN planning.planned_phase_assignments a
+                ON a.organization_id=p.organization_id AND a.phase_plan_result_id=p.id
+              LEFT JOIN planning.assignment_segments s
+                ON s.organization_id=a.organization_id AND s.planned_phase_assignment_id=a.id
+               AND upper(s.time_range)>:cutoff
+              LEFT JOIN planning.human_segment_assignments h
+                ON h.organization_id=s.organization_id AND h.assignment_segment_id=s.id
+              LEFT JOIN planning.physical_resource_reservations r
+                ON r.organization_id=s.organization_id AND r.assignment_segment_id=s.id
+             WHERE opr.organization_id=:org AND opr.schedule_solution_id=:solution
+        """), {"org": command.organization_id, "solution": baseline_solution_id,
+                 "cutoff": command.cutoff_at}).mappings().all()
+        changed = True
+        while changed:
+            changed = False
+            employees = {row["employee_id"] for row in allocations
+                         if row["required_operation_id"] in frontier and row["employee_id"]}
+            resources = {row["physical_resource_id"] for row in allocations
+                         if row["required_operation_id"] in frontier and row["physical_resource_id"]}
+            for row in allocations:
+                operation = row["required_operation_id"]
+                if operation not in project_by_operation or operation in frontier:
+                    continue
+                if row["employee_id"] in employees or row["physical_resource_id"] in resources:
+                    frontier.add(operation)
+                    changed = True
+            if changed:
+                add_successors(frontier)
+        projects = {project_by_operation[operation] for operation in frontier}
+        return (tuple(sorted(projects, key=str)), tuple(sorted(frontier, key=str)))
+
+    def _compare_replan(self, command, baseline_solution_id, solution_id,
+                        frontier_projects, frontier_operations):
+        rows = self.conn.execute(text("""
+            SELECT 'old' AS side,opr.required_operation_id,ro.project_id,opr.result_status,
+                   opr.planned_start_at,opr.planned_end_at,opr.remaining_work_minutes
+              FROM planning.operation_plan_results opr
+              JOIN production.required_operations ro
+                ON ro.organization_id=opr.organization_id AND ro.id=opr.required_operation_id
+             WHERE opr.organization_id=:org AND opr.schedule_solution_id=:old
+               AND opr.required_operation_id=ANY(:operations)
+            UNION ALL
+            SELECT 'new',opr.required_operation_id,ro.project_id,opr.result_status,
+                   opr.planned_start_at,opr.planned_end_at,opr.remaining_work_minutes
+              FROM planning.operation_plan_results opr
+              JOIN production.required_operations ro
+                ON ro.organization_id=opr.organization_id AND ro.id=opr.required_operation_id
+             WHERE opr.organization_id=:org AND opr.schedule_solution_id=:new
+               AND opr.required_operation_id=ANY(:operations)
+        """), {"org": command.organization_id, "old": baseline_solution_id,
+                 "new": solution_id, "operations": list(frontier_operations)}).mappings().all()
+        values = defaultdict(dict)
+        for row in rows:
+            values[row["required_operation_id"]][row["side"]] = row
+        operations = []
+        for operation_id in frontier_operations:
+            pair = values[operation_id]
+            old, new = pair.get("old"), pair.get("new")
+            old_end = old["planned_end_at"] if old else None
+            new_end = new["planned_end_at"] if new else None
+            delta = (int((new_end-old_end).total_seconds() // 60)
+                     if old_end and new_end else None)
+            old_value = self._plan_value(old)
+            new_value = self._plan_value(new)
+            changed = old_value != new_value
+            impact_kind = ("newly_planned" if old is None else "removed_from_future"
+                           if new is None else "delayed" if delta and delta > 0
+                           else "advanced" if delta and delta < 0 else "changed")
+            project_id = ((new or old)["project_id"] if (new or old)
+                          else self.conn.scalar(text("""
+                              SELECT project_id FROM production.required_operations
+                               WHERE organization_id=:org AND id=:operation
+                          """), {"org": command.organization_id, "operation": operation_id}))
+            operations.append({
+                "operation_id": str(operation_id), "project_id": str(project_id),
+                "changed": changed, "impact_kind": impact_kind,
+                "delta_minutes": delta, "old": old_value, "new": new_value,
+                "reason": {"command": command.command_name,
+                           "cutoff_at": command.cutoff_at,
+                           "trigger_operation_id": command.trigger_operation_id,
+                           "trigger_project_id": command.project_id},
+            })
+        communicated = dict(self.conn.execute(text("""
+            SELECT DISTINCT ON (project_id) project_id,communicated_date
+              FROM portal.communicated_dates
+             WHERE organization_id=:org AND project_id=ANY(:projects)
+             ORDER BY project_id,communicated_at DESC,id DESC
+        """), {"org": command.organization_id,
+                 "projects": list(frontier_projects)}).all()) if frontier_projects else {}
+        proposed_finish = defaultdict(lambda: None)
+        for item in operations:
+            end = item["new"].get("end") if item["new"] else None
+            if end:
+                value = (end if isinstance(end, datetime)
+                         else datetime.fromisoformat(end.replace("Z", "+00:00")))
+                project = UUID(item["project_id"])
+                proposed_finish[project] = max(proposed_finish[project] or value, value)
+        alerts = [{"project_id": str(project), "communicated_date": date_value,
+                   "proposed_finish": proposed_finish.get(project),
+                   "reason": "PROPOSED_DATE_AFTER_COMMUNICATED_DATE"}
+                  for project, date_value in communicated.items()
+                  if proposed_finish.get(project)
+                  and proposed_finish[project].date() > date_value]
+        changed = sum(item["changed"] for item in operations)
+        return {
+            "base_plan_version_id": str(command.base_plan_version_id),
+            "baseline_solution_id": str(baseline_solution_id),
+            "replan_cutoff": command.cutoff_at,
+            "frontier_project_ids": [str(x) for x in frontier_projects],
+            "frontier_operation_ids": [str(x) for x in frontier_operations],
+            "operations": operations, "changed_operations": changed,
+            "customer_date_alerts": len(alerts), "customer_date_alert_items": alerts,
+            "impact_summary": {
+                "changed_operations": changed,
+                "unchanged_operations": len(operations) - changed,
+                "customer_date_alerts": len(alerts),
+                "current_plan_modified": False,
+            },
+        }
+
+    @staticmethod
+    def _plan_value(row):
+        if row is None:
+            return None
+        return {
+            "status": row["result_status"],
+            "start": row["planned_start_at"], "end": row["planned_end_at"],
+            "remaining_work_minutes": row["remaining_work_minutes"],
+        }
+
+    def _apply_replanning_state(self, command, phases):
+        """Freeze history at cutoff and replace only running work with its latest remainder."""
+        replan = command.parameters["replan"]
+        cutoff = datetime.fromisoformat(replan["cutoff_at"])
+        baseline = UUID(replan["base_solution_id"])
+        operation_ids = [phase.operation_id for phase in phases]
+        executions = self.conn.execute(text("""
+            SELECT DISTINCT ON (oe.required_operation_id)
+                   oe.required_operation_id,oe.id,oe.status,r.id AS revision_id,
+                   r.remaining_labor_minutes
+              FROM execution.operation_executions oe
+              LEFT JOIN execution.remaining_estimate_revisions r
+                ON r.organization_id=oe.organization_id
+               AND r.operation_execution_id=oe.id AND r.superseded_at IS NULL
+             WHERE oe.organization_id=:org
+               AND oe.required_operation_id=ANY(:operations)
+             ORDER BY oe.required_operation_id,oe.created_at DESC,oe.id DESC
+        """), {"org": command.organization_id,
+                 "operations": operation_ids}).mappings().all() if operation_ids else []
+        by_operation = {row["required_operation_id"]: row for row in executions}
+        anchors = dict(self.conn.execute(text("""
+            SELECT p.required_operation_phase_id,min(lower(s.time_range))
+              FROM planning.phase_plan_results p
+              JOIN planning.planned_phase_assignments a
+                ON a.organization_id=p.organization_id AND a.phase_plan_result_id=p.id
+              JOIN planning.assignment_segments s
+                ON s.organization_id=a.organization_id AND s.planned_phase_assignment_id=a.id
+             WHERE p.organization_id=:org AND p.schedule_solution_id=:solution
+             GROUP BY p.required_operation_phase_id
+        """), {"org": command.organization_id, "solution": baseline}).all())
+        result = []
+        revision_by_phase = {}
+        seen_running = set()
+        for phase in phases:
+            execution = by_operation.get(phase.operation_id)
+            if execution and execution["status"] in {"completed", "cancelled"}:
+                continue
+            minutes = phase.original_minutes
+            labor = phase.labor
+            earliest = max(cutoff, phase.earliest_start or cutoff, anchors.get(phase.id) or cutoff)
+            if execution and execution["status"] in {"running", "paused"}:
+                if phase.operation_id in seen_running:
+                    minutes = 0
+                else:
+                    seen_running.add(phase.operation_id)
+                    minutes = int(execution["remaining_labor_minutes"] or 0)
+                    if len(labor) == 1:
+                        labor = (replace(labor[0], work_minutes=minutes),)
+                    if execution["revision_id"]:
+                        revision_by_phase[phase.id] = execution["revision_id"]
+                earliest = cutoff
+            result.append(replace(
+                phase, original_minutes=minutes, labor=labor, earliest_start=earliest
+            ))
+        return tuple(result), revision_by_phase
 
     def _load_gates(self, org, operations, phases):
         phase_ids_by_op = defaultdict(list)
@@ -383,11 +807,12 @@ class PostgresSchedulingUnitOfWork:
                 self.conn.execute(text("""
                     INSERT INTO planning.phase_plan_results
                       (id,organization_id,operation_plan_result_id,schedule_solution_id,
-                       required_operation_phase_id,result_status,planned_work_minutes,
+                       required_operation_phase_id,result_status,remaining_estimate_revision_id,planned_work_minutes,
                        remaining_work_minutes,explanation)
-                    VALUES (:id,:org,:operation_result,:solution,:phase,:status,:planned,:remaining,CAST(:explanation AS jsonb))
+                    VALUES (:id,:org,:operation_result,:solution,:phase,:status,:remaining_revision,:planned,:remaining,CAST(:explanation AS jsonb))
                 """), {"id": phase_result_id, "org": org, "operation_result": operation_result_id,
                         "solution": solution_id, "phase": outcome.phase_id, "status": outcome.status,
+                        "remaining_revision": getattr(self, "_remaining_revision_by_phase", {}).get(outcome.phase_id),
                         "planned": outcome.planned_work_minutes, "remaining": outcome.remaining_work_minutes,
                         "explanation": _json({
                             "ready_at": outcome.ready_at,

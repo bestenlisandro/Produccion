@@ -485,3 +485,16 @@ optimización, promoción y superficies de usuario. Ninguna se presenta como sop
 Conclusión reproducible de la sesión:
 
 `CUMULATIVE_CAPACITY_SCHEDULER_VALIDATED`
+
+## 38. Validación incremental Etapa 5.3
+
+El 2026-09-18 se incorporó `v1-replan-1` sin migraciones. Una recreación descartable
+de PostgreSQL 18.6 aprobó M0–M10 y los verificadores de 8 schemas/87 tablas. Antes de
+agregar cobertura, las 172 pruebas históricas volvieron a pasar. La cobertura nueva
+sumó 35 casos PostgreSQL e incluyó retry concurrente, escenarios paralelos,
+rollback, multitenancy, cutoff, saldo de ejecución, comparación, rechazo e
+inmutabilidad del plan vigente. La corrida final completa obtuvo 208/208 aprobadas.
+
+El benchmark end-to-end PostgreSQL de 10 proyectos/50 operaciones registró 428,64
+ms; el núcleo puro con 10 reservas, 36,63 ms. El detalle funcional y los límites están en
+`docs/23-reprogramacion-desvios-v1.md`.

@@ -209,8 +209,9 @@ Benchmarks end-to-end con carga y persistencia PostgreSQL:
 - `start_start`/`finish_finish` tienen semántica conservadora;
 - skills y membresías deben cubrir todo el horizonte;
 - `max_minutes` limita una ventana, no una bolsa acumulada compartida;
-- trabajo ejecutado y `RemainingEstimateRevision` aún no se descuentan de la demanda:
-  pertenecen al futuro flujo de reprogramación;
+- una generación inicial no descuenta ejecución; el flujo explícito `v1-replan-1`
+  sí excluye operaciones terminadas y sustituye el trabajo activo por la
+  `RemainingEstimateRevision` vigente desde un cutoff inmutable;
 - ocupaciones reales abiertas conservan el límite del modelo físico vigente;
 - gates desconocidos quedan bloqueados hasta un nuevo escenario;
 - no se calculan camino crítico, setups, transporte ni tardanza óptima;
@@ -224,3 +225,7 @@ Checkpoint histórico 5.1: `BASIC_FINITE_CAPACITY_SCHEDULER_VALIDATED`.
 
 Estado 5.2:
 `CUMULATIVE_CAPACITY_SCHEDULER_VALIDATED`.
+
+Estado 5.3: el mismo motor `v1-greedy-2` es orquestado por `v1-replan-1` con
+frontera incremental, anclas del plan base, comparación persistida, alerta de fecha
+comunicada y rechazo sin promoción. Véase `docs/23-reprogramacion-desvios-v1.md`.

@@ -13,7 +13,8 @@ from tests.unit.test_cumulative_scheduler import START, _id, _input, _phase
 
 @pytest.mark.parametrize(
     ("label", "project_count", "operation_count", "reservation_count", "days"),
-    (("small", 3, 12, 2, 7), ("moderate", 20, 100, 20, 60)),
+    (("small", 3, 12, 2, 7), ("replan_target", 10, 50, 10, 30),
+     ("moderate", 20, 100, 20, 60)),
 )
 def test_cumulative_event_window_benchmark(
     label, project_count, operation_count, reservation_count, days, capsys

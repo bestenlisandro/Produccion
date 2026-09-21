@@ -20,6 +20,7 @@ from production_besten.domain.product_definition import (
     DefinitionMutationResult, ProductDefinitionRevisionResult,
 )
 from production_besten.domain.scheduling.models import GenerateSchedule, ScheduleGenerationResult
+from production_besten.domain.replanning import RejectReplan, RejectReplanResult, ReplanRequest, ReplanResult
 
 
 class RemainingEstimateUnitOfWork(Protocol):
@@ -40,6 +41,8 @@ class RemainingEstimateUnitOfWork(Protocol):
     def create_required_operation_phase(self, command: CreateRequiredOperationPhase) -> DefinitionMutationResult: ...
     def create_product_definition_revision(self, command: CreateProductDefinitionRevision) -> ProductDefinitionRevisionResult: ...
     def generate_schedule(self, command: GenerateSchedule) -> ScheduleGenerationResult: ...
+    def replan(self, command: ReplanRequest) -> ReplanResult: ...
+    def reject_replan(self, command: RejectReplan) -> RejectReplanResult: ...
 
 
 class UnitOfWorkFactory(Protocol):
