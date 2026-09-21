@@ -133,3 +133,32 @@ class PostgresApiQueries:
         if value is None:
             raise EntityNotFound("product definition revision not found")
         return value
+
+    def scenario(self, org: UUID, scenario_id: UUID,
+                 plant_id: UUID | None = None) -> dict[str, Any]:
+        with self.engine.connect() as conn:
+            row = conn.execute(text("""
+                SELECT s.id,s.status,s.base_plan_version_id,s.base_state_revision_id,
+                       s.base_product_definition_revision_id,
+                       (s.status='stale'
+                        OR s.base_state_revision_id<>h.current_revision_id
+                        OR s.base_product_definition_revision_id<>p.current_product_definition_revision_id
+                        OR (s.base_plan_version_id IS NOT NULL
+                            AND s.base_plan_version_id<>p.current_plan_version_id)) AS stale,
+                       s.status='rejected' AS rejected,
+                       s.status='confirmed' AS promoted,
+                       pv.id AS promoted_plan_version_id
+                  FROM planning.scenarios s
+                  JOIN core.plants p
+                    ON p.organization_id=s.organization_id AND p.id=s.plant_id
+                  JOIN planning.planning_state_heads h
+                    ON h.organization_id=s.organization_id AND h.plant_id=s.plant_id
+                  LEFT JOIN planning.plan_versions pv
+                    ON pv.organization_id=s.organization_id AND pv.source_scenario_id=s.id
+                 WHERE s.organization_id=:org AND s.id=:scenario
+                   AND (:plant IS NULL OR s.plant_id=:plant)
+            """), {"org": org, "scenario": scenario_id,
+                     "plant": plant_id}).mappings().one_or_none()
+        if row is None:
+            raise EntityNotFound("scenario not found")
+        return dict(row)

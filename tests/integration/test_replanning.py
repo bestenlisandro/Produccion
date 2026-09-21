@@ -264,14 +264,23 @@ def test_completed_operation_is_not_rescheduled(engine: Engine, seeded_case: See
 
 def test_customer_communicated_date_generates_alert(engine: Engine, seeded_case: SeededCase) -> None:
     with engine.begin() as connection:
+        connection.execute(text("UPDATE core.plants SET communication_threshold_business_days=0 WHERE organization_id=:org AND id=:plant"), {"org": seeded_case.organization_id, "plant": seeded_case.plant_id})
         connection.execute(text("INSERT INTO portal.communicated_dates(organization_id,project_id,date_kind,communicated_date,approved_by,communicated_at) VALUES (:org,:project,'delivery',:date,:actor,:at)"), {"org": seeded_case.organization_id, "project": seeded_case.project_id, "date": seeded_case.cutoff_at.date(), "actor": seeded_case.actor_id, "at": seeded_case.cutoff_at})
     value = _prepare(engine, seeded_case)
     assert value.result.customer_date_alerts == 1
 
 
-def test_replan_benchmark_ten_projects_fifty_operations(
-    engine: Engine, seeded_case: SeededCase, capsys
+def test_customer_communication_threshold_suppresses_small_delay(
+    engine: Engine, seeded_case: SeededCase
 ) -> None:
+    with engine.begin() as connection:
+        connection.execute(text("UPDATE core.plants SET communication_threshold_business_days=1 WHERE organization_id=:org AND id=:plant"), {"org": seeded_case.organization_id, "plant": seeded_case.plant_id})
+        connection.execute(text("INSERT INTO portal.communicated_dates(organization_id,project_id,date_kind,communicated_date,approved_by,communicated_at) VALUES (:org,:project,'delivery',:date,:actor,:at)"), {"org": seeded_case.organization_id, "project": seeded_case.project_id, "date": seeded_case.cutoff_at.date(), "actor": seeded_case.actor_id, "at": seeded_case.cutoff_at})
+    value = _prepare(engine, seeded_case)
+    assert value.result.customer_date_alerts == 0
+
+
+def _prepare_benchmark_replan(engine: Engine, seeded_case: SeededCase):
     prepare_basic(engine, seeded_case, minutes=60)
     project_ids = [seeded_case.project_id]
     with engine.begin() as connection:
@@ -353,6 +362,15 @@ def test_replan_benchmark_ten_projects_fifty_operations(
     started = perf_counter()
     result = ReplanService(PostgresSchedulingUnitOfWorkFactory(engine)).execute(request)
     elapsed_ms = (perf_counter() - started) * 1000
+    return ReplannedCase(seeded_case, request, result,
+                         seeded_case.initial_remaining_revision_id), elapsed_ms
+
+
+def test_replan_benchmark_ten_projects_fifty_operations(
+    engine: Engine, seeded_case: SeededCase, capsys
+) -> None:
+    value, elapsed_ms = _prepare_benchmark_replan(engine, seeded_case)
+    result = value.result
     print(f"replan_postgresql projects={len(result.frontier_project_ids)} "
           f"operations={len(result.frontier_operation_ids)} elapsed_ms={elapsed_ms:.2f}")
     assert len(result.frontier_project_ids) == 10

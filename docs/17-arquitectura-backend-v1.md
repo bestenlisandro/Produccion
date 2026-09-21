@@ -79,6 +79,17 @@ La realidad, el plan publicado, la estimación restante y el escenario son cuatr
 estados distintos. Sólo los comandos de ejecución/estimación modifican realidad;
 replan genera una alternativa y reject cambia únicamente el lifecycle del escenario.
 
+### Evolución de promoción 5.4
+
+`AcceptReplanService` usa el mismo Unit of Work PostgreSQL de scheduling. La
+transacción bloquea organización, planta, state head, escenario y versión actual;
+valida el lock/base, cierra la vigencia anterior, inserta la siguiente `PlanVersion`,
+mueve el puntero, confirma el escenario, invalida hermanos y escribe auditoría/outbox.
+
+La materialización es una referencia inmutable a `ScheduleSolution`; no copia sus
+resultados y reservas. Idempotencia se registra con `command_id` en auditoría y clave
+lógica única en outbox. El endpoint es un adaptador fino sin SQL ni reglas.
+
 ## 4. Agregados y repositorios iniciales
 
 No se crea un repositorio por tabla. Los repositorios iniciales se alinean a operaciones coherentes:

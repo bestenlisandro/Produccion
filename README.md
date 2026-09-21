@@ -40,6 +40,7 @@ El producto se diseña como un APS de capacidad finita: considera simultáneamen
 - [Motor de planificación factible V1](docs/21-motor-planificacion-v1.md)
 - [Capacidad acumulativa V1](docs/22-capacidad-acumulativa-v1.md)
 - [Reprogramación ante desvíos V1](docs/23-reprogramacion-desvios-v1.md)
+- [Promoción atómica del programa V1](docs/24-promocion-programa-v1.md)
 
 ## Entorno backend reproducible
 
@@ -76,3 +77,7 @@ Etapa 5.3 implementada como `v1-replan-1`: `REPLAN_FROM_OPERATION`,
 `REPLAN_PROJECT` y `REJECT_REPLAN` producen escenarios incrementales aislados,
 comparables e idempotentes desde realidad/estimación restante. No existe todavía
 promoción automática y el plan publicado permanece inmutable.
+
+Etapa 5.4 implementa `ACCEPT_REPLAN`: valida bases y locks, conserva la versión
+anterior, publica una nueva `PlanVersion`, confirma el escenario y registra auditoría
+y outbox en una sola transacción. No modifica ejecución ni fechas comunicadas.

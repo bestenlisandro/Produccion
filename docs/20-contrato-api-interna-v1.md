@@ -57,6 +57,8 @@ por servidor.
 | POST | `/executions/{execution_id}/segments` | Registra segmento y usos reales |
 | POST | `/operations/{operation_id}/finish` | Finaliza fase/operación |
 | POST | `/operations/{operation_id}/remaining-estimate` | Actualiza estimación restante vigente |
+| POST | `/scenarios/{scenario_id}/accept` | Promueve atómicamente un replan vigente |
+| GET | `/scenarios/{scenario_id}` | Lee bases, stale/rejected/promoted y plan promovido |
 
 Congelar desde la ruta de un proyecto identifica su planta, pero la revisión
 resultante captura la definición productiva vigente completa de esa planta. La
@@ -104,3 +106,18 @@ Los errores de dominio usan:
 La transición futura reemplaza únicamente el provider de contexto y agrega políticas
 RLS/privilegios mínimos; los DTO, comandos y servicios no deben recibir identidad del
 body ni cambiar sus reglas productivas.
+
+## 8. Promoción de escenario
+
+`POST /scenarios/{scenario_id}/accept` exige contexto de planta e
+`Idempotency-Key`. El body contiene `expected_promotion_lock_version` positivo y una
+razón opcional. Devuelve plan anterior/nuevo, número, solución, lock resultante,
+timestamp, recomendación de comunicación y flag de replay.
+
+- 201: nueva promoción;
+- 200: replay compatible;
+- 404: scenario no accesible en el tenant/planta;
+- 409: stale, rejected, base/lock/revisión incompatible o clave reutilizada;
+- 422: UUID/header/body inválido.
+
+Aceptar nunca recibe organización/actor desde el body ni cambia la fecha comunicada.

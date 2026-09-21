@@ -18,7 +18,8 @@ from production_besten.domain.errors import (
     SchedulingBaseStale,
 )
 from production_besten.domain.replanning import (
-    RejectReplan, RejectReplanResult, ReplanRequest, ReplanResult,
+    AcceptReplan, AcceptReplanResult, RejectReplan, RejectReplanResult,
+    ReplanRequest, ReplanResult,
 )
 from production_besten.domain.scheduling.engine import GreedyFiniteCapacityScheduler
 from production_besten.domain.scheduling.models import (
@@ -269,6 +270,20 @@ class PostgresSchedulingUnitOfWork:
                     "kind": item["impact_kind"], "delta": item["delta_minutes"],
                     "old": _json(item["old"]), "new": _json(item["new"]),
                     "reason": _json(item["reason"])})
+        for alert in comparison["customer_date_alert_items"]:
+            self.conn.execute(text("""
+                INSERT INTO planning.impact_items
+                  (organization_id,schedule_solution_id,project_id,impact_kind,
+                   old_value,new_value,reason)
+                VALUES (:org,:solution,:project,'COMMUNICATION_RECOMMENDED',
+                        CAST(:old AS jsonb),CAST(:new AS jsonb),CAST(:reason AS jsonb))
+            """), {"org": command.organization_id,
+                    "solution": generated.solution_id,
+                    "project": UUID(alert["project_id"]),
+                    "old": _json({"communicated_date": alert["communicated_date"]}),
+                    "new": _json({"estimated_finish": alert["proposed_finish"]}),
+                    "reason": _json({"code": alert["reason"],
+                                     "automatic_customer_update": False})})
         return ReplanResult(
             generated.scenario_id, generated.solution_id, generated.status,
             generated.complete, frontier_projects, frontier_operations,
@@ -309,6 +324,285 @@ class PostgresSchedulingUnitOfWork:
         """), {"reason": command.reason.strip(), "org": command.organization_id,
                  "scenario": command.scenario_id}).scalar_one()
         return RejectReplanResult(command.scenario_id, "rejected", updated)
+
+    def accept_replan(self, command: AcceptReplan) -> AcceptReplanResult:
+        """Atomically publish one immutable schedule solution as the next plan."""
+        command.validate()
+        now = datetime.now(timezone.utc)
+        # Organization lock serializes an idempotency key across all its plants.
+        organization = self.conn.scalar(text("""
+            SELECT id FROM core.organizations WHERE id=:org FOR UPDATE
+        """), {"org": command.organization_id})
+        if organization is None:
+            raise EntityNotFound("organization not found")
+
+        replay = self.conn.execute(text("""
+            SELECT id,entity_id,after_data,metadata,occurred_at
+              FROM audit.audit_entries
+             WHERE organization_id=:org AND action_code='SCENARIO_PROMOTED'
+               AND request_id=:command_id
+             ORDER BY occurred_at DESC,id DESC LIMIT 1
+        """), {"org": command.organization_id,
+                 "command_id": command.command_id}).mappings().one_or_none()
+        if replay is not None:
+            expected = {
+                "scenario_id": str(command.scenario_id),
+                "plant_id": str(command.plant_id),
+                "expected_promotion_lock_version": command.expected_promotion_lock_version,
+                "reason": command.reason.strip() if command.reason else None,
+            }
+            if replay["metadata"].get("command_payload") != expected:
+                raise IdempotencyConflict(
+                    "command_id was reused with incompatible ACCEPT_REPLAN data"
+                )
+            return self._accepted_replay(command, replay)
+
+        plant = self.conn.execute(text("""
+            SELECT id,current_plan_version_id,current_product_definition_revision_id,
+                   promotion_lock_version
+              FROM core.plants
+             WHERE organization_id=:org AND id=:plant FOR UPDATE
+        """), {"org": command.organization_id,
+                 "plant": command.plant_id}).mappings().one_or_none()
+        if plant is None:
+            raise EntityNotFound("plant not found in organization")
+        head = self.conn.execute(text("""
+            SELECT current_revision_id,current_revision_no
+              FROM planning.planning_state_heads
+             WHERE organization_id=:org AND plant_id=:plant FOR UPDATE
+        """), {"org": command.organization_id,
+                 "plant": command.plant_id}).mappings().one_or_none()
+        if head is None:
+            raise EntityNotFound("planning state head not found in organization")
+        if plant["promotion_lock_version"] != command.expected_promotion_lock_version:
+            raise ReplanConflict(
+                "promotion lock version changed; reload the current plan before accepting"
+            )
+
+        scenario = self.conn.execute(text("""
+            SELECT s.*,sol.id AS solution_id,sol.status AS solution_status,
+                   sol.solution_sha256,
+                   sol.input_product_definition_revision_id AS solution_definition_revision_id,
+                   sol.base_state_revision_id AS solution_state_revision_id,
+                   sol.comparison,sol.algorithm_version
+              FROM planning.scenarios s
+              LEFT JOIN LATERAL (
+                  SELECT value.* FROM planning.schedule_solutions value
+                   WHERE value.organization_id=s.organization_id
+                     AND value.scenario_id=s.id
+                   ORDER BY value.run_no DESC LIMIT 1
+              ) sol ON true
+             WHERE s.organization_id=:org AND s.plant_id=:plant AND s.id=:scenario
+             FOR UPDATE OF s
+        """), {"org": command.organization_id, "plant": command.plant_id,
+                 "scenario": command.scenario_id}).mappings().one_or_none()
+        if scenario is None:
+            raise EntityNotFound("scenario not found in organization and plant")
+        if scenario["status"] == "rejected":
+            raise ReplanConflict("rejected scenario cannot be promoted")
+        if scenario["status"] == "stale":
+            raise SchedulingBaseStale("stale scenario cannot be promoted")
+        if scenario["status"] == "confirmed":
+            raise ReplanConflict("scenario was already promoted by another command")
+        if scenario["scenario_kind"] != "replan" or scenario["status"] != "ready":
+            raise ReplanConflict("only a ready replan scenario can be promoted")
+        if (scenario["solution_id"] is None
+                or scenario["solution_status"] != "ready"
+                or scenario["solution_sha256"] is None):
+            raise ReplanConflict("scenario has no valid ready solution")
+        if scenario["base_plan_version_id"] != plant["current_plan_version_id"]:
+            raise SchedulingBaseStale("scenario base plan is no longer current")
+        if scenario["base_state_revision_id"] != head["current_revision_id"]:
+            raise SchedulingBaseStale("scenario planning state revision is stale")
+        if (scenario["base_product_definition_revision_id"]
+                != plant["current_product_definition_revision_id"]):
+            raise SchedulingBaseStale("scenario product definition revision is stale")
+        if (scenario["solution_definition_revision_id"]
+                != scenario["base_product_definition_revision_id"]
+                or scenario["solution_state_revision_id"]
+                != scenario["base_state_revision_id"]):
+            raise ReplanConflict("solution revisions do not match scenario bases")
+        if not self.conn.scalar(text("""
+            SELECT EXISTS(SELECT 1 FROM core.user_profiles
+             WHERE organization_id=:org AND id=:actor)
+        """), {"org": command.organization_id, "actor": command.actor_id}):
+            raise EntityNotFound("actor not found in organization")
+
+        current = self.conn.execute(text("""
+            SELECT id,version_no,schedule_solution_id,product_definition_revision_id,
+                   planning_state_revision_id,status,lower(valid_during) AS valid_from
+              FROM planning.plan_versions
+             WHERE organization_id=:org AND plant_id=:plant AND id=:plan FOR UPDATE
+        """), {"org": command.organization_id, "plant": command.plant_id,
+                 "plan": plant["current_plan_version_id"]}).mappings().one_or_none()
+        if current is None or current["status"] != "published":
+            raise ReplanConflict("current published plan is missing")
+        if current["valid_from"] >= now:
+            raise ReplanConflict("promotion timestamp must follow current plan start")
+
+        next_version_no = int(self.conn.scalar(text("""
+            SELECT COALESCE(max(version_no),0)+1 FROM planning.plan_versions
+             WHERE organization_id=:org AND plant_id=:plant
+        """), {"org": command.organization_id, "plant": command.plant_id}))
+        new_plan_id, audit_id, outbox_id = uuid4(), uuid4(), uuid4()
+        communication_recommended = bool(
+            (scenario["comparison"] or {}).get("customer_date_alerts", 0)
+        )
+        self.conn.execute(text("""
+            UPDATE planning.plan_versions
+               SET status='superseded',valid_during=tstzrange(lower(valid_during),:at,'[)')
+             WHERE organization_id=:org AND id=:plan
+        """), {"at": now, "org": command.organization_id,
+                 "plan": current["id"]})
+        if self._failpoint == "after_close_previous":
+            raise RuntimeError("injected failure after closing previous plan")
+
+        self.conn.execute(text("""
+            INSERT INTO planning.plan_versions
+              (id,organization_id,plant_id,version_no,schedule_solution_id,
+               product_definition_revision_id,planning_state_revision_id,
+               previous_version_id,source_scenario_id,status,valid_during,
+               confirmed_at,confirmed_by,reason)
+            VALUES (:id,:org,:plant,:version,:solution,:definition,:state,
+                    :previous,:scenario,'published',tstzrange(:at,NULL,'[)'),
+                    :at,:actor,:reason)
+        """), {"id": new_plan_id, "org": command.organization_id,
+                 "plant": command.plant_id, "version": next_version_no,
+                 "solution": scenario["solution_id"],
+                 "definition": scenario["base_product_definition_revision_id"],
+                 "state": scenario["base_state_revision_id"],
+                 "previous": current["id"], "scenario": scenario["id"],
+                 "at": now, "actor": command.actor_id,
+                 "reason": command.reason.strip() if command.reason else "accepted replan"})
+        if self._failpoint == "after_new_plan":
+            raise RuntimeError("injected failure after creating new plan")
+        # Materialization is an immutable reference: validate all deferred links now.
+        self.conn.execute(text("SET CONSTRAINTS ALL IMMEDIATE"))
+        if self._failpoint == "during_materialization":
+            raise RuntimeError("injected failure during plan materialization")
+
+        new_lock_version = plant["promotion_lock_version"] + 1
+        self.conn.execute(text("""
+            UPDATE core.plants
+               SET current_plan_version_id=:plan,
+                   promotion_lock_version=:lock_version,
+                   updated_at=:at,row_version=row_version+1
+             WHERE organization_id=:org AND id=:plant
+        """), {"plan": new_plan_id, "lock_version": new_lock_version,
+                 "at": now, "org": command.organization_id,
+                 "plant": command.plant_id})
+        if self._failpoint == "after_current_pointer":
+            raise RuntimeError("injected failure after updating current plan pointer")
+
+        promotion = {
+            "promoted_plan_version_id": str(new_plan_id),
+            "previous_plan_version_id": str(current["id"]),
+            "accept_command_id": str(command.command_id),
+            "promoted_at": now,
+        }
+        self.conn.execute(text("""
+            UPDATE planning.scenarios
+               SET status='confirmed',completed_at=COALESCE(completed_at,:at),
+                   parameters=parameters || CAST(:promotion AS jsonb),
+                   updated_at=:at,row_version=row_version+1
+             WHERE organization_id=:org AND id=:scenario
+        """), {"at": now, "promotion": _json(promotion),
+                 "org": command.organization_id, "scenario": scenario["id"]})
+        self.conn.execute(text("""
+            UPDATE planning.scenarios
+               SET status='stale',updated_at=:at,row_version=row_version+1
+             WHERE organization_id=:org AND plant_id=:plant
+               AND base_plan_version_id=:previous AND id<>:scenario
+               AND status IN ('draft','calculating','ready')
+        """), {"at": now, "org": command.organization_id,
+                 "plant": command.plant_id, "previous": current["id"],
+                 "scenario": scenario["id"]})
+
+        command_payload = {
+            "scenario_id": str(command.scenario_id),
+            "plant_id": str(command.plant_id),
+            "expected_promotion_lock_version": command.expected_promotion_lock_version,
+            "reason": command.reason.strip() if command.reason else None,
+        }
+        self.conn.execute(text("""
+            INSERT INTO audit.audit_entries
+              (id,organization_id,actor_user_id,action_code,entity_type,entity_id,
+               occurred_at,request_id,transaction_key,before_data,after_data,metadata)
+            VALUES (:id,:org,:actor,'SCENARIO_PROMOTED','planning.scenario',:scenario,
+                    :at,:command_id,:transaction_key,CAST(:before AS jsonb),
+                    CAST(:after AS jsonb),CAST(:metadata AS jsonb))
+        """), {"id": audit_id, "org": command.organization_id,
+                 "actor": command.actor_id, "scenario": scenario["id"],
+                 "at": now, "command_id": command.command_id,
+                 "transaction_key": command.command_id,
+                 "before": _json({"status": scenario["status"],
+                                  "current_plan_version_id": current["id"]}),
+                 "after": _json({"status": "confirmed",
+                                 "plan_version_id": new_plan_id,
+                                 "plan_version_no": next_version_no,
+                                 "previous_plan_version_id": current["id"],
+                                 "schedule_solution_id": scenario["solution_id"],
+                                 "promotion_lock_version": new_lock_version,
+                                 "communication_recommended": communication_recommended}),
+                 "metadata": _json({
+                     "command": "ACCEPT_REPLAN", "command_payload": command_payload,
+                     "planning_state_revision_id": scenario["base_state_revision_id"],
+                     "product_definition_revision_id": scenario["base_product_definition_revision_id"],
+                     "reason": command.reason,
+                 })})
+        if self._failpoint == "during_audit":
+            raise RuntimeError("injected failure during promotion audit")
+
+        outbox_payload = {
+            "event": "PLAN_VERSION_PROMOTED", "schema_version": 1,
+            "organization_id": command.organization_id, "plant_id": command.plant_id,
+            "scenario_id": scenario["id"], "schedule_solution_id": scenario["solution_id"],
+            "previous_plan_version_id": current["id"], "plan_version_id": new_plan_id,
+            "plan_version_no": next_version_no,
+            "planning_state_revision_id": scenario["base_state_revision_id"],
+            "product_definition_revision_id": scenario["base_product_definition_revision_id"],
+            "communication_recommended": communication_recommended,
+            "occurred_at": now,
+        }
+        self.conn.execute(text("""
+            INSERT INTO integration.outbox_messages
+              (id,organization_id,aggregate_type,aggregate_id,event_type,
+               event_schema_version,logical_key,payload,occurred_at,available_at)
+            VALUES (:id,:org,'planning.plan_version',:plan,'PLAN_VERSION_PROMOTED',
+                    1,:logical_key,CAST(:payload AS jsonb),:at,:at)
+        """), {"id": outbox_id, "org": command.organization_id,
+                 "plan": new_plan_id,
+                 "logical_key": f"plan-version-promoted:{command.command_id}",
+                 "payload": _json(outbox_payload), "at": now})
+        if self._failpoint == "during_outbox":
+            raise RuntimeError("injected failure during promotion outbox")
+        self.conn.execute(text("SET CONSTRAINTS ALL IMMEDIATE"))
+        return AcceptReplanResult(
+            scenario["id"], scenario["solution_id"], current["id"], new_plan_id,
+            next_version_no, new_lock_version, now, communication_recommended,
+            audit_id, outbox_id,
+        )
+
+    def _accepted_replay(self, command, audit):
+        after = audit["after_data"]
+        plan_id = UUID(after["plan_version_id"])
+        row = self.conn.execute(text("""
+            SELECT pv.id,pv.version_no,pv.schedule_solution_id,pv.previous_version_id,
+                   pv.confirmed_at,p.promotion_lock_version,
+                   (SELECT id FROM integration.outbox_messages
+                     WHERE organization_id=pv.organization_id
+                       AND logical_key=:logical_key) AS outbox_id
+              FROM planning.plan_versions pv
+              JOIN core.plants p ON p.organization_id=pv.organization_id AND p.id=pv.plant_id
+             WHERE pv.organization_id=:org AND pv.id=:plan
+        """), {"org": command.organization_id, "plan": plan_id,
+                 "logical_key": f"plan-version-promoted:{command.command_id}"}).mappings().one()
+        return AcceptReplanResult(
+            command.scenario_id, row["schedule_solution_id"], row["previous_version_id"],
+            row["id"], row["version_no"], row["promotion_lock_version"],
+            row["confirmed_at"], bool(after.get("communication_recommended")),
+            audit["id"], row["outbox_id"], True,
+        )
 
     def _lock_and_validate_base(self, command):
         plant = self.conn.execute(text("""
@@ -545,12 +839,31 @@ class PostgresSchedulingUnitOfWork:
                          else datetime.fromisoformat(end.replace("Z", "+00:00")))
                 project = UUID(item["project_id"])
                 proposed_finish[project] = max(proposed_finish[project] or value, value)
-        alerts = [{"project_id": str(project), "communicated_date": date_value,
-                   "proposed_finish": proposed_finish.get(project),
-                   "reason": "PROPOSED_DATE_AFTER_COMMUNICATED_DATE"}
-                  for project, date_value in communicated.items()
-                  if proposed_finish.get(project)
-                  and proposed_finish[project].date() > date_value]
+        communication_policy = self.conn.execute(text("""
+            SELECT COALESCE(communication_calendar_id,base_calendar_id) AS calendar_id,
+                   communication_threshold_business_days AS threshold
+              FROM core.plants
+             WHERE organization_id=:org AND id=:plant
+        """), {"org": command.organization_id,
+                 "plant": command.plant_id}).mappings().one()
+        alerts = []
+        for project, date_value in communicated.items():
+            finish = proposed_finish.get(project)
+            if finish is None or finish.date() <= date_value:
+                continue
+            business_days = self._business_days_between(
+                command.organization_id, communication_policy["calendar_id"],
+                date_value, finish.date(),
+            )
+            if business_days <= communication_policy["threshold"]:
+                continue
+            alerts.append({
+                "project_id": str(project), "communicated_date": date_value,
+                "proposed_finish": finish,
+                "delay_business_days": business_days,
+                "threshold_business_days": communication_policy["threshold"],
+                "reason": "PROPOSED_DATE_AFTER_COMMUNICATED_THRESHOLD",
+            })
         changed = sum(item["changed"] for item in operations)
         return {
             "base_plan_version_id": str(command.base_plan_version_id),
@@ -567,6 +880,31 @@ class PostgresSchedulingUnitOfWork:
                 "current_plan_modified": False,
             },
         }
+
+    def _business_days_between(self, org, calendar_id, start_date, end_date):
+        return int(self.conn.scalar(text("""
+            SELECT count(*)
+              FROM generate_series(CAST(:start_date AS date) + 1,
+                                   CAST(:end_date AS date),interval '1 day') d
+             WHERE (
+                 EXISTS (
+                     SELECT 1 FROM capacity.calendar_working_intervals wi
+                      WHERE wi.organization_id=:org AND wi.calendar_id=:calendar
+                        AND wi.weekday=extract(isodow FROM d)::smallint
+                        AND wi.valid_during @> d::date
+                 )
+                 AND NOT EXISTS (
+                     SELECT 1 FROM capacity.calendar_exceptions ce
+                      WHERE ce.organization_id=:org AND ce.calendar_id=:calendar
+                        AND ce.exception_date=d::date AND ce.effect='remove'
+                 )
+             ) OR EXISTS (
+                 SELECT 1 FROM capacity.calendar_exceptions ce
+                  WHERE ce.organization_id=:org AND ce.calendar_id=:calendar
+                    AND ce.exception_date=d::date AND ce.effect IN ('add','replace')
+             )
+        """), {"org": org, "calendar": calendar_id,
+                 "start_date": start_date, "end_date": end_date}) or 0)
 
     @staticmethod
     def _plan_value(row):

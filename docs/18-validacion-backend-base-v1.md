@@ -498,3 +498,16 @@ inmutabilidad del plan vigente. La corrida final completa obtuvo 208/208 aprobad
 El benchmark end-to-end PostgreSQL de 10 proyectos/50 operaciones registró 428,64
 ms; el núcleo puro con 10 reservas, 36,63 ms. El detalle funcional y los límites están en
 `docs/23-reprogramacion-desvios-v1.md`.
+
+## 39. Validación incremental Etapa 5.4
+
+El 2026-09-21 se implementó `ACCEPT_REPLAN` sin cambiar `v1-greedy-2` ni agregar
+migraciones. La operación conserva V5 como `superseded`, crea V6 `published`, mueve
+el único puntero vigente, confirma el escenario y registra auditoría/outbox en la
+misma transacción. Se validaron idempotencia, un solo ganador concurrente, rechazo de
+bases stale, multitenancy y rollback en seis puntos. La API mínima y su OpenAPI
+quedaron cubiertos. Resultados finales y benchmark: `docs/24-promocion-programa-v1.md`.
+
+La recreación final obtuvo `260 passed, 2 warnings in 24.45s`: 208 regresiones y 52
+casos nuevos. Los warnings son deprecaciones externas ya conocidas; no hubo failed
+ni skipped.

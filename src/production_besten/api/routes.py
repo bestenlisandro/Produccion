@@ -14,14 +14,17 @@ from production_besten.application.product_definition_services import (
     CreateRequiredOperationPhaseService, CreateRequiredOperationService, DefineBatchRouteService,
 )
 from production_besten.application.update_remaining_estimate import UpdateRemainingEstimateService
+from production_besten.application.replanning_services import AcceptReplanService
 from production_besten.domain.execution import FinishOperation, HumanUsage, PhysicalOccupation, PhysicalUsage, RegisterExecutionSegment, StartOperation
 from production_besten.domain.product_definition import (
     CreateProductDefinitionRevision, CreateProductionBatch, CreateProject, CreateRequiredOperation,
     CreateRequiredOperationPhase, DefineBatchRoute, LaborRequirement, OperationGate, PhysicalRequirement,
 )
+from production_besten.domain.replanning import AcceptReplan
 from production_besten.persistence.execution_uow import PostgresExecutionUnitOfWorkFactory
 from production_besten.persistence.product_definition_uow import PostgresProductDefinitionUnitOfWorkFactory
 from production_besten.persistence.remaining_estimate_uow import PostgresUnitOfWorkFactory
+from production_besten.persistence.scheduling_uow import PostgresSchedulingUnitOfWorkFactory
 
 router = APIRouter(responses={
     400: {"description": "Semantically invalid request"},
@@ -39,6 +42,12 @@ def _product_factory(container: ApiContainer):
 
 def _execution_factory(container: ApiContainer):
     return PostgresExecutionUnitOfWorkFactory(container.engine, failpoint=container.failpoints.get("execution"))
+
+
+def _scheduling_factory(container: ApiContainer):
+    return PostgresSchedulingUnitOfWorkFactory(
+        container.engine, failpoint=container.failpoints.get("scheduling")
+    )
 
 
 def _mutation(value) -> MutationResponse:
@@ -213,3 +222,40 @@ def update_remaining(operation_id: UUID, body: UpdateRemainingEstimateRequest,
         planning_state_revision_id=result.planning_state_revision_id,
         planning_state_revision_number=result.planning_state_revision_no,
         effective_event_id=result.effective_event_id, current_plan_version_id=result.current_plan_version_id)
+
+
+@router.post("/scenarios/{scenario_id}/accept", response_model=AcceptReplanResponse,
+             status_code=status.HTTP_201_CREATED, tags=["planning"],
+             summary="Atomically promote a ready replan scenario")
+def accept_replan(scenario_id: UUID, body: AcceptReplanRequest, response: Response,
+                  command_id: UUID = Depends(get_idempotency_key),
+                  context: RequestContext = Depends(get_request_context),
+                  container: ApiContainer = Depends(get_container)) -> AcceptReplanResponse:
+    plant_id = require_plant(context)
+    result = AcceptReplanService(_scheduling_factory(container)).execute(AcceptReplan(
+        context.organization_id, plant_id, context.user_id, command_id, scenario_id,
+        body.expected_promotion_lock_version, body.reason,
+    ))
+    if result.idempotent_replay:
+        response.status_code = status.HTTP_200_OK
+    return AcceptReplanResponse(
+        scenario_id=result.scenario_id,
+        schedule_solution_id=result.schedule_solution_id,
+        previous_plan_version_id=result.previous_plan_version_id,
+        plan_version_id=result.plan_version_id,
+        plan_version_number=result.plan_version_no,
+        promotion_lock_version=result.promotion_lock_version,
+        promoted_at=result.promoted_at,
+        communication_recommended=result.communication_recommended,
+        idempotent_replay=result.idempotent_replay,
+    )
+
+
+@router.get("/scenarios/{scenario_id}", response_model=ScenarioResponse,
+            tags=["planning"], summary="Read scenario promotion and stale state")
+def get_scenario(scenario_id: UUID,
+                 context: RequestContext = Depends(get_request_context),
+                 container: ApiContainer = Depends(get_container)) -> ScenarioResponse:
+    return ScenarioResponse.model_validate(container.queries.scenario(
+        context.organization_id, scenario_id, context.plant_id
+    ))

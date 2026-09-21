@@ -82,3 +82,37 @@ class RejectReplanResult:
     status: str
     row_version: int
     idempotent_replay: bool = False
+
+
+@dataclass(frozen=True)
+class AcceptReplan:
+    organization_id: UUID
+    plant_id: UUID
+    actor_id: UUID
+    command_id: UUID
+    scenario_id: UUID
+    expected_promotion_lock_version: int
+    reason: str | None = None
+
+    def validate(self) -> None:
+        if self.expected_promotion_lock_version < 1:
+            raise InvalidSchedulingInput(
+                "expected_promotion_lock_version must be positive"
+            )
+        if self.reason is not None and not self.reason.strip():
+            raise InvalidSchedulingInput("reason cannot be blank")
+
+
+@dataclass(frozen=True)
+class AcceptReplanResult:
+    scenario_id: UUID
+    schedule_solution_id: UUID
+    previous_plan_version_id: UUID
+    plan_version_id: UUID
+    plan_version_no: int
+    promotion_lock_version: int
+    promoted_at: datetime
+    communication_recommended: bool
+    audit_entry_id: UUID
+    outbox_message_id: UUID
+    idempotent_replay: bool = False

@@ -15,9 +15,10 @@ realidad confirmada -> revisión restante -> frontera de impacto
 ```
 
 Los comandos de aplicación son `REPLAN_FROM_OPERATION`, `REPLAN_PROJECT` y
-`REJECT_REPLAN`. No existe `ACCEPT_REPLAN` en este incremento. Crear o rechazar un
-escenario no crea `PlanVersion`, no mueve `core.plants.current_plan_version_id`, no
-reescribe ejecución y no revierte una `RemainingEstimateRevision`.
+`REJECT_REPLAN`. Crear o rechazar un escenario no crea `PlanVersion`, no mueve
+`core.plants.current_plan_version_id`, no reescribe ejecución y no revierte una
+`RemainingEstimateRevision`. La etapa posterior 5.4 agrega la promoción explícita
+`ACCEPT_REPLAN`, documentada en `docs/24-promocion-programa-v1.md`.
 
 No se agregaron tablas ni migraciones: el modelo físico vigente ya contenía
 `scenarios`, `schedule_solutions`, `impact_items`, hashes, comparaciones, revisiones
@@ -107,7 +108,8 @@ mediciones reproducibles, no una promesa de latencia industrial.
 
 ## 8. Límites explícitos
 
-- No hay promoción/aceptación ni publicación automática.
+- La simulación por sí sola no publica; la promoción existe como comando humano
+  explícito y transaccional desde Etapa 5.4.
 - No hay endpoint HTTP: los servicios y persistencia quedaron validados primero.
 - La comparación V1 usa operación y fin de proyecto como proyección; hitos
   especializados podrán ampliar la misma estructura sin migración.

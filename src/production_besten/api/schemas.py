@@ -271,3 +271,32 @@ class RemainingEstimateResponse(ApiModel):
 
 class HealthResponse(ApiModel):
     status: str
+
+
+class AcceptReplanRequest(ApiModel):
+    expected_promotion_lock_version: int = Field(gt=0)
+    reason: str | None = Field(default=None, min_length=1)
+
+
+class AcceptReplanResponse(ApiModel):
+    scenario_id: UUID
+    schedule_solution_id: UUID
+    previous_plan_version_id: UUID
+    plan_version_id: UUID
+    plan_version_number: int
+    promotion_lock_version: int
+    promoted_at: datetime
+    communication_recommended: bool
+    idempotent_replay: bool
+
+
+class ScenarioResponse(ApiModel):
+    id: UUID
+    status: str
+    base_plan_version_id: UUID | None
+    base_state_revision_id: UUID
+    base_product_definition_revision_id: UUID
+    stale: bool
+    rejected: bool
+    promoted: bool
+    promoted_plan_version_id: UUID | None

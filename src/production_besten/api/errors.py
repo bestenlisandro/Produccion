@@ -16,8 +16,10 @@ from production_besten.domain.errors import (
     InvalidProductDefinition,
     PrecedenceCycle,
     ProductDefinitionConflict,
+    ReplanConflict,
     RevisionConflict,
     StructuralAvailabilityConflict,
+    SchedulingBaseStale,
 )
 
 
@@ -28,7 +30,8 @@ def install_error_handlers(app: FastAPI) -> None:
             status, code, message = 404, "RESOURCE_NOT_FOUND", "resource not found"
         elif isinstance(exc, (RevisionConflict, ProductDefinitionConflict, PrecedenceCycle, IdempotencyConflict,
                               ExecutionAlreadyActive, ExecutionAlreadyCompleted,
-                              InvalidExecutionState, GateBlocked, StructuralAvailabilityConflict)):
+                              InvalidExecutionState, GateBlocked, StructuralAvailabilityConflict,
+                              ReplanConflict, SchedulingBaseStale)):
             status, code, message = 409, _code(exc), str(exc)
         elif isinstance(exc, (InvalidEstimate, InvalidProductDefinition)):
             status, code, message = 400, _code(exc), str(exc)
