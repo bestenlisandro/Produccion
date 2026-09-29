@@ -59,6 +59,10 @@ por servidor.
 | POST | `/operations/{operation_id}/remaining-estimate` | Actualiza estimación restante vigente |
 | POST | `/scenarios/{scenario_id}/accept` | Promueve atómicamente un replan vigente |
 | GET | `/scenarios/{scenario_id}` | Lee bases, stale/rejected/promoted y plan promovido |
+| GET | `/planning/current/day?date=YYYY-MM-DD` | Lee el programa vigente del día para operación de planta |
+| GET | `/operations/{operation_id}` | Lee el detalle operativo de una operación del plan vigente |
+| POST | `/operations/{operation_id}/replan` | Simula `REPLAN_FROM_OPERATION` sobre las bases vigentes |
+| POST | `/scenarios/{scenario_id}/reject` | Descarta una propuesta sin revertir realidad ni estimaciones |
 
 Congelar desde la ruta de un proyecto identifica su planta, pero la revisión
 resultante captura la definición productiva vigente completa de esa planta. La
@@ -121,3 +125,16 @@ timestamp, recomendación de comunicación y flag de replay.
 - 422: UUID/header/body inválido.
 
 Aceptar nunca recibe organización/actor desde el body ni cambia la fecha comunicada.
+
+## 9. Superficie operativa Etapa 6.1
+
+Las lecturas de tablero y detalle filtran siempre organización y planta y consultan
+exclusivamente `current_plan_version_id`. Los UUID se conservan como identificadores
+de navegación, pero las respuestas incluyen nombres/códigos de proyecto, lote,
+operación, personas y recursos para que no sean etiquetas visibles.
+
+`POST /operations/{operation_id}/replan` deriva plan, definición y revisión de estado
+vigentes en el servidor; el cliente sólo entrega cutoff, horizonte y razón. Tanto
+replan como reject requieren `Idempotency-Key`. Reject conserva ejecución y
+`RemainingEstimateRevision`. La lectura de escenario incluye `row_version`, lock de
+promoción, resumen e impactos necesarios para confirmar o descartar desde la UI.

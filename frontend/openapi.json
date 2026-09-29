@@ -1,0 +1,4224 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Producción Besten API",
+    "description": "API interna mínima sobre servicios de dominio validados.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Process liveness",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "PostgreSQL readiness",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/projects": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Create a project",
+        "operationId": "create_project_projects_post",
+        "parameters": [
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/projects/{project_id}": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Get a project",
+        "operationId": "get_project_projects__project_id__get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/batches": {
+      "post": {
+        "tags": [
+          "batches"
+        ],
+        "summary": "Create a project production batch",
+        "operationId": "create_batch_projects__project_id__batches_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "batches"
+        ],
+        "summary": "List project batches",
+        "operationId": "list_batches_projects__project_id__batches_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BatchResponse"
+                  },
+                  "title": "Response List Batches Projects  Project Id  Batches Get"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/batches/{batch_id}/route": {
+      "post": {
+        "tags": [
+          "definition"
+        ],
+        "summary": "Assign a published route to a batch",
+        "operationId": "define_route_batches__batch_id__route_post",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Batch Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefineRouteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/batches/{batch_id}/operations": {
+      "post": {
+        "tags": [
+          "definition"
+        ],
+        "summary": "Create required operation demand",
+        "operationId": "create_operation_batches__batch_id__operations_post",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Batch Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOperationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/operations/{operation_id}/phases": {
+      "post": {
+        "tags": [
+          "definition"
+        ],
+        "summary": "Create an operation phase and its requirements",
+        "operationId": "create_phase_operations__operation_id__phases_post",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operation Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePhaseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/product-definition-revisions": {
+      "post": {
+        "tags": [
+          "definition"
+        ],
+        "summary": "Freeze the plant product definition",
+        "operationId": "freeze_definition_projects__project_id__product_definition_revisions_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FreezeDefinitionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDefinitionRevisionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/operations/{operation_id}/start": {
+      "post": {
+        "tags": [
+          "execution"
+        ],
+        "summary": "Start planned or unplanned execution",
+        "operationId": "start_operation_operations__operation_id__start_post",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operation Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartOperationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartOperationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/executions/{execution_id}/segments": {
+      "post": {
+        "tags": [
+          "execution"
+        ],
+        "summary": "Register an actual execution segment",
+        "operationId": "register_segment_executions__execution_id__segments_post",
+        "parameters": [
+          {
+            "name": "execution_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Execution Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterSegmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SegmentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/operations/{operation_id}/finish": {
+      "post": {
+        "tags": [
+          "execution"
+        ],
+        "summary": "Finish an operation phase",
+        "operationId": "finish_operation_operations__operation_id__finish_post",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operation Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinishOperationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinishOperationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/operations/{operation_id}/remaining-estimate": {
+      "post": {
+        "tags": [
+          "execution"
+        ],
+        "summary": "Update the current remaining estimate",
+        "operationId": "update_remaining_operations__operation_id__remaining_estimate_post",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operation Id"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRemainingEstimateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemainingEstimateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/scenarios/{scenario_id}/accept": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Atomically promote a ready replan scenario",
+        "operationId": "accept_replan_scenarios__scenario_id__accept_post",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scenario Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptReplanRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptReplanResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/scenarios/{scenario_id}": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Read scenario promotion and stale state",
+        "operationId": "get_scenario_scenarios__scenario_id__get",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scenario Id"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/planning/current/day": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Read the current production schedule for one day",
+        "operationId": "get_daily_board_planning_current_day_get",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Date"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBoardResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/operations/{operation_id}": {
+      "get": {
+        "tags": [
+          "execution"
+        ],
+        "summary": "Read the current operational view of an operation",
+        "operationId": "get_operation_detail_operations__operation_id__get",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operation Id"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationDetailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/operations/{operation_id}/replan": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Simulate replanning from an operation",
+        "operationId": "replan_from_operation_operations__operation_id__replan_post",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operation Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplanFromOperationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplanResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/scenarios/{scenario_id}/reject": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Reject a replan proposal without reverting reality",
+        "operationId": "reject_replan_scenarios__scenario_id__reject_post",
+        "parameters": [
+          {
+            "name": "scenario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scenario Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectReplanRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RejectReplanResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AcceptReplanRequest": {
+        "properties": {
+          "expected_promotion_lock_version": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Expected Promotion Lock Version"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_promotion_lock_version"
+        ],
+        "title": "AcceptReplanRequest"
+      },
+      "AcceptReplanResponse": {
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Scenario Id"
+          },
+          "schedule_solution_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Schedule Solution Id"
+          },
+          "previous_plan_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Previous Plan Version Id"
+          },
+          "plan_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Plan Version Id"
+          },
+          "plan_version_number": {
+            "type": "integer",
+            "title": "Plan Version Number"
+          },
+          "promotion_lock_version": {
+            "type": "integer",
+            "title": "Promotion Lock Version"
+          },
+          "promoted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Promoted At"
+          },
+          "communication_recommended": {
+            "type": "boolean",
+            "title": "Communication Recommended"
+          },
+          "idempotent_replay": {
+            "type": "boolean",
+            "title": "Idempotent Replay"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "scenario_id",
+          "schedule_solution_id",
+          "previous_plan_version_id",
+          "plan_version_id",
+          "plan_version_number",
+          "promotion_lock_version",
+          "promoted_at",
+          "communication_recommended",
+          "idempotent_replay"
+        ],
+        "title": "AcceptReplanResponse"
+      },
+      "BatchResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Project Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "sequence_no": {
+            "type": "integer",
+            "title": "Sequence No"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "hardware_status": {
+            "type": "string",
+            "title": "Hardware Status"
+          },
+          "hardware_available_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hardware Available At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "project_id",
+          "code",
+          "name",
+          "description",
+          "sequence_no",
+          "quantity",
+          "unit",
+          "status",
+          "hardware_status",
+          "hardware_available_at"
+        ],
+        "title": "BatchResponse"
+      },
+      "CreateBatchRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "sequence_no": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence No"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active",
+              "inactive",
+              "archived"
+            ],
+            "title": "Status",
+            "default": "draft"
+          },
+          "hardware_status": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "pending",
+              "partial",
+              "ready",
+              "not_required"
+            ],
+            "title": "Hardware Status",
+            "default": "unknown"
+          },
+          "hardware_available_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hardware Available At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "CreateBatchRequest"
+      },
+      "CreateOperationRequest": {
+        "properties": {
+          "operation_definition_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Operation Definition Id"
+          },
+          "route_step_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route Step Id"
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "operation_kind": {
+            "type": "string",
+            "title": "Operation Kind",
+            "default": "production"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active",
+              "inactive",
+              "archived"
+            ],
+            "title": "Status",
+            "default": "draft"
+          },
+          "earliest_start_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earliest Start At"
+          },
+          "settings": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Settings"
+          },
+          "predecessor_operation_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Predecessor Operation Ids"
+          },
+          "successor_operation_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Successor Operation Ids"
+          },
+          "precedence_type": {
+            "type": "string",
+            "enum": [
+              "finish_start",
+              "start_start",
+              "finish_finish"
+            ],
+            "title": "Precedence Type",
+            "default": "finish_start"
+          },
+          "lag_minutes": {
+            "type": "integer",
+            "title": "Lag Minutes",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "operation_definition_id",
+          "code",
+          "name"
+        ],
+        "title": "CreateOperationRequest"
+      },
+      "CreatePhaseRequest": {
+        "properties": {
+          "sequence_no": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Sequence No"
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "estimate_kind": {
+            "type": "string",
+            "title": "Estimate Kind"
+          },
+          "original_estimate_minutes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Original Estimate Minutes"
+          },
+          "split_policy": {
+            "type": "string",
+            "enum": [
+              "non_splittable",
+              "splittable",
+              "continuous"
+            ],
+            "title": "Split Policy"
+          },
+          "route_step_phase_template_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route Step Phase Template Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active",
+              "inactive",
+              "archived"
+            ],
+            "title": "Status",
+            "default": "draft"
+          },
+          "earliest_start_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earliest Start At"
+          },
+          "labor_requirements": {
+            "items": {
+              "$ref": "#/components/schemas/LaborRequirementRequest"
+            },
+            "type": "array",
+            "title": "Labor Requirements"
+          },
+          "physical_requirements": {
+            "items": {
+              "$ref": "#/components/schemas/PhysicalRequirementRequest"
+            },
+            "type": "array",
+            "title": "Physical Requirements"
+          },
+          "gates": {
+            "items": {
+              "$ref": "#/components/schemas/GateRequest"
+            },
+            "type": "array",
+            "title": "Gates"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "sequence_no",
+          "code",
+          "name",
+          "estimate_kind",
+          "original_estimate_minutes",
+          "split_policy"
+        ],
+        "title": "CreatePhaseRequest"
+      },
+      "CreateProjectRequest": {
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Customer Id"
+          },
+          "priority_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Priority Id"
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "committed_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Committed Date"
+          },
+          "desired_start_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Desired Start At"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active",
+              "inactive",
+              "archived"
+            ],
+            "title": "Status",
+            "default": "draft"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "customer_id",
+          "priority_id",
+          "code",
+          "name"
+        ],
+        "title": "CreateProjectRequest"
+      },
+      "DailyBoardResponse": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/DailyOperationResponse"
+            },
+            "type": "array",
+            "title": "Operations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "date",
+          "operations"
+        ],
+        "title": "DailyBoardResponse"
+      },
+      "DailyOperationResponse": {
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Operation Id"
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Project Id"
+          },
+          "project_code": {
+            "type": "string",
+            "title": "Project Code"
+          },
+          "project_name": {
+            "type": "string",
+            "title": "Project Name"
+          },
+          "lot_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lot Code"
+          },
+          "lot_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lot Name"
+          },
+          "operation_code": {
+            "type": "string",
+            "title": "Operation Code"
+          },
+          "operation_name": {
+            "type": "string",
+            "title": "Operation Name"
+          },
+          "phase_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase Name"
+          },
+          "planned_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Planned Start"
+          },
+          "planned_finish": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Planned Finish"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/PersonDisplay"
+            },
+            "type": "array",
+            "title": "People"
+          },
+          "work_center": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Center"
+          },
+          "physical_resource": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Physical Resource"
+          },
+          "priority": {
+            "type": "string",
+            "title": "Priority"
+          },
+          "priority_rank": {
+            "type": "integer",
+            "title": "Priority Rank"
+          },
+          "operational_status": {
+            "type": "string",
+            "title": "Operational Status"
+          },
+          "progress_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Percent"
+          },
+          "executed_minutes": {
+            "type": "integer",
+            "title": "Executed Minutes"
+          },
+          "remaining_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Minutes"
+          },
+          "blocker_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocker Code"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "operation_id",
+          "project_id",
+          "project_code",
+          "project_name",
+          "lot_code",
+          "lot_name",
+          "operation_code",
+          "operation_name",
+          "phase_name",
+          "planned_start",
+          "planned_finish",
+          "work_center",
+          "physical_resource",
+          "priority",
+          "priority_rank",
+          "operational_status",
+          "progress_percent",
+          "executed_minutes",
+          "remaining_minutes",
+          "blocker_code"
+        ],
+        "title": "DailyOperationResponse"
+      },
+      "DefineRouteRequest": {
+        "properties": {
+          "route_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Route Version Id"
+          },
+          "effective_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Effective At"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "route_version_id",
+          "effective_at"
+        ],
+        "title": "DefineRouteRequest"
+      },
+      "FinishOperationRequest": {
+        "properties": {
+          "phase_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Phase Id"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Completed At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "phase_id",
+          "completed_at"
+        ],
+        "title": "FinishOperationRequest"
+      },
+      "FinishOperationResponse": {
+        "properties": {
+          "execution_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Execution Id"
+          },
+          "phase_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Phase Id"
+          },
+          "operation_completed": {
+            "type": "boolean",
+            "title": "Operation Completed"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "planning_state_revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Planning State Revision Id"
+          },
+          "planning_state_revision_number": {
+            "type": "integer",
+            "title": "Planning State Revision Number"
+          },
+          "original_labor_minutes": {
+            "type": "integer",
+            "title": "Original Labor Minutes"
+          },
+          "actual_labor_minutes": {
+            "type": "integer",
+            "title": "Actual Labor Minutes"
+          },
+          "variance_labor_minutes": {
+            "type": "integer",
+            "title": "Variance Labor Minutes"
+          },
+          "idempotent_replay": {
+            "type": "boolean",
+            "title": "Idempotent Replay"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "execution_id",
+          "phase_id",
+          "operation_completed",
+          "event_id",
+          "planning_state_revision_id",
+          "planning_state_revision_number",
+          "original_labor_minutes",
+          "actual_labor_minutes",
+          "variance_labor_minutes",
+          "idempotent_replay"
+        ],
+        "title": "FinishOperationResponse"
+      },
+      "FreezeDefinitionRequest": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "FreezeDefinitionRequest"
+      },
+      "GateRequest": {
+        "properties": {
+          "timing": {
+            "type": "string",
+            "enum": [
+              "before_start",
+              "before_finish"
+            ],
+            "title": "Timing"
+          },
+          "gate_type": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Gate Type"
+          },
+          "material_requirement_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material Requirement Id"
+          },
+          "drawing_package_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drawing Package Id"
+          },
+          "hardware_project_lot_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hardware Project Lot Id"
+          },
+          "milestone_definition_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Milestone Definition Id"
+          },
+          "available_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available At"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "timing",
+          "gate_type"
+        ],
+        "title": "GateRequest"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "HealthResponse"
+      },
+      "HumanUsageRequest": {
+        "properties": {
+          "employee_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Employee Id"
+          },
+          "work_minutes": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Work Minutes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "employee_id",
+          "work_minutes"
+        ],
+        "title": "HumanUsageRequest"
+      },
+      "LaborRequirementRequest": {
+        "properties": {
+          "skill_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Skill Id"
+          },
+          "min_people": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Min People"
+          },
+          "max_people": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Max People"
+          },
+          "work_minutes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Work Minutes"
+          },
+          "productivity_curve": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Productivity Curve"
+          },
+          "is_mandatory": {
+            "type": "boolean",
+            "title": "Is Mandatory",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "skill_id",
+          "min_people",
+          "max_people",
+          "work_minutes"
+        ],
+        "title": "LaborRequirementRequest"
+      },
+      "MutationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "planning_state_revision_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planning State Revision Id"
+          },
+          "planning_state_revision_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planning State Revision Number"
+          },
+          "idempotent_replay": {
+            "type": "boolean",
+            "title": "Idempotent Replay",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "MutationResponse"
+      },
+      "OperationDetailResponse": {
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Operation Id"
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Project Id"
+          },
+          "project_code": {
+            "type": "string",
+            "title": "Project Code"
+          },
+          "project_name": {
+            "type": "string",
+            "title": "Project Name"
+          },
+          "lot_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lot Code"
+          },
+          "lot_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lot Name"
+          },
+          "operation_code": {
+            "type": "string",
+            "title": "Operation Code"
+          },
+          "operation_name": {
+            "type": "string",
+            "title": "Operation Name"
+          },
+          "phase_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase Name"
+          },
+          "planned_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Planned Start"
+          },
+          "planned_finish": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Planned Finish"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/PersonDisplay"
+            },
+            "type": "array",
+            "title": "People"
+          },
+          "work_center": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Center"
+          },
+          "physical_resource": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Physical Resource"
+          },
+          "priority": {
+            "type": "string",
+            "title": "Priority"
+          },
+          "priority_rank": {
+            "type": "integer",
+            "title": "Priority Rank"
+          },
+          "operational_status": {
+            "type": "string",
+            "title": "Operational Status"
+          },
+          "progress_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Percent"
+          },
+          "executed_minutes": {
+            "type": "integer",
+            "title": "Executed Minutes"
+          },
+          "remaining_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Minutes"
+          },
+          "blocker_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocker Code"
+          },
+          "phase_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase Id"
+          },
+          "original_estimate_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Estimate Minutes"
+          },
+          "plan_requires_reconciliation": {
+            "type": "boolean",
+            "title": "Plan Requires Reconciliation"
+          },
+          "next_operation_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Operation Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "operation_id",
+          "project_id",
+          "project_code",
+          "project_name",
+          "lot_code",
+          "lot_name",
+          "operation_code",
+          "operation_name",
+          "phase_name",
+          "planned_start",
+          "planned_finish",
+          "work_center",
+          "physical_resource",
+          "priority",
+          "priority_rank",
+          "operational_status",
+          "progress_percent",
+          "executed_minutes",
+          "remaining_minutes",
+          "blocker_code",
+          "phase_id",
+          "original_estimate_minutes",
+          "plan_requires_reconciliation",
+          "next_operation_name"
+        ],
+        "title": "OperationDetailResponse"
+      },
+      "PersonDisplay": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "PersonDisplay"
+      },
+      "PhysicalOccupationRequest": {
+        "properties": {
+          "physical_resource_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Physical Resource Id"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "ended_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ended At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "physical_resource_id",
+          "started_at",
+          "ended_at"
+        ],
+        "title": "PhysicalOccupationRequest"
+      },
+      "PhysicalRequirementRequest": {
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Quantity"
+          },
+          "capacity_units": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Capacity Units"
+          },
+          "usage_mode": {
+            "type": "string",
+            "enum": [
+              "active_use",
+              "occupation"
+            ],
+            "title": "Usage Mode"
+          },
+          "physical_resource_type_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Physical Resource Type Id"
+          },
+          "physical_resource_group_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Physical Resource Group Id"
+          },
+          "work_center_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Center Id"
+          },
+          "is_mandatory": {
+            "type": "boolean",
+            "title": "Is Mandatory",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "quantity",
+          "capacity_units",
+          "usage_mode"
+        ],
+        "title": "PhysicalRequirementRequest"
+      },
+      "PhysicalUsageRequest": {
+        "properties": {
+          "physical_resource_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Physical Resource Id"
+          },
+          "work_minutes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Work Minutes"
+          },
+          "capacity_units": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Capacity Units",
+            "default": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "physical_resource_id",
+          "work_minutes"
+        ],
+        "title": "PhysicalUsageRequest"
+      },
+      "ProductDefinitionRevisionResponse": {
+        "properties": {
+          "revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Revision Id"
+          },
+          "revision_number": {
+            "type": "integer",
+            "title": "Revision Number"
+          },
+          "snapshot_hash": {
+            "type": "string",
+            "title": "Snapshot Hash"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "reused_existing_revision": {
+            "type": "boolean",
+            "title": "Reused Existing Revision"
+          },
+          "idempotent_replay": {
+            "type": "boolean",
+            "title": "Idempotent Replay"
+          },
+          "planning_state_revision_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planning State Revision Id"
+          },
+          "planning_state_revision_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planning State Revision Number"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision_id",
+          "revision_number",
+          "snapshot_hash",
+          "created_at",
+          "reused_existing_revision",
+          "idempotent_replay"
+        ],
+        "title": "ProductDefinitionRevisionResponse"
+      },
+      "ProjectResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "customer_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Customer Id"
+          },
+          "priority_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Priority Id"
+          },
+          "plant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Plant Id"
+          },
+          "committed_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Committed Date"
+          },
+          "desired_start_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Desired Start At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name",
+          "description",
+          "status",
+          "customer_id",
+          "priority_id",
+          "plant_id",
+          "committed_date",
+          "desired_start_at"
+        ],
+        "title": "ProjectResponse"
+      },
+      "RegisterSegmentRequest": {
+        "properties": {
+          "phase_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Phase Id"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "ended_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ended At"
+          },
+          "work_minutes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Work Minutes"
+          },
+          "humans": {
+            "items": {
+              "$ref": "#/components/schemas/HumanUsageRequest"
+            },
+            "type": "array",
+            "title": "Humans"
+          },
+          "physical_usages": {
+            "items": {
+              "$ref": "#/components/schemas/PhysicalUsageRequest"
+            },
+            "type": "array",
+            "title": "Physical Usages"
+          },
+          "occupations": {
+            "items": {
+              "$ref": "#/components/schemas/PhysicalOccupationRequest"
+            },
+            "type": "array",
+            "title": "Occupations"
+          },
+          "origin_assignment_segment_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin Assignment Segment Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "phase_id",
+          "started_at",
+          "ended_at",
+          "work_minutes"
+        ],
+        "title": "RegisterSegmentRequest"
+      },
+      "RejectReplanRequest": {
+        "properties": {
+          "expected_row_version": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Expected Row Version"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_row_version",
+          "reason"
+        ],
+        "title": "RejectReplanRequest"
+      },
+      "RejectReplanResponse": {
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Scenario Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "row_version": {
+            "type": "integer",
+            "title": "Row Version"
+          },
+          "idempotent_replay": {
+            "type": "boolean",
+            "title": "Idempotent Replay"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "scenario_id",
+          "status",
+          "row_version",
+          "idempotent_replay"
+        ],
+        "title": "RejectReplanResponse"
+      },
+      "RemainingEstimateResponse": {
+        "properties": {
+          "revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Revision Id"
+          },
+          "revision_number": {
+            "type": "integer",
+            "title": "Revision Number"
+          },
+          "original_minutes": {
+            "type": "integer",
+            "title": "Original Minutes"
+          },
+          "executed_minutes": {
+            "type": "integer",
+            "title": "Executed Minutes"
+          },
+          "remaining_minutes": {
+            "type": "integer",
+            "title": "Remaining Minutes"
+          },
+          "updated_total_minutes": {
+            "type": "integer",
+            "title": "Updated Total Minutes"
+          },
+          "planning_state_revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Planning State Revision Id"
+          },
+          "planning_state_revision_number": {
+            "type": "integer",
+            "title": "Planning State Revision Number"
+          },
+          "effective_event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Effective Event Id"
+          },
+          "current_plan_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Plan Version Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision_id",
+          "revision_number",
+          "original_minutes",
+          "executed_minutes",
+          "remaining_minutes",
+          "updated_total_minutes",
+          "planning_state_revision_id",
+          "planning_state_revision_number",
+          "effective_event_id",
+          "current_plan_version_id"
+        ],
+        "title": "RemainingEstimateResponse"
+      },
+      "RemainingInputRequest": {
+        "properties": {
+          "dimension": {
+            "type": "string",
+            "enum": [
+              "LABOR_WORK",
+              "ACTIVE_PHYSICAL_USE",
+              "PHYSICAL_OCCUPATION"
+            ],
+            "title": "Dimension"
+          },
+          "minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes"
+          },
+          "expected_release_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Release At"
+          },
+          "phase_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase Id"
+          },
+          "skill_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skill Id"
+          },
+          "min_people": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min People"
+          },
+          "max_people": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max People"
+          },
+          "physical_requirement_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Physical Requirement Id"
+          },
+          "physical_resource_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Physical Resource Id"
+          },
+          "capacity_units": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity Units"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "dimension"
+        ],
+        "title": "RemainingInputRequest"
+      },
+      "ReplanFromOperationRequest": {
+        "properties": {
+          "cutoff_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Cutoff At"
+          },
+          "horizon_end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Horizon End"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "cutoff_at",
+          "horizon_end"
+        ],
+        "title": "ReplanFromOperationRequest"
+      },
+      "ReplanResponse": {
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Scenario Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "complete": {
+            "type": "boolean",
+            "title": "Complete"
+          },
+          "changed_operations": {
+            "type": "integer",
+            "title": "Changed Operations"
+          },
+          "affected_projects": {
+            "type": "integer",
+            "title": "Affected Projects"
+          },
+          "customer_date_alerts": {
+            "type": "integer",
+            "title": "Customer Date Alerts"
+          },
+          "communication_recommended": {
+            "type": "boolean",
+            "title": "Communication Recommended"
+          },
+          "idempotent_replay": {
+            "type": "boolean",
+            "title": "Idempotent Replay"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "scenario_id",
+          "status",
+          "complete",
+          "changed_operations",
+          "affected_projects",
+          "customer_date_alerts",
+          "communication_recommended",
+          "idempotent_replay"
+        ],
+        "title": "ReplanResponse"
+      },
+      "ScenarioResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "base_plan_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Plan Version Id"
+          },
+          "base_state_revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Base State Revision Id"
+          },
+          "base_product_definition_revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Base Product Definition Revision Id"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale"
+          },
+          "rejected": {
+            "type": "boolean",
+            "title": "Rejected"
+          },
+          "promoted": {
+            "type": "boolean",
+            "title": "Promoted"
+          },
+          "promoted_plan_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promoted Plan Version Id"
+          },
+          "row_version": {
+            "type": "integer",
+            "title": "Row Version"
+          },
+          "promotion_lock_version": {
+            "type": "integer",
+            "title": "Promotion Lock Version"
+          },
+          "changed_operations": {
+            "type": "integer",
+            "title": "Changed Operations",
+            "default": 0
+          },
+          "affected_projects": {
+            "type": "integer",
+            "title": "Affected Projects",
+            "default": 0
+          },
+          "customer_date_alerts": {
+            "type": "integer",
+            "title": "Customer Date Alerts",
+            "default": 0
+          },
+          "communication_recommended": {
+            "type": "boolean",
+            "title": "Communication Recommended",
+            "default": false
+          },
+          "impacts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Impacts"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "base_plan_version_id",
+          "base_state_revision_id",
+          "base_product_definition_revision_id",
+          "stale",
+          "rejected",
+          "promoted",
+          "promoted_plan_version_id",
+          "row_version",
+          "promotion_lock_version"
+        ],
+        "title": "ScenarioResponse"
+      },
+      "SegmentResponse": {
+        "properties": {
+          "segment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Segment Id"
+          },
+          "segment_number": {
+            "type": "integer",
+            "title": "Segment Number"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "planning_state_revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Planning State Revision Id"
+          },
+          "planning_state_revision_number": {
+            "type": "integer",
+            "title": "Planning State Revision Number"
+          },
+          "idempotent_replay": {
+            "type": "boolean",
+            "title": "Idempotent Replay"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "segment_id",
+          "segment_number",
+          "event_id",
+          "planning_state_revision_id",
+          "planning_state_revision_number",
+          "idempotent_replay"
+        ],
+        "title": "SegmentResponse"
+      },
+      "StartOperationRequest": {
+        "properties": {
+          "phase_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Phase Id"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "origin_plan_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin Plan Version Id"
+          },
+          "origin_operation_plan_result_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin Operation Plan Result Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "phase_id",
+          "started_at"
+        ],
+        "title": "StartOperationRequest"
+      },
+      "StartOperationResponse": {
+        "properties": {
+          "execution_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Execution Id"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "planning_state_revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Planning State Revision Id"
+          },
+          "planning_state_revision_number": {
+            "type": "integer",
+            "title": "Planning State Revision Number"
+          },
+          "remaining_estimate_revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Remaining Estimate Revision Id"
+          },
+          "idempotent_replay": {
+            "type": "boolean",
+            "title": "Idempotent Replay"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "execution_id",
+          "event_id",
+          "planning_state_revision_id",
+          "planning_state_revision_number",
+          "remaining_estimate_revision_id",
+          "idempotent_replay"
+        ],
+        "title": "StartOperationResponse"
+      },
+      "UpdateRemainingEstimateRequest": {
+        "properties": {
+          "cutoff_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Cutoff At"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "remaining": {
+            "items": {
+              "$ref": "#/components/schemas/RemainingInputRequest"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Remaining"
+          },
+          "input_mode": {
+            "type": "string",
+            "enum": [
+              "delta",
+              "remaining_duration",
+              "expected_finish"
+            ],
+            "title": "Input Mode",
+            "default": "remaining_duration"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "cutoff_at",
+          "remaining"
+        ],
+        "title": "UpdateRemainingEstimateRequest"
+      }
+    }
+  }
+}

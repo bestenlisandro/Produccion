@@ -300,3 +300,80 @@ class ScenarioResponse(ApiModel):
     rejected: bool
     promoted: bool
     promoted_plan_version_id: UUID | None
+    row_version: int
+    promotion_lock_version: int
+    changed_operations: int = 0
+    affected_projects: int = 0
+    customer_date_alerts: int = 0
+    communication_recommended: bool = False
+    impacts: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class PersonDisplay(ApiModel):
+    id: UUID
+    name: str
+
+
+class DailyOperationResponse(ApiModel):
+    operation_id: UUID
+    project_id: UUID
+    project_code: str
+    project_name: str
+    lot_code: str | None
+    lot_name: str | None
+    operation_code: str
+    operation_name: str
+    phase_name: str | None
+    planned_start: datetime
+    planned_finish: datetime
+    people: list[PersonDisplay] = Field(default_factory=list)
+    work_center: str | None
+    physical_resource: str | None
+    priority: str
+    priority_rank: int
+    operational_status: str
+    progress_percent: int | None
+    executed_minutes: int
+    remaining_minutes: int | None
+    blocker_code: str | None
+
+
+class DailyBoardResponse(ApiModel):
+    date: date
+    operations: list[DailyOperationResponse]
+
+
+class OperationDetailResponse(DailyOperationResponse):
+    phase_id: UUID | None
+    original_estimate_minutes: int | None
+    plan_requires_reconciliation: bool
+    next_operation_name: str | None
+
+
+class ReplanFromOperationRequest(ApiModel):
+    cutoff_at: datetime
+    horizon_end: datetime
+    reason: str | None = None
+
+
+class ReplanResponse(ApiModel):
+    scenario_id: UUID
+    status: str
+    complete: bool
+    changed_operations: int
+    affected_projects: int
+    customer_date_alerts: int
+    communication_recommended: bool
+    idempotent_replay: bool
+
+
+class RejectReplanRequest(ApiModel):
+    expected_row_version: int = Field(gt=0)
+    reason: str = Field(min_length=1)
+
+
+class RejectReplanResponse(ApiModel):
+    scenario_id: UUID
+    status: str
+    row_version: int
+    idempotent_replay: bool

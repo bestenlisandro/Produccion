@@ -1,0 +1,12 @@
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { createBrowserRouter, RouterProvider } from 'react-router'
+import { queryClient } from './app/queryClient'
+import { DailyBoard } from './features/daily-board/DailyBoard'
+import { OperationDetail } from './features/operations/OperationDetail'
+import { Root, RouteError } from './routes/Root'
+import './styles/global.css'
+
+const router=createBrowserRouter([{path:'/',Component:Root,ErrorBoundary:RouteError,children:[{index:true,Component:DailyBoard},{path:'operations/:operationId',Component:OperationDetail}]}])
+createRoot(document.getElementById('root')!).render(<StrictMode><QueryClientProvider client={queryClient}><RouterProvider router={router}/></QueryClientProvider></StrictMode>)

@@ -41,6 +41,7 @@ El producto se diseña como un APS de capacidad finita: considera simultáneamen
 - [Capacidad acumulativa V1](docs/22-capacidad-acumulativa-v1.md)
 - [Reprogramación ante desvíos V1](docs/23-reprogramacion-desvios-v1.md)
 - [Promoción atómica del programa V1](docs/24-promocion-programa-v1.md)
+- [Frontend operativo y tablero diario V1](docs/25-frontend-operativo-v1.md)
 
 ## Entorno backend reproducible
 
@@ -56,6 +57,12 @@ python -m venv .venv
 ```
 
 No se usa `--trusted-host` ni se desactiva TLS.
+
+Para iniciar el backend de desarrollo:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn production_besten.api.app:create_app --factory --reload --host 127.0.0.1 --port 8000
+```
 
 ## Estado
 
@@ -81,3 +88,16 @@ promoción automática y el plan publicado permanece inmutable.
 Etapa 5.4 implementa `ACCEPT_REPLAN`: valida bases y locks, conserva la versión
 anterior, publica una nueva `PlanVersion`, confirma el escenario y registra auditoría
 y outbox en una sola transacción. No modifica ejecución ni fechas comunicadas.
+
+Etapa 6.1 incorpora la SPA operativa React/TypeScript en `frontend/`: tablero diario,
+detalle de operación, actualización de estimación restante y simulación con
+aceptación/rechazo. Los tipos HTTP se generan desde el OpenAPI real de FastAPI.
+
+```powershell
+cd frontend
+npm ci
+npm run api:generate
+npm run dev
+npm run test
+npm run build
+```

@@ -11,6 +11,10 @@ __pycache__/
 htmlcov/
 dist/
 build/
+node_modules/
+playwright-report/
+test-results/
+*.tsbuildinfo
 *.egg-info/
 pgpass.conf
 *.log

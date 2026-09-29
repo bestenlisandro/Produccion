@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from production_besten.api.context import RequestContext, require_plant
 from production_besten.api.dependencies import ApiContainer, get_container, get_idempotency_key, get_request_context
@@ -14,13 +15,13 @@ from production_besten.application.product_definition_services import (
     CreateRequiredOperationPhaseService, CreateRequiredOperationService, DefineBatchRouteService,
 )
 from production_besten.application.update_remaining_estimate import UpdateRemainingEstimateService
-from production_besten.application.replanning_services import AcceptReplanService
+from production_besten.application.replanning_services import AcceptReplanService, RejectReplanService, ReplanService
 from production_besten.domain.execution import FinishOperation, HumanUsage, PhysicalOccupation, PhysicalUsage, RegisterExecutionSegment, StartOperation
 from production_besten.domain.product_definition import (
     CreateProductDefinitionRevision, CreateProductionBatch, CreateProject, CreateRequiredOperation,
     CreateRequiredOperationPhase, DefineBatchRoute, LaborRequirement, OperationGate, PhysicalRequirement,
 )
-from production_besten.domain.replanning import AcceptReplan
+from production_besten.domain.replanning import AcceptReplan, RejectReplan, ReplanRequest
 from production_besten.persistence.execution_uow import PostgresExecutionUnitOfWorkFactory
 from production_besten.persistence.product_definition_uow import PostgresProductDefinitionUnitOfWorkFactory
 from production_besten.persistence.remaining_estimate_uow import PostgresUnitOfWorkFactory
@@ -259,3 +260,62 @@ def get_scenario(scenario_id: UUID,
     return ScenarioResponse.model_validate(container.queries.scenario(
         context.organization_id, scenario_id, context.plant_id
     ))
+
+
+@router.get("/planning/current/day", response_model=DailyBoardResponse,
+            tags=["planning"], summary="Read the current production schedule for one day")
+def get_daily_board(day: date = Query(alias="date"), context: RequestContext = Depends(get_request_context),
+                    container: ApiContainer = Depends(get_container)) -> DailyBoardResponse:
+    plant_id = require_plant(context)
+    return DailyBoardResponse(date=day, operations=[DailyOperationResponse.model_validate(row)
+        for row in container.queries.daily_board(context.organization_id, plant_id, day)])
+
+
+@router.get("/operations/{operation_id}", response_model=OperationDetailResponse,
+            tags=["execution"], summary="Read the current operational view of an operation")
+def get_operation_detail(operation_id: UUID, context: RequestContext = Depends(get_request_context),
+                         container: ApiContainer = Depends(get_container)) -> OperationDetailResponse:
+    return OperationDetailResponse.model_validate(container.queries.operation_detail(
+        context.organization_id, context.plant_id, operation_id))
+
+
+@router.post("/operations/{operation_id}/replan", response_model=ReplanResponse,
+             status_code=status.HTTP_201_CREATED, tags=["planning"],
+             summary="Simulate replanning from an operation")
+def replan_from_operation(operation_id: UUID, body: ReplanFromOperationRequest, response: Response,
+                          command_id: UUID = Depends(get_idempotency_key),
+                          context: RequestContext = Depends(get_request_context),
+                          container: ApiContainer = Depends(get_container)) -> ReplanResponse:
+    plant_id = require_plant(context)
+    container.queries.operation(context.organization_id, operation_id, plant_id)
+    base = container.queries.replan_context(context.organization_id, plant_id)
+    result = ReplanService(_scheduling_factory(container)).execute(ReplanRequest(
+        context.organization_id, plant_id, context.user_id, str(command_id),
+        f"RP-{command_id.hex[:12]}", body.reason or "Reprogramación operativa",
+        body.cutoff_at, body.horizon_end, base["definition_id"], base["state_id"],
+        base["plan_id"], trigger_operation_id=operation_id,
+        parameters={"source": "daily-board"},
+    ))
+    if result.idempotent_replay:
+        response.status_code = status.HTTP_200_OK
+    return ReplanResponse(scenario_id=result.scenario_id, status=result.status,
+        complete=result.complete, changed_operations=result.changed_operations,
+        affected_projects=len(result.frontier_project_ids),
+        customer_date_alerts=result.customer_date_alerts,
+        communication_recommended=result.customer_date_alerts > 0,
+        idempotent_replay=result.idempotent_replay)
+
+
+@router.post("/scenarios/{scenario_id}/reject", response_model=RejectReplanResponse,
+             tags=["planning"], summary="Reject a replan proposal without reverting reality")
+def reject_replan(scenario_id: UUID, body: RejectReplanRequest,
+                  command_id: UUID = Depends(get_idempotency_key),
+                  context: RequestContext = Depends(get_request_context),
+                  container: ApiContainer = Depends(get_container)) -> RejectReplanResponse:
+    del command_id  # transport-level requirement; domain idempotency is scenario lifecycle based
+    plant_id = require_plant(context)
+    result = RejectReplanService(_scheduling_factory(container)).execute(RejectReplan(
+        context.organization_id, plant_id, context.user_id, scenario_id,
+        body.expected_row_version, body.reason))
+    return RejectReplanResponse(scenario_id=result.scenario_id, status=result.status,
+        row_version=result.row_version, idempotent_replay=result.idempotent_replay)
