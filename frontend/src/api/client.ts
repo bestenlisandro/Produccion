@@ -6,6 +6,10 @@ export type OperationDetail = components['schemas']['OperationDetailResponse']
 export type Scenario = components['schemas']['ScenarioResponse']
 export type ReplanResult = components['schemas']['ReplanResponse']
 export type RemainingResult = components['schemas']['RemainingEstimateResponse']
+export type GanttData = components['schemas']['GanttResponse']
+export type GanttOperation = components['schemas']['GanttOperationResponse']
+export type GanttScenario = components['schemas']['GanttScenarioResponse']
+export type GanttGrouping = 'center' | 'resource' | 'person' | 'project'
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string) { super(message) }
@@ -40,6 +44,11 @@ async function request<T>(path: string, init: RequestInit = {}, idempotent = fal
 
 export const api = {
   day: (date: string) => request<DailyBoard>(`/planning/current/day?date=${encodeURIComponent(date)}`),
+  gantt: (from: string, to: string, groupBy: GanttGrouping, scenarioId?: string) => {
+    const params = new URLSearchParams({ from, to, group_by: groupBy })
+    if (scenarioId) params.set('scenario_id', scenarioId)
+    return request<GanttData>(`/planning/current/gantt?${params}`)
+  },
   operation: (id: string) => request<OperationDetail>(`/operations/${id}`),
   updateRemaining: (id: string, phaseId: string, minutes: number) => request<RemainingResult>(`/operations/${id}/remaining-estimate`, { method: 'POST', body: JSON.stringify({ cutoff_at: new Date().toISOString(), reason: 'Actualización desde tablero diario', input_mode: 'remaining_duration', remaining: [{ dimension: 'LABOR_WORK', minutes, phase_id: phaseId }] }) }),
   replan: (id: string) => request<ReplanResult>(`/operations/${id}/replan`, { method: 'POST', body: JSON.stringify({ cutoff_at: new Date().toISOString(), horizon_end: new Date(Date.now() + 90 * 86400000).toISOString(), reason: 'Desvío operativo' }) }, true),

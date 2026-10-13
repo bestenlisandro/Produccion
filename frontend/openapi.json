@@ -1596,6 +1596,137 @@
         }
       }
     },
+    "/planning/current/gantt": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Read the current plan and optional scenario as a timeline",
+        "operationId": "get_current_gantt_planning_current_gantt_get",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "title": "To"
+            }
+          },
+          {
+            "name": "group_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "center",
+                "resource",
+                "person",
+                "project"
+              ],
+              "type": "string",
+              "default": "center",
+              "title": "Group By"
+            }
+          },
+          {
+            "name": "scenario_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scenario Id"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GanttResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
     "/operations/{operation_id}": {
       "get": {
         "tags": [
@@ -2801,6 +2932,765 @@
           "reason"
         ],
         "title": "FreezeDefinitionRequest"
+      },
+      "GanttActualSegmentResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "ended_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ended At"
+          },
+          "work_minutes": {
+            "type": "integer",
+            "title": "Work Minutes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "started_at",
+          "ended_at",
+          "work_minutes"
+        ],
+        "title": "GanttActualSegmentResponse"
+      },
+      "GanttCenter": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "capacity_mode": {
+            "type": "string",
+            "title": "Capacity Mode"
+          },
+          "aggregate_capacity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggregate Capacity"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "capacity_mode",
+          "aggregate_capacity"
+        ],
+        "title": "GanttCenter"
+      },
+      "GanttGroupResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "center",
+              "resource",
+              "person",
+              "project"
+            ],
+            "title": "Kind"
+          },
+          "capacity_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity Mode"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "kind"
+        ],
+        "title": "GanttGroupResponse"
+      },
+      "GanttOccupationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "project_name": {
+            "type": "string",
+            "title": "Project Name"
+          },
+          "lot_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lot Name"
+          },
+          "resource_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Resource Id"
+          },
+          "resource_name": {
+            "type": "string",
+            "title": "Resource Name"
+          },
+          "group_id": {
+            "type": "string",
+            "title": "Group Id"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "ended_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ended At"
+          },
+          "source_kind": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "actual"
+            ],
+            "title": "Source Kind"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "project_name",
+          "lot_name",
+          "resource_id",
+          "resource_name",
+          "group_id",
+          "started_at",
+          "ended_at",
+          "source_kind"
+        ],
+        "title": "GanttOccupationResponse"
+      },
+      "GanttOperationResponse": {
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Operation Id"
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Project Id"
+          },
+          "project_code": {
+            "type": "string",
+            "title": "Project Code"
+          },
+          "project_name": {
+            "type": "string",
+            "title": "Project Name"
+          },
+          "lot_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lot Code"
+          },
+          "lot_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lot Name"
+          },
+          "operation_code": {
+            "type": "string",
+            "title": "Operation Code"
+          },
+          "operation_name": {
+            "type": "string",
+            "title": "Operation Name"
+          },
+          "phase_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase Id"
+          },
+          "phase_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase Name"
+          },
+          "planned_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Start"
+          },
+          "planned_finish": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Finish"
+          },
+          "group_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Group Ids"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/PersonDisplay"
+            },
+            "type": "array",
+            "title": "People"
+          },
+          "centers": {
+            "items": {
+              "$ref": "#/components/schemas/GanttCenter"
+            },
+            "type": "array",
+            "title": "Centers"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/GanttResource"
+            },
+            "type": "array",
+            "title": "Resources"
+          },
+          "priority": {
+            "type": "string",
+            "title": "Priority"
+          },
+          "priority_rank": {
+            "type": "integer",
+            "title": "Priority Rank"
+          },
+          "operational_status": {
+            "type": "string",
+            "title": "Operational Status"
+          },
+          "executed_minutes": {
+            "type": "integer",
+            "title": "Executed Minutes"
+          },
+          "remaining_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Minutes"
+          },
+          "blocker_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocker Code"
+          },
+          "actual_segments": {
+            "items": {
+              "$ref": "#/components/schemas/GanttActualSegmentResponse"
+            },
+            "type": "array",
+            "title": "Actual Segments"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "operation_id",
+          "project_id",
+          "project_code",
+          "project_name",
+          "lot_code",
+          "lot_name",
+          "operation_code",
+          "operation_name",
+          "phase_id",
+          "phase_name",
+          "planned_start",
+          "planned_finish",
+          "group_ids",
+          "priority",
+          "priority_rank",
+          "operational_status",
+          "executed_minutes",
+          "remaining_minutes",
+          "blocker_code"
+        ],
+        "title": "GanttOperationResponse"
+      },
+      "GanttResource": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "work_center_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Work Center Id"
+          },
+          "scheduling_mode": {
+            "type": "string",
+            "title": "Scheduling Mode"
+          },
+          "capacity_units": {
+            "type": "number",
+            "title": "Capacity Units"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "work_center_id",
+          "scheduling_mode",
+          "capacity_units"
+        ],
+        "title": "GanttResource"
+      },
+      "GanttResponse": {
+        "properties": {
+          "plan_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Plan Version Id"
+          },
+          "plan_version_number": {
+            "type": "integer",
+            "title": "Plan Version Number"
+          },
+          "planning_state_revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Planning State Revision Id"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "range_from": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Range From"
+          },
+          "range_to": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Range To"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "group_by": {
+            "type": "string",
+            "enum": [
+              "center",
+              "resource",
+              "person",
+              "project"
+            ],
+            "title": "Group By"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/GanttGroupResponse"
+            },
+            "type": "array",
+            "title": "Groups"
+          },
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/GanttOperationResponse"
+            },
+            "type": "array",
+            "title": "Operations"
+          },
+          "occupations": {
+            "items": {
+              "$ref": "#/components/schemas/GanttOccupationResponse"
+            },
+            "type": "array",
+            "title": "Occupations"
+          },
+          "working_windows": {
+            "items": {
+              "$ref": "#/components/schemas/GanttWorkingWindowResponse"
+            },
+            "type": "array",
+            "title": "Working Windows"
+          },
+          "available_scenarios": {
+            "items": {
+              "$ref": "#/components/schemas/GanttScenarioOptionResponse"
+            },
+            "type": "array",
+            "title": "Available Scenarios"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GanttScenarioResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "plan_version_id",
+          "plan_version_number",
+          "planning_state_revision_id",
+          "timezone",
+          "range_from",
+          "range_to",
+          "generated_at",
+          "group_by",
+          "groups",
+          "operations",
+          "occupations",
+          "working_windows",
+          "available_scenarios"
+        ],
+        "title": "GanttResponse"
+      },
+      "GanttScenarioOperationResponse": {
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Operation Id"
+          },
+          "planned_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Start"
+          },
+          "planned_finish": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Finish"
+          },
+          "difference": {
+            "type": "string",
+            "enum": [
+              "UNCHANGED",
+              "SHIFTED",
+              "ADVANCED",
+              "DELAYED",
+              "OUT_OF_HORIZON",
+              "NEWLY_PLANNED"
+            ],
+            "title": "Difference"
+          },
+          "delta_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta Minutes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "operation_id",
+          "planned_start",
+          "planned_finish",
+          "difference"
+        ],
+        "title": "GanttScenarioOperationResponse"
+      },
+      "GanttScenarioOptionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name",
+          "status",
+          "stale",
+          "created_at"
+        ],
+        "title": "GanttScenarioOptionResponse"
+      },
+      "GanttScenarioResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale"
+          },
+          "row_version": {
+            "type": "integer",
+            "title": "Row Version"
+          },
+          "promotion_lock_version": {
+            "type": "integer",
+            "title": "Promotion Lock Version"
+          },
+          "changed_operations": {
+            "type": "integer",
+            "title": "Changed Operations"
+          },
+          "affected_projects": {
+            "type": "integer",
+            "title": "Affected Projects"
+          },
+          "customer_date_alerts": {
+            "type": "integer",
+            "title": "Customer Date Alerts"
+          },
+          "communication_recommended": {
+            "type": "boolean",
+            "title": "Communication Recommended"
+          },
+          "project_finish_changes": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Project Finish Changes"
+          },
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/GanttScenarioOperationResponse"
+            },
+            "type": "array",
+            "title": "Operations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name",
+          "status",
+          "stale",
+          "row_version",
+          "promotion_lock_version",
+          "changed_operations",
+          "affected_projects",
+          "customer_date_alerts",
+          "communication_recommended"
+        ],
+        "title": "GanttScenarioResponse"
+      },
+      "GanttWorkingWindowResponse": {
+        "properties": {
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "ended_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ended At"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "regular",
+              "exception"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "started_at",
+          "ended_at",
+          "kind"
+        ],
+        "title": "GanttWorkingWindowResponse"
       },
       "GateRequest": {
         "properties": {

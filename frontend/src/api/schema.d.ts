@@ -277,6 +277,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/planning/current/gantt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the current plan and optional scenario as a timeline */
+        get: operations["get_current_gantt_planning_current_gantt_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/operations/{operation_id}": {
         parameters: {
             query?: never;
@@ -678,6 +695,308 @@ export interface components {
         FreezeDefinitionRequest: {
             /** Reason */
             reason: string;
+        };
+        /** GanttActualSegmentResponse */
+        GanttActualSegmentResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Ended At
+             * Format: date-time
+             */
+            ended_at: string;
+            /** Work Minutes */
+            work_minutes: number;
+        };
+        /** GanttCenter */
+        GanttCenter: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Capacity Mode */
+            capacity_mode: string;
+            /** Aggregate Capacity */
+            aggregate_capacity: number | null;
+        };
+        /** GanttGroupResponse */
+        GanttGroupResponse: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "center" | "resource" | "person" | "project";
+            /** Capacity Mode */
+            capacity_mode?: string | null;
+            /** Capacity */
+            capacity?: number | null;
+        };
+        /** GanttOccupationResponse */
+        GanttOccupationResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Project Name */
+            project_name: string;
+            /** Lot Name */
+            lot_name: string | null;
+            /**
+             * Resource Id
+             * Format: uuid
+             */
+            resource_id: string;
+            /** Resource Name */
+            resource_name: string;
+            /** Group Id */
+            group_id: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Ended At
+             * Format: date-time
+             */
+            ended_at: string;
+            /**
+             * Source Kind
+             * @enum {string}
+             */
+            source_kind: "planned" | "actual";
+        };
+        /** GanttOperationResponse */
+        GanttOperationResponse: {
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Project Code */
+            project_code: string;
+            /** Project Name */
+            project_name: string;
+            /** Lot Code */
+            lot_code: string | null;
+            /** Lot Name */
+            lot_name: string | null;
+            /** Operation Code */
+            operation_code: string;
+            /** Operation Name */
+            operation_name: string;
+            /** Phase Id */
+            phase_id: string | null;
+            /** Phase Name */
+            phase_name: string | null;
+            /** Planned Start */
+            planned_start: string | null;
+            /** Planned Finish */
+            planned_finish: string | null;
+            /** Group Ids */
+            group_ids: string[];
+            /** People */
+            people?: components["schemas"]["PersonDisplay"][];
+            /** Centers */
+            centers?: components["schemas"]["GanttCenter"][];
+            /** Resources */
+            resources?: components["schemas"]["GanttResource"][];
+            /** Priority */
+            priority: string;
+            /** Priority Rank */
+            priority_rank: number;
+            /** Operational Status */
+            operational_status: string;
+            /** Executed Minutes */
+            executed_minutes: number;
+            /** Remaining Minutes */
+            remaining_minutes: number | null;
+            /** Blocker Code */
+            blocker_code: string | null;
+            /** Actual Segments */
+            actual_segments?: components["schemas"]["GanttActualSegmentResponse"][];
+        };
+        /** GanttResource */
+        GanttResource: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Work Center Id
+             * Format: uuid
+             */
+            work_center_id: string;
+            /** Scheduling Mode */
+            scheduling_mode: string;
+            /** Capacity Units */
+            capacity_units: number;
+        };
+        /** GanttResponse */
+        GanttResponse: {
+            /**
+             * Plan Version Id
+             * Format: uuid
+             */
+            plan_version_id: string;
+            /** Plan Version Number */
+            plan_version_number: number;
+            /**
+             * Planning State Revision Id
+             * Format: uuid
+             */
+            planning_state_revision_id: string;
+            /** Timezone */
+            timezone: string;
+            /**
+             * Range From
+             * Format: date-time
+             */
+            range_from: string;
+            /**
+             * Range To
+             * Format: date-time
+             */
+            range_to: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Group By
+             * @enum {string}
+             */
+            group_by: "center" | "resource" | "person" | "project";
+            /** Groups */
+            groups: components["schemas"]["GanttGroupResponse"][];
+            /** Operations */
+            operations: components["schemas"]["GanttOperationResponse"][];
+            /** Occupations */
+            occupations: components["schemas"]["GanttOccupationResponse"][];
+            /** Working Windows */
+            working_windows: components["schemas"]["GanttWorkingWindowResponse"][];
+            /** Available Scenarios */
+            available_scenarios: components["schemas"]["GanttScenarioOptionResponse"][];
+            scenario?: components["schemas"]["GanttScenarioResponse"] | null;
+        };
+        /** GanttScenarioOperationResponse */
+        GanttScenarioOperationResponse: {
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /** Planned Start */
+            planned_start: string | null;
+            /** Planned Finish */
+            planned_finish: string | null;
+            /**
+             * Difference
+             * @enum {string}
+             */
+            difference: "UNCHANGED" | "SHIFTED" | "ADVANCED" | "DELAYED" | "OUT_OF_HORIZON" | "NEWLY_PLANNED";
+            /** Delta Minutes */
+            delta_minutes?: number | null;
+        };
+        /** GanttScenarioOptionResponse */
+        GanttScenarioOptionResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Status */
+            status: string;
+            /** Stale */
+            stale: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** GanttScenarioResponse */
+        GanttScenarioResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Status */
+            status: string;
+            /** Stale */
+            stale: boolean;
+            /** Row Version */
+            row_version: number;
+            /** Promotion Lock Version */
+            promotion_lock_version: number;
+            /** Changed Operations */
+            changed_operations: number;
+            /** Affected Projects */
+            affected_projects: number;
+            /** Customer Date Alerts */
+            customer_date_alerts: number;
+            /** Communication Recommended */
+            communication_recommended: boolean;
+            /** Project Finish Changes */
+            project_finish_changes?: {
+                [key: string]: unknown;
+            }[];
+            /** Operations */
+            operations?: components["schemas"]["GanttScenarioOperationResponse"][];
+        };
+        /** GanttWorkingWindowResponse */
+        GanttWorkingWindowResponse: {
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Ended At
+             * Format: date-time
+             */
+            ended_at: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "regular" | "exception";
+            /** Label */
+            label?: string | null;
         };
         /** GateRequest */
         GateRequest: {
@@ -2399,6 +2718,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DailyBoardResponse"];
+                };
+            };
+            /** @description Semantically invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Resource not found or inaccessible in tenant */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description State, concurrency, availability, gate or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Structurally invalid path, header or body */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected internal error without implementation details */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Required infrastructure or identity provider unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_current_gantt_planning_current_gantt_get: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                group_by?: "center" | "resource" | "person" | "project";
+                scenario_id?: string | null;
+            };
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GanttResponse"];
                 };
             };
             /** @description Semantically invalid request */

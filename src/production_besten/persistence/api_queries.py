@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import Engine, text
 
-from production_besten.domain.errors import EntityNotFound
+from production_besten.domain.errors import EntityNotFound, InvalidSchedulingInput
 
 
 class PostgresApiQueries:
@@ -310,3 +311,463 @@ class PostgresApiQueries:
                  WHERE ro.organization_id=:org AND ro.id=:operation
             """), {"org": org, "operation": operation_id, "plant": operation["plant_id"]}).mappings().one()
         return item | dict(extra)
+
+    def gantt(self, org: UUID, plant: UUID, range_from: datetime, range_to: datetime,
+              group_by: str, scenario_id: UUID | None = None) -> dict[str, Any]:
+        if range_from.tzinfo is None or range_to.tzinfo is None:
+            raise InvalidSchedulingInput("gantt range must include a timezone")
+        if range_to <= range_from:
+            raise InvalidSchedulingInput("gantt range end must be after start")
+        if range_to - range_from > timedelta(days=31):
+            raise InvalidSchedulingInput("gantt range cannot exceed 31 days")
+        if group_by not in {"center", "resource", "person", "project"}:
+            raise InvalidSchedulingInput("unsupported gantt grouping")
+
+        with self.engine.connect() as conn:
+            metadata = conn.execute(text("""
+                SELECT pv.id AS plan_version_id,pv.version_no AS plan_version_number,
+                       pv.planning_state_revision_id,pv.schedule_solution_id,
+                       p.timezone,p.base_calendar_id,p.promotion_lock_version,
+                       c.timezone AS calendar_timezone
+                  FROM core.plants p
+                  JOIN planning.plan_versions pv
+                    ON pv.organization_id=p.organization_id
+                   AND pv.id=p.current_plan_version_id
+                  JOIN capacity.calendars c
+                    ON c.organization_id=p.organization_id
+                   AND c.id=p.base_calendar_id
+                 WHERE p.organization_id=:org AND p.id=:plant
+            """), {"org": org, "plant": plant}).mappings().one_or_none()
+            if metadata is None:
+                raise EntityNotFound("current plan not found")
+            try:
+                ZoneInfo(metadata["timezone"])
+                ZoneInfo(metadata["calendar_timezone"])
+            except (KeyError, ValueError) as exc:
+                raise InvalidSchedulingInput("plant or calendar timezone is not a valid IANA timezone") from exc
+
+            operation_rows = conn.execute(text("""
+                WITH first_phase AS (
+                    SELECT DISTINCT ON (ppr.operation_plan_result_id)
+                           ppr.operation_plan_result_id,ph.id AS phase_id,
+                           ph.name AS phase_name,
+                           ppr.explanation->'why_not_earlier'->>0 AS blocker_code
+                      FROM planning.phase_plan_results ppr
+                      JOIN production.required_operation_phases ph
+                        ON ph.organization_id=ppr.organization_id
+                       AND ph.id=ppr.required_operation_phase_id
+                     WHERE ppr.organization_id=:org
+                       AND ppr.schedule_solution_id=:solution
+                     ORDER BY ppr.operation_plan_result_id,ph.sequence_no
+                ), people AS (
+                    SELECT ppr.operation_plan_result_id,
+                           jsonb_agg(DISTINCT jsonb_build_object(
+                             'id',e.id,'name',e.display_name)) AS values
+                      FROM planning.phase_plan_results ppr
+                      JOIN planning.planned_phase_assignments pa
+                        ON pa.organization_id=ppr.organization_id
+                       AND pa.phase_plan_result_id=ppr.id
+                      JOIN planning.assignment_segments seg
+                        ON seg.organization_id=pa.organization_id
+                       AND seg.planned_phase_assignment_id=pa.id
+                      JOIN planning.human_segment_assignments ha
+                        ON ha.organization_id=seg.organization_id
+                       AND ha.assignment_segment_id=seg.id
+                      JOIN capacity.employees e
+                        ON e.organization_id=ha.organization_id
+                       AND e.id=ha.employee_id
+                     WHERE ppr.organization_id=:org
+                       AND ppr.schedule_solution_id=:solution
+                     GROUP BY ppr.operation_plan_result_id
+                ), resources AS (
+                    SELECT ppr.operation_plan_result_id,
+                           jsonb_agg(DISTINCT jsonb_build_object(
+                             'id',pr.id,'name',pr.name,
+                             'work_center_id',wc.id,
+                             'scheduling_mode',pr.scheduling_mode,
+                             'capacity_units',pr.capacity_units)) AS resource_values,
+                           jsonb_agg(DISTINCT jsonb_build_object(
+                             'id',wc.id,'name',wc.name,
+                             'capacity_mode',wc.capacity_mode,
+                             'aggregate_capacity',wc.aggregate_capacity)) AS center_values
+                      FROM planning.phase_plan_results ppr
+                      JOIN planning.planned_phase_assignments pa
+                        ON pa.organization_id=ppr.organization_id
+                       AND pa.phase_plan_result_id=ppr.id
+                      JOIN planning.assignment_segments seg
+                        ON seg.organization_id=pa.organization_id
+                       AND seg.planned_phase_assignment_id=pa.id
+                      JOIN planning.physical_resource_reservations rr
+                        ON rr.organization_id=seg.organization_id
+                       AND rr.assignment_segment_id=seg.id
+                      JOIN capacity.physical_resources pr
+                        ON pr.organization_id=rr.organization_id
+                       AND pr.id=rr.physical_resource_id
+                      JOIN capacity.work_centers wc
+                        ON wc.organization_id=pr.organization_id
+                       AND wc.id=pr.work_center_id
+                     WHERE ppr.organization_id=:org
+                       AND ppr.schedule_solution_id=:solution
+                     GROUP BY ppr.operation_plan_result_id
+                ), latest_execution AS (
+                    SELECT DISTINCT ON (oe.required_operation_id)
+                           oe.required_operation_id,oe.id,oe.status
+                      FROM execution.operation_executions oe
+                      JOIN production.required_operations ro
+                        ON ro.organization_id=oe.organization_id
+                       AND ro.id=oe.required_operation_id
+                      JOIN core.projects project
+                        ON project.organization_id=ro.organization_id
+                       AND project.id=ro.project_id
+                     WHERE oe.organization_id=:org AND project.plant_id=:plant
+                     ORDER BY oe.required_operation_id,
+                              (oe.status IN ('running','paused')) DESC,
+                              oe.created_at DESC
+                ), actual AS (
+                    SELECT oe.required_operation_id,
+                           COALESCE(sum(es.work_minutes),0)::int AS executed_minutes,
+                           jsonb_agg(jsonb_build_object(
+                             'id',es.id,'started_at',lower(es.time_range),
+                             'ended_at',upper(es.time_range),
+                             'work_minutes',es.work_minutes)
+                             ORDER BY lower(es.time_range),es.id)
+                             FILTER (WHERE es.segment_kind='work') AS segments
+                      FROM execution.operation_executions oe
+                      JOIN execution.execution_segments es
+                        ON es.organization_id=oe.organization_id
+                       AND es.operation_execution_id=oe.id
+                     WHERE oe.organization_id=:org
+                       AND es.time_range && tstzrange(:range_from,:range_to,'[)')
+                     GROUP BY oe.required_operation_id
+                )
+                SELECT ro.id AS operation_id,project.id AS project_id,
+                       project.code AS project_code,project.name AS project_name,
+                       lot.code AS lot_code,lot.name AS lot_name,
+                       ro.code AS operation_code,ro.name AS operation_name,
+                       fp.phase_id,fp.phase_name,
+                       opr.planned_start_at AS planned_start,
+                       opr.planned_end_at AS planned_finish,
+                       COALESCE(pe.values,'[]'::jsonb) AS people,
+                       COALESCE(re.center_values,'[]'::jsonb) AS centers,
+                       COALESCE(re.resource_values,'[]'::jsonb) AS resources,
+                       priority.name AS priority,priority.rank AS priority_rank,
+                       CASE
+                         WHEN le.status='completed' OR opr.result_status='completed'
+                           THEN 'FINALIZADO'
+                         WHEN le.status IN ('running','paused')
+                              AND opr.planned_end_at < now() THEN 'DEMORADO'
+                         WHEN le.status IN ('running','paused') THEN 'EN_CURSO'
+                         WHEN opr.result_status='blocked' THEN 'BLOQUEADO'
+                         WHEN opr.planned_end_at < now() THEN 'DEMORADO'
+                         WHEN opr.planned_start_at <= now() THEN 'LISTO'
+                         ELSE 'PENDIENTE'
+                       END AS operational_status,
+                       COALESCE(rem.executed_labor_minutes_at_cutoff,
+                                act.executed_minutes,0)::int AS executed_minutes,
+                       rem.remaining_labor_minutes::int AS remaining_minutes,
+                       COALESCE(opr.explanation->'blockers'->>0,
+                                fp.blocker_code) AS blocker_code,
+                       COALESCE(act.segments,'[]'::jsonb) AS actual_segments
+                  FROM planning.operation_plan_results opr
+                  JOIN production.required_operations ro
+                    ON ro.organization_id=opr.organization_id
+                   AND ro.id=opr.required_operation_id
+                  JOIN core.projects project
+                    ON project.organization_id=ro.organization_id
+                   AND project.id=ro.project_id
+                  JOIN core.project_priorities priority
+                    ON priority.organization_id=project.organization_id
+                   AND priority.id=project.priority_id
+                  LEFT JOIN core.project_lots lot
+                    ON lot.organization_id=ro.organization_id
+                   AND lot.id=ro.project_lot_id
+                  LEFT JOIN first_phase fp
+                    ON fp.operation_plan_result_id=opr.id
+                  LEFT JOIN people pe
+                    ON pe.operation_plan_result_id=opr.id
+                  LEFT JOIN resources re
+                    ON re.operation_plan_result_id=opr.id
+                  LEFT JOIN latest_execution le
+                    ON le.required_operation_id=ro.id
+                  LEFT JOIN execution.remaining_estimate_revisions rem
+                    ON rem.organization_id=opr.organization_id
+                   AND rem.operation_execution_id=le.id
+                   AND rem.superseded_at IS NULL
+                  LEFT JOIN actual act
+                    ON act.required_operation_id=ro.id
+                 WHERE opr.organization_id=:org
+                   AND opr.schedule_solution_id=:solution
+                   AND project.plant_id=:plant
+                   AND ((opr.planned_start_at < :range_to
+                         AND opr.planned_end_at > :range_from)
+                        OR opr.result_status='blocked')
+                 ORDER BY opr.planned_start_at NULLS LAST,priority.rank,ro.id
+            """), {
+                "org": org, "plant": plant,
+                "solution": metadata["schedule_solution_id"],
+                "range_from": range_from, "range_to": range_to,
+            }).mappings().all()
+
+            occupation_rows = conn.execute(text("""
+                SELECT po.id,project.name AS project_name,lot.name AS lot_name,
+                       resource.id AS resource_id,resource.name AS resource_name,
+                       lower(po.time_range) AS started_at,
+                       upper(po.time_range) AS ended_at,po.source_kind
+                  FROM planning.physical_occupations po
+                  JOIN capacity.physical_resources resource
+                    ON resource.organization_id=po.organization_id
+                   AND resource.id=po.physical_resource_id
+                  JOIN core.project_lots lot
+                    ON lot.organization_id=po.organization_id
+                   AND lot.id=po.project_lot_id
+                  JOIN core.projects project
+                    ON project.organization_id=lot.organization_id
+                   AND project.id=lot.project_id
+                 WHERE po.organization_id=:org
+                   AND project.plant_id=:plant
+                   AND po.is_effective
+                   AND po.time_range && tstzrange(:range_from,:range_to,'[)')
+                   AND (po.source_kind='actual'
+                        OR po.schedule_solution_id=:solution)
+                 ORDER BY lower(po.time_range),po.id
+            """), {
+                "org": org, "plant": plant,
+                "solution": metadata["schedule_solution_id"],
+                "range_from": range_from, "range_to": range_to,
+            }).mappings().all()
+
+            intervals = conn.execute(text("""
+                SELECT weekday,local_start,local_end,valid_during,shift_code
+                  FROM capacity.calendar_working_intervals
+                 WHERE organization_id=:org AND calendar_id=:calendar
+                 ORDER BY weekday,local_start
+            """), {"org": org, "calendar": metadata["base_calendar_id"]}).mappings().all()
+            exceptions = conn.execute(text("""
+                SELECT exception_date,effect,time_range,reason
+                  FROM capacity.calendar_exceptions
+                 WHERE organization_id=:org AND calendar_id=:calendar
+                   AND exception_date BETWEEN :first_day AND :last_day
+                 ORDER BY exception_date,id
+            """), {
+                "org": org, "calendar": metadata["base_calendar_id"],
+                "first_day": range_from.date() - timedelta(days=1),
+                "last_day": range_to.date() + timedelta(days=1),
+            }).mappings().all()
+
+            scenario_options = conn.execute(text("""
+                SELECT s.id,s.code,s.name,s.status,s.created_at,
+                       (s.status='stale'
+                        OR s.base_state_revision_id<>h.current_revision_id
+                        OR s.base_product_definition_revision_id<>p.current_product_definition_revision_id
+                        OR s.base_plan_version_id<>p.current_plan_version_id) AS stale
+                  FROM planning.scenarios s
+                  JOIN core.plants p
+                    ON p.organization_id=s.organization_id AND p.id=s.plant_id
+                  JOIN planning.planning_state_heads h
+                    ON h.organization_id=s.organization_id AND h.plant_id=s.plant_id
+                 WHERE s.organization_id=:org AND s.plant_id=:plant
+                   AND s.scenario_kind='replan'
+                   AND s.status IN ('ready','stale')
+                 ORDER BY s.created_at DESC,s.id DESC LIMIT 50
+            """), {"org": org, "plant": plant}).mappings().all()
+
+            selected_scenario = None
+            if scenario_id is not None:
+                selected_scenario = conn.execute(text("""
+                    SELECT s.id,s.code,s.name,s.status,s.row_version,
+                           p.promotion_lock_version,sol.comparison,
+                           (s.status='stale'
+                            OR s.base_state_revision_id<>h.current_revision_id
+                            OR s.base_product_definition_revision_id<>p.current_product_definition_revision_id
+                            OR s.base_plan_version_id<>p.current_plan_version_id) AS stale
+                      FROM planning.scenarios s
+                      JOIN core.plants p
+                        ON p.organization_id=s.organization_id AND p.id=s.plant_id
+                      JOIN planning.planning_state_heads h
+                        ON h.organization_id=s.organization_id AND h.plant_id=s.plant_id
+                      JOIN LATERAL (
+                        SELECT value.comparison
+                          FROM planning.schedule_solutions value
+                         WHERE value.organization_id=s.organization_id
+                           AND value.scenario_id=s.id
+                         ORDER BY value.run_no DESC LIMIT 1
+                      ) sol ON true
+                     WHERE s.organization_id=:org AND s.plant_id=:plant
+                       AND s.id=:scenario AND s.scenario_kind='replan'
+                """), {
+                    "org": org, "plant": plant, "scenario": scenario_id,
+                }).mappings().one_or_none()
+                if selected_scenario is None:
+                    raise EntityNotFound("replan scenario not found")
+
+        operations = [dict(row) for row in operation_rows]
+        groups = _gantt_groups(operations, group_by)
+        for operation in operations:
+            operation["group_ids"] = _gantt_group_ids(operation, group_by)
+        occupations = [
+            dict(row) | {"group_id": str(row["resource_id"])}
+            for row in occupation_rows
+        ]
+        scenario = _gantt_scenario(selected_scenario) if selected_scenario else None
+        return {
+            "plan_version_id": metadata["plan_version_id"],
+            "plan_version_number": metadata["plan_version_number"],
+            "planning_state_revision_id": metadata["planning_state_revision_id"],
+            "timezone": metadata["timezone"],
+            "range_from": range_from,
+            "range_to": range_to,
+            "generated_at": datetime.now(timezone.utc),
+            "group_by": group_by,
+            "groups": groups,
+            "operations": operations,
+            "occupations": occupations,
+            "working_windows": _working_windows(
+                range_from, range_to, metadata["calendar_timezone"],
+                intervals, exceptions,
+            ),
+            "available_scenarios": [dict(row) for row in scenario_options],
+            "scenario": scenario,
+        }
+
+
+def _gantt_group_ids(operation: dict[str, Any], group_by: str) -> list[str]:
+    if group_by == "project":
+        return [str(operation["project_id"])]
+    key = {"center": "centers", "resource": "resources", "person": "people"}[group_by]
+    values = [str(item["id"]) for item in operation[key]]
+    return values or [f"unassigned-{group_by}"]
+
+
+def _gantt_groups(operations: list[dict[str, Any]], group_by: str) -> list[dict[str, Any]]:
+    values: dict[str, dict[str, Any]] = {}
+    for operation in operations:
+        if group_by == "project":
+            identifier = str(operation["project_id"])
+            values[identifier] = {
+                "id": identifier, "label": operation["project_name"],
+                "kind": "project",
+            }
+            continue
+        key = {"center": "centers", "resource": "resources", "person": "people"}[group_by]
+        for item in operation[key]:
+            identifier = str(item["id"])
+            group = {
+                "id": identifier, "label": item["name"], "kind": group_by,
+                "capacity_mode": None, "capacity": None,
+            }
+            if group_by == "center":
+                group["capacity_mode"] = item["capacity_mode"]
+                group["capacity"] = item["aggregate_capacity"]
+            elif group_by == "resource":
+                group["capacity_mode"] = item["scheduling_mode"]
+                group["capacity"] = item["capacity_units"]
+            values[identifier] = group
+        if not operation[key]:
+            values[f"unassigned-{group_by}"] = {
+                "id": f"unassigned-{group_by}",
+                "label": "Sin asignar", "kind": group_by,
+                "capacity_mode": None, "capacity": None,
+            }
+    return sorted(values.values(), key=lambda item: (item["label"].casefold(), item["id"]))
+
+
+def _gantt_scenario(row: Any) -> dict[str, Any]:
+    value = dict(row)
+    comparison = value.pop("comparison") or {}
+    operations = []
+    for item in comparison.get("operations", []):
+        impact = item.get("impact_kind")
+        if not item.get("changed"):
+            difference = "UNCHANGED"
+        elif impact == "delayed":
+            difference = "DELAYED"
+        elif impact == "advanced":
+            difference = "ADVANCED"
+        elif impact == "removed_from_future":
+            difference = "OUT_OF_HORIZON"
+        elif impact == "newly_planned":
+            difference = "NEWLY_PLANNED"
+        else:
+            difference = "SHIFTED"
+        proposed = item.get("new") or {}
+        operations.append({
+            "operation_id": item["operation_id"],
+            "planned_start": proposed.get("start"),
+            "planned_finish": proposed.get("end"),
+            "difference": difference,
+            "delta_minutes": item.get("delta_minutes"),
+        })
+    return value | {
+        "changed_operations": int(comparison.get("changed_operations", 0)),
+        "affected_projects": len(comparison.get("frontier_project_ids", [])),
+        "customer_date_alerts": int(comparison.get("customer_date_alerts", 0)),
+        "communication_recommended": int(comparison.get("customer_date_alerts", 0)) > 0,
+        "project_finish_changes": comparison.get("customer_date_alert_items", []),
+        "operations": operations,
+    }
+
+
+def _working_windows(range_from: datetime, range_to: datetime, timezone_name: str,
+                     intervals: list[Any], exceptions: list[Any]) -> list[dict[str, Any]]:
+    zone = ZoneInfo(timezone_name)
+    first_day = range_from.astimezone(zone).date()
+    last_day = (range_to - timedelta(microseconds=1)).astimezone(zone).date()
+    exceptions_by_day: dict[date, list[Any]] = {}
+    for row in exceptions:
+        exceptions_by_day.setdefault(row["exception_date"], []).append(row)
+    result: list[dict[str, Any]] = []
+    current = first_day
+    while current <= last_day:
+        windows: list[tuple[datetime, datetime, str, str | None]] = []
+        for interval in intervals:
+            valid = interval["valid_during"]
+            if interval["weekday"] != current.isoweekday():
+                continue
+            if valid.lower is not None and current < valid.lower:
+                continue
+            if valid.upper is not None and current >= valid.upper:
+                continue
+            windows.append((
+                datetime.combine(current, interval["local_start"], zone),
+                datetime.combine(current, interval["local_end"], zone),
+                "regular", interval["shift_code"],
+            ))
+        for exception in exceptions_by_day.get(current, []):
+            effect = str(exception["effect"])
+            exception_range = exception["time_range"]
+            start = exception_range.lower if exception_range is not None else None
+            end = exception_range.upper if exception_range is not None else None
+            if effect == "replace":
+                windows = []
+            elif effect == "remove":
+                if start is None or end is None:
+                    windows = []
+                else:
+                    windows = _subtract_windows(windows, start, end)
+            if effect in {"add", "replace"} and start is not None and end is not None:
+                windows.append((start, end, "exception", exception["reason"]))
+        for start, end, kind, label in windows:
+            clipped_start = max(start.astimezone(timezone.utc), range_from)
+            clipped_end = min(end.astimezone(timezone.utc), range_to)
+            if clipped_start < clipped_end:
+                result.append({
+                    "started_at": clipped_start, "ended_at": clipped_end,
+                    "kind": kind, "label": label,
+                })
+        current += timedelta(days=1)
+    return sorted(result, key=lambda item: (item["started_at"], item["ended_at"]))
+
+
+def _subtract_windows(windows: list[tuple[datetime, datetime, str, str | None]],
+                      remove_start: datetime, remove_end: datetime
+                      ) -> list[tuple[datetime, datetime, str, str | None]]:
+    result = []
+    for start, end, kind, label in windows:
+        if remove_end <= start or remove_start >= end:
+            result.append((start, end, kind, label))
+            continue
+        if start < remove_start:
+            result.append((start, remove_start, kind, label))
+        if remove_end < end:
+            result.append((remove_end, end, kind, label))
+    return result

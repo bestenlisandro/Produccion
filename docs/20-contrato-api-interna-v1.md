@@ -60,6 +60,7 @@ por servidor.
 | POST | `/scenarios/{scenario_id}/accept` | Promueve atómicamente un replan vigente |
 | GET | `/scenarios/{scenario_id}` | Lee bases, stale/rejected/promoted y plan promovido |
 | GET | `/planning/current/day?date=YYYY-MM-DD` | Lee el programa vigente del día para operación de planta |
+| GET | `/planning/current/gantt` | Lee rango temporal del plan vigente y, opcionalmente, una simulación comparable |
 | GET | `/operations/{operation_id}` | Lee el detalle operativo de una operación del plan vigente |
 | POST | `/operations/{operation_id}/replan` | Simula `REPLAN_FROM_OPERATION` sobre las bases vigentes |
 | POST | `/scenarios/{scenario_id}/reject` | Descarta una propuesta sin revertir realidad ni estimaciones |
@@ -138,3 +139,15 @@ vigentes en el servidor; el cliente sólo entrega cutoff, horizonte y razón. Ta
 replan como reject requieren `Idempotency-Key`. Reject conserva ejecución y
 `RemainingEstimateRevision`. La lectura de escenario incluye `row_version`, lock de
 promoción, resumen e impactos necesarios para confirmar o descartar desde la UI.
+
+## 10. Gantt operativo Etapa 6.2
+
+`GET /planning/current/gantt` requiere `from`, `to` con offset y `group_by` igual a
+`center`, `resource`, `person` o `project`; admite `scenario_id`. El rango debe ser
+positivo y no superar 31 días. La respuesta declara la zona IANA de la planta, plan
+y revisión vigentes, grupos, operaciones, segmentos reales, ocupaciones físicas,
+ventanas laborables, escenarios disponibles y comparación semántica seleccionada.
+
+La consulta es tenant-safe y usa siempre `current_plan_version_id`. Sin escenario
+ejecuta seis sentencias de lectura independientemente del número de operaciones; la
+selección de escenario agrega una séptima. El endpoint no publica ni modifica datos.

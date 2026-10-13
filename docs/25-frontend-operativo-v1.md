@@ -6,7 +6,8 @@ Fecha: 2026-09-21
 
 La interfaz es una SPA en `frontend/` construida con React 19, TypeScript, Vite,
 React Router y TanStack Query. Usa `fetch` nativo, CSS Modules y variables CSS. No
-incorpora Redux, Axios, framework visual, SSR, Gantt, service worker ni modo offline.
+incorpora Redux, Axios, framework visual, SSR, service worker ni modo offline. El
+Gantt se incorporó posteriormente en Etapa 6.2 y se documenta por separado.
 
 - `src/api`: cliente HTTP único y tipos generados;
 - `src/features/daily-board`: tablero, orden y traducciones industriales;
@@ -99,6 +100,6 @@ integración real permanece en pytest/PostgreSQL.
 
 - No existe autenticación productiva ni autorización UI por capabilities.
 - Playwright no sustituye las pruebas PostgreSQL.
-- No hay polling en tiempo real, Gantt, drag-and-drop, PWA u offline.
-- El corte diario usa el contrato de fecha actual; la evolución deberá formalizar
-  zonas horarias de planta para instalaciones fuera de la zona configurada.
+- No hay polling en tiempo real, drag-and-drop, PWA u offline.
+- Etapa 6.2 formalizó el rango y el eje temporal del Gantt en zona IANA de planta;
+  el contrato diario continúa recibiendo una fecha civil.

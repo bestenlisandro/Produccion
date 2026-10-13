@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response, status
@@ -269,6 +270,23 @@ def get_daily_board(day: date = Query(alias="date"), context: RequestContext = D
     plant_id = require_plant(context)
     return DailyBoardResponse(date=day, operations=[DailyOperationResponse.model_validate(row)
         for row in container.queries.daily_board(context.organization_id, plant_id, day)])
+
+
+@router.get("/planning/current/gantt", response_model=GanttResponse,
+            tags=["planning"], summary="Read the current plan and optional scenario as a timeline")
+def get_current_gantt(
+    range_from: datetime = Query(alias="from"),
+    range_to: datetime = Query(alias="to"),
+    group_by: Literal["center", "resource", "person", "project"] = "center",
+    scenario_id: UUID | None = None,
+    context: RequestContext = Depends(get_request_context),
+    container: ApiContainer = Depends(get_container),
+) -> GanttResponse:
+    plant_id = require_plant(context)
+    return GanttResponse.model_validate(container.queries.gantt(
+        context.organization_id, plant_id, range_from, range_to,
+        group_by, scenario_id,
+    ))
 
 
 @router.get("/operations/{operation_id}", response_model=OperationDetailResponse,

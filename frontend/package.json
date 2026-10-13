@@ -15,9 +15,11 @@
   },
   "dependencies": {
     "@tanstack/react-query": "latest",
+    "moment-timezone": "0.6.4",
     "react": "latest",
     "react-dom": "latest",
-    "react-router": "latest"
+    "react-router": "latest",
+    "vis-timeline": "8.5.4"
   },
   "devDependencies": {
     "@playwright/test": "latest",

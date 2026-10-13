@@ -42,6 +42,7 @@ El producto se diseña como un APS de capacidad finita: considera simultáneamen
 - [Reprogramación ante desvíos V1](docs/23-reprogramacion-desvios-v1.md)
 - [Promoción atómica del programa V1](docs/24-promocion-programa-v1.md)
 - [Frontend operativo y tablero diario V1](docs/25-frontend-operativo-v1.md)
+- [Gantt operativo, timezone y comparación V1](docs/26-gantt-operativo-v1.md)
 
 ## Entorno backend reproducible
 
@@ -92,6 +93,11 @@ y outbox en una sola transacción. No modifica ejecución ni fechas comunicadas.
 Etapa 6.1 incorpora la SPA operativa React/TypeScript en `frontend/`: tablero diario,
 detalle de operación, actualización de estimación restante y simulación con
 aceptación/rechazo. Los tipos HTTP se generan desde el OpenAPI real de FastAPI.
+
+Etapa 6.2 agrega `/planning/gantt`: cronograma de sólo lectura por centro, recurso,
+persona o proyecto; calendario en zona IANA de planta; realidad ejecutada, plan
+vigente, ocupaciones físicas y comparación semántica con simulaciones. No agrega
+migraciones ni permite drag-and-drop.
 
 ```powershell
 cd frontend

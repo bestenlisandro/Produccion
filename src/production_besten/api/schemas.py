@@ -377,3 +377,132 @@ class RejectReplanResponse(ApiModel):
     status: str
     row_version: int
     idempotent_replay: bool
+
+
+class TimelineEntity(ApiModel):
+    id: UUID
+    name: str
+
+
+class GanttCenter(TimelineEntity):
+    capacity_mode: str
+    aggregate_capacity: float | None
+
+
+class GanttResource(TimelineEntity):
+    work_center_id: UUID
+    scheduling_mode: str
+    capacity_units: float
+
+
+class GanttGroupResponse(ApiModel):
+    id: str
+    label: str
+    kind: Literal["center", "resource", "person", "project"]
+    capacity_mode: str | None = None
+    capacity: float | None = None
+
+
+class GanttActualSegmentResponse(ApiModel):
+    id: UUID
+    started_at: datetime
+    ended_at: datetime
+    work_minutes: int
+
+
+class GanttOperationResponse(ApiModel):
+    operation_id: UUID
+    project_id: UUID
+    project_code: str
+    project_name: str
+    lot_code: str | None
+    lot_name: str | None
+    operation_code: str
+    operation_name: str
+    phase_id: UUID | None
+    phase_name: str | None
+    planned_start: datetime | None
+    planned_finish: datetime | None
+    group_ids: list[str]
+    people: list[PersonDisplay] = Field(default_factory=list)
+    centers: list[GanttCenter] = Field(default_factory=list)
+    resources: list[GanttResource] = Field(default_factory=list)
+    priority: str
+    priority_rank: int
+    operational_status: str
+    executed_minutes: int
+    remaining_minutes: int | None
+    blocker_code: str | None
+    actual_segments: list[GanttActualSegmentResponse] = Field(default_factory=list)
+
+
+class GanttOccupationResponse(ApiModel):
+    id: UUID
+    project_name: str
+    lot_name: str | None
+    resource_id: UUID
+    resource_name: str
+    group_id: str
+    started_at: datetime
+    ended_at: datetime
+    source_kind: Literal["planned", "actual"]
+
+
+class GanttWorkingWindowResponse(ApiModel):
+    started_at: datetime
+    ended_at: datetime
+    kind: Literal["regular", "exception"]
+    label: str | None = None
+
+
+class GanttScenarioOptionResponse(ApiModel):
+    id: UUID
+    code: str
+    name: str
+    status: str
+    stale: bool
+    created_at: datetime
+
+
+class GanttScenarioOperationResponse(ApiModel):
+    operation_id: UUID
+    planned_start: datetime | None
+    planned_finish: datetime | None
+    difference: Literal[
+        "UNCHANGED", "SHIFTED", "ADVANCED", "DELAYED",
+        "OUT_OF_HORIZON", "NEWLY_PLANNED",
+    ]
+    delta_minutes: int | None = None
+
+
+class GanttScenarioResponse(ApiModel):
+    id: UUID
+    code: str
+    name: str
+    status: str
+    stale: bool
+    row_version: int
+    promotion_lock_version: int
+    changed_operations: int
+    affected_projects: int
+    customer_date_alerts: int
+    communication_recommended: bool
+    project_finish_changes: list[dict[str, Any]] = Field(default_factory=list)
+    operations: list[GanttScenarioOperationResponse] = Field(default_factory=list)
+
+
+class GanttResponse(ApiModel):
+    plan_version_id: UUID
+    plan_version_number: int
+    planning_state_revision_id: UUID
+    timezone: str
+    range_from: datetime
+    range_to: datetime
+    generated_at: datetime
+    group_by: Literal["center", "resource", "person", "project"]
+    groups: list[GanttGroupResponse]
+    operations: list[GanttOperationResponse]
+    occupations: list[GanttOccupationResponse]
+    working_windows: list[GanttWorkingWindowResponse]
+    available_scenarios: list[GanttScenarioOptionResponse]
+    scenario: GanttScenarioResponse | None = None
