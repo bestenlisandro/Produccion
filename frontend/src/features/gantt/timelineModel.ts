@@ -21,7 +21,13 @@ export function timelineGroups(data: GanttData): DataGroup[] {
   }))
 }
 
-export function timelineItems(data: GanttData): OperationalTimelineItem[] {
+export function isAdjustable(operation: GanttOperation) {
+  return !['FINALIZADO', 'EN_CURSO'].includes(operation.operational_status)
+    && operation.executed_minutes === 0
+    && Boolean(operation.planned_start && operation.planned_finish)
+}
+
+export function timelineItems(data: GanttData, adjustmentMode = false): OperationalTimelineItem[] {
   const items: OperationalTimelineItem[] = []
   for (const window of data.working_windows) {
     for (const group of data.groups) {
@@ -42,6 +48,9 @@ export function timelineItems(data: GanttData): OperationalTimelineItem[] {
           content: `${statusPrefix(operation.operational_status)}${operation.project_name} · ${operation.operation_name}`,
           className: `gantt-plan ${statusClass(operation.operational_status)}`,
           ariaLabel: operationLabel(operation, 'Plan vigente'),
+          editable: adjustmentMode && isAdjustable(operation)
+            ? { updateTime: true, updateGroup: data.group_by === 'resource', remove: false }
+            : false,
         })
       }
       for (const segment of operation.actual_segments ?? []) {

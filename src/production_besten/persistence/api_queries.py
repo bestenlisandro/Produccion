@@ -704,6 +704,7 @@ def _gantt_scenario(row: Any) -> dict[str, Any]:
         "communication_recommended": int(comparison.get("customer_date_alerts", 0)) > 0,
         "project_finish_changes": comparison.get("customer_date_alert_items", []),
         "operations": operations,
+        "manual_intent": comparison.get("manual_intent"),
     }
 
 

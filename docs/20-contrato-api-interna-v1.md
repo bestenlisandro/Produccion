@@ -63,6 +63,8 @@ por servidor.
 | GET | `/planning/current/gantt` | Lee rango temporal del plan vigente y, opcionalmente, una simulación comparable |
 | GET | `/operations/{operation_id}` | Lee el detalle operativo de una operación del plan vigente |
 | POST | `/operations/{operation_id}/replan` | Simula `REPLAN_FROM_OPERATION` sobre las bases vigentes |
+| POST | `/planning/activities/{operation_id}/move` | Simula un nuevo inicio y, opcionalmente, un recurso físico solicitado |
+| POST | `/planning/activities/{operation_id}/resize` | Simula una duración planificada hipotética sin alterar la estimación restante |
 | POST | `/scenarios/{scenario_id}/reject` | Descarta una propuesta sin revertir realidad ni estimaciones |
 
 Congelar desde la ruta de un proyecto identifica su planta, pero la revisión
@@ -151,3 +153,16 @@ ventanas laborables, escenarios disponibles y comparación semántica selecciona
 La consulta es tenant-safe y usa siempre `current_plan_version_id`. Sin escenario
 ejecuta seis sentencias de lectura independientemente del número de operaciones; la
 selección de escenario agrega una séptima. El endpoint no publica ni modifica datos.
+
+## 11. Ajustes asistidos Etapa 6.3
+
+`POST /planning/activities/{operation_id}/move` y `POST
+/planning/activities/{operation_id}/resize` requieren `Idempotency-Key`, el plan
+base, cutoff, horizonte y fase objetivo. MOVE admite inicio y recurso solicitado;
+RESIZE sólo acepta `PLANNED_DURATION_HYPOTHESIS`. Ambos persisten una hipótesis,
+crean un escenario y devuelven solicitado versus propuesto. Nunca alteran CURRENT.
+
+Las actividades finalizadas no se editan. Para una actividad en curso, la API deriva
+al flujo `UPDATE_REMAINING_ESTIMATE`. La selección del tenant se aplica antes de leer
+la actividad o el plan; un identificador de otra organización se informa como no
+encontrado. Véase `docs/27-gantt-ajustes-asistidos-v1.md`.

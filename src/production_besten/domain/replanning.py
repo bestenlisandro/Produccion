@@ -42,6 +42,8 @@ class ReplanRequest:
 
     @property
     def command_name(self) -> str:
+        if self.parameters and self.parameters.get("manual_hypothesis"):
+            return str(self.parameters["manual_hypothesis"]["type"])
         return "REPLAN_FROM_OPERATION" if self.trigger_operation_id else "REPLAN_PROJECT"
 
 
@@ -57,6 +59,77 @@ class ReplanResult:
     customer_date_alerts: int
     solution_sha256: str | None
     elapsed_ms: int
+    idempotent_replay: bool = False
+
+
+@dataclass(frozen=True)
+class MoveScheduledActivity:
+    organization_id: UUID
+    plant_id: UUID
+    actor_id: UUID
+    command_id: UUID
+    operation_id: UUID
+    base_plan_version_id: UUID
+    product_definition_revision_id: UUID
+    planning_state_revision_id: UUID
+    requested_start: datetime
+    cutoff_at: datetime
+    horizon_end: datetime
+    phase_id: UUID | None = None
+    requested_resource_id: UUID | None = None
+
+    def validate(self) -> None:
+        for value, label in ((self.requested_start, "requested_start"),
+                             (self.cutoff_at, "cutoff_at"),
+                             (self.horizon_end, "horizon_end")):
+            if value.tzinfo is None or value.utcoffset() is None:
+                raise InvalidSchedulingInput(f"{label} must include a timezone")
+        if self.cutoff_at >= self.horizon_end:
+            raise InvalidSchedulingInput("manual scheduling horizon must have positive duration")
+        if not self.cutoff_at <= self.requested_start < self.horizon_end:
+            raise InvalidSchedulingInput("requested_start must be inside the future horizon")
+
+
+@dataclass(frozen=True)
+class ResizeScheduledActivity:
+    organization_id: UUID
+    plant_id: UUID
+    actor_id: UUID
+    command_id: UUID
+    operation_id: UUID
+    base_plan_version_id: UUID
+    product_definition_revision_id: UUID
+    planning_state_revision_id: UUID
+    requested_duration_minutes: int
+    cutoff_at: datetime
+    horizon_end: datetime
+    phase_id: UUID | None = None
+
+    def validate(self) -> None:
+        for value, label in ((self.cutoff_at, "cutoff_at"),
+                             (self.horizon_end, "horizon_end")):
+            if value.tzinfo is None or value.utcoffset() is None:
+                raise InvalidSchedulingInput(f"{label} must include a timezone")
+        if self.cutoff_at >= self.horizon_end:
+            raise InvalidSchedulingInput("manual scheduling horizon must have positive duration")
+        if self.requested_duration_minutes <= 0:
+            raise InvalidSchedulingInput("requested_duration_minutes must be positive")
+
+
+@dataclass(frozen=True)
+class ManualScheduleResult:
+    scenario_id: UUID
+    solution_id: UUID
+    status: str
+    requested_start: datetime
+    requested_finish: datetime | None
+    proposed_start: datetime | None
+    proposed_finish: datetime | None
+    exact_request_satisfied: bool
+    changed_operations: int
+    affected_projects: int
+    customer_date_alerts: int
+    explanations: tuple[str, ...]
     idempotent_replay: bool = False
 
 

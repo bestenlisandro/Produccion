@@ -22,7 +22,8 @@ from production_besten.domain.product_definition import (
 from production_besten.domain.scheduling.models import GenerateSchedule, ScheduleGenerationResult
 from production_besten.domain.replanning import (
     AcceptReplan, AcceptReplanResult, RejectReplan, RejectReplanResult,
-    ReplanRequest, ReplanResult,
+    ManualScheduleResult, MoveScheduledActivity, ReplanRequest, ReplanResult,
+    ResizeScheduledActivity,
 )
 
 
@@ -47,6 +48,8 @@ class RemainingEstimateUnitOfWork(Protocol):
     def replan(self, command: ReplanRequest) -> ReplanResult: ...
     def reject_replan(self, command: RejectReplan) -> RejectReplanResult: ...
     def accept_replan(self, command: AcceptReplan) -> AcceptReplanResult: ...
+    def move_scheduled_activity(self, command: MoveScheduledActivity) -> ManualScheduleResult: ...
+    def resize_scheduled_activity(self, command: ResizeScheduledActivity) -> ManualScheduleResult: ...
 
 
 class UnitOfWorkFactory(Protocol):

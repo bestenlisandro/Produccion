@@ -1923,6 +1923,222 @@
         }
       }
     },
+    "/planning/activities/{operation_id}/move": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Simulate a preferred start/resource without changing CURRENT",
+        "operationId": "move_scheduled_activity_planning_activities__operation_id__move_post",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operation Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveScheduledActivityRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualScheduleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/planning/activities/{operation_id}/resize": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Simulate a planned-duration hypothesis without changing reality",
+        "operationId": "resize_scheduled_activity_planning_activities__operation_id__resize_post",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operation Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResizeScheduledActivityRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualScheduleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
     "/scenarios/{scenario_id}/reject": {
       "post": {
         "tags": [
@@ -3632,6 +3848,18 @@
             },
             "type": "array",
             "title": "Operations"
+          },
+          "manual_intent": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual Intent"
           }
         },
         "additionalProperties": false,
@@ -3858,6 +4086,177 @@
           "work_minutes"
         ],
         "title": "LaborRequirementRequest"
+      },
+      "ManualScheduleResponse": {
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Scenario Id"
+          },
+          "schedule_solution_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Schedule Solution Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "requested_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Requested Start"
+          },
+          "requested_finish": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Finish"
+          },
+          "proposed_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed Start"
+          },
+          "proposed_finish": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed Finish"
+          },
+          "exact_request_satisfied": {
+            "type": "boolean",
+            "title": "Exact Request Satisfied"
+          },
+          "changed_operations": {
+            "type": "integer",
+            "title": "Changed Operations"
+          },
+          "affected_projects": {
+            "type": "integer",
+            "title": "Affected Projects"
+          },
+          "customer_date_alerts": {
+            "type": "integer",
+            "title": "Customer Date Alerts"
+          },
+          "communication_recommended": {
+            "type": "boolean",
+            "title": "Communication Recommended"
+          },
+          "explanations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Explanations"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale",
+            "default": false
+          },
+          "idempotent_replay": {
+            "type": "boolean",
+            "title": "Idempotent Replay"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "scenario_id",
+          "schedule_solution_id",
+          "status",
+          "requested_start",
+          "requested_finish",
+          "proposed_start",
+          "proposed_finish",
+          "exact_request_satisfied",
+          "changed_operations",
+          "affected_projects",
+          "customer_date_alerts",
+          "communication_recommended",
+          "explanations",
+          "idempotent_replay"
+        ],
+        "title": "ManualScheduleResponse"
+      },
+      "MoveScheduledActivityRequest": {
+        "properties": {
+          "base_plan_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Base Plan Version Id"
+          },
+          "requested_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Requested Start"
+          },
+          "cutoff_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Cutoff At"
+          },
+          "horizon_end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Horizon End"
+          },
+          "phase_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase Id"
+          },
+          "requested_resource_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Resource Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "base_plan_version_id",
+          "requested_start",
+          "cutoff_at",
+          "horizon_end"
+        ],
+        "title": "MoveScheduledActivityRequest"
       },
       "MutationResponse": {
         "properties": {
@@ -4822,6 +5221,57 @@
           "idempotent_replay"
         ],
         "title": "ReplanResponse"
+      },
+      "ResizeScheduledActivityRequest": {
+        "properties": {
+          "base_plan_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Base Plan Version Id"
+          },
+          "requested_duration_minutes": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Requested Duration Minutes"
+          },
+          "cutoff_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Cutoff At"
+          },
+          "horizon_end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Horizon End"
+          },
+          "phase_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase Id"
+          },
+          "resize_kind": {
+            "type": "string",
+            "const": "PLANNED_DURATION_HYPOTHESIS",
+            "title": "Resize Kind"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "base_plan_version_id",
+          "requested_duration_minutes",
+          "cutoff_at",
+          "horizon_end",
+          "resize_kind"
+        ],
+        "title": "ResizeScheduledActivityRequest"
       },
       "ScenarioResponse": {
         "properties": {

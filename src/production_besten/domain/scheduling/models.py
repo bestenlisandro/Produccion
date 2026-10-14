@@ -153,6 +153,8 @@ class PhaseData:
     labor: tuple[LaborNeed, ...]
     physical: tuple[PhysicalNeed, ...]
     gates: tuple[GateData, ...]
+    manual_intent_priority: bool = False
+    requested_resource_id: UUID | None = None
 
 
 @dataclass(frozen=True)

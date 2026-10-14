@@ -121,4 +121,4 @@ def test_same_input_and_version_produce_same_semantic_segments():
     first = GreedyFiniteCapacityScheduler().schedule(value)
     second = GreedyFiniteCapacityScheduler().schedule(value)
     assert first == second
-    assert GreedyFiniteCapacityScheduler.version == "v1-greedy-2"
+    assert GreedyFiniteCapacityScheduler.version == "v1-greedy-3"

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router'
+import moment from 'moment-timezone'
 import {
   ApiError, api, type GanttGrouping, type GanttOperation,
 } from '../../api/client'
 import { ErrorState, Loading } from '../../components/AsyncState'
 import { blockerMessage, minutes } from '../daily-board/presentation'
-import { GanttTimeline } from './GanttTimeline'
+import { GanttTimeline, type GanttIntent } from './GanttTimeline'
 import { differenceLabel } from './timelineModel'
 import {
   formatRange, ganttRange, localDate, moveAnchor, plantDateTime,
@@ -29,6 +30,14 @@ export function GanttPage() {
   const [scenarioId, setScenarioId] = useState('')
   const [selected, setSelected] = useState<GanttOperation>()
   const [message, setMessage] = useState('')
+  const [adjustmentMode, setAdjustmentMode] = useState(false)
+  const [intent, setIntent] = useState<(GanttIntent & { commandId: string })>()
+  const [formStart, setFormStart] = useState('')
+  const [formDuration, setFormDuration] = useState('')
+  const [compactInteraction] = useState(
+    () => typeof window.matchMedia === 'function'
+      && window.matchMedia('(max-width: 700px)').matches,
+  )
   const range = useMemo(() => ganttRange(anchor, view, timezone), [anchor, view, timezone])
   const query = useQuery({
     queryKey: ['current-plan', 'gantt', range.from, range.to, groupBy, scenarioId || null],
@@ -68,6 +77,44 @@ export function GanttPage() {
     },
     onError: () => setMessage('No se pudo descartar la simulación.'),
   })
+  const simulate = useMutation({
+    mutationFn: async (value: GanttIntent & { commandId: string }) => {
+      const cutoff = new Date().toISOString()
+      const horizon = new Date(
+        Math.max(Date.parse(value.requestedFinish), Date.now()) + 90 * 86400000,
+      ).toISOString()
+      if (value.kind === 'resize') {
+        return api.resizeActivity(value.operation.operation_id, {
+          base_plan_version_id: query.data!.plan_version_id,
+          requested_duration_minutes: value.requestedDurationMinutes,
+          cutoff_at: cutoff, horizon_end: horizon,
+          phase_id: value.operation.phase_id,
+          resize_kind: 'PLANNED_DURATION_HYPOTHESIS',
+        }, value.commandId)
+      }
+      return api.moveActivity(value.operation.operation_id, {
+        base_plan_version_id: query.data!.plan_version_id,
+        requested_start: value.requestedStart,
+        cutoff_at: cutoff, horizon_end: horizon,
+        phase_id: value.operation.phase_id,
+        requested_resource_id: value.requestedResourceId,
+      }, value.commandId)
+    },
+    onSuccess: result => {
+      setScenarioId(result.scenario_id)
+      setIntent(undefined)
+      setMessage(result.exact_request_satisfied
+        ? 'La posición solicitada es factible. Revisá el impacto antes de confirmar.'
+        : 'El motor propuso la primera alternativa factible. Revisá motivos e impacto.')
+    },
+    onError: error => setMessage(error instanceof ApiError && error.status === 409
+      ? error.message
+      : 'No se pudo simular el ajuste manual.'),
+  })
+  const captureIntent = useCallback((value: GanttIntent) => {
+    setIntent({ ...value, commandId: crypto.randomUUID() })
+    setMessage('')
+  }, [])
 
   if (query.isPending) return <Loading label="Cargando Gantt operativo…" />
   if (query.isError) return <ErrorState retry={() => void query.refetch()} />
@@ -80,11 +127,15 @@ export function GanttPage() {
   return <main className={styles.page}>
     <header className={styles.heading}>
       <div><p className="eyebrow">PLANIFICACIÓN</p><h1>Gantt operativo</h1>
-        <p>Plan vigente V{data.plan_version_number} · {data.timezone} · Sólo lectura</p></div>
+        <p>Plan vigente V{data.plan_version_number} · {data.timezone} · {adjustmentMode ? 'Modo ajuste DEV/interno' : 'Sólo lectura'}</p></div>
       <Link to="/">TABLERO DIARIO</Link>
     </header>
 
     <section className={styles.toolbar} aria-label="Controles del Gantt">
+      <fieldset><legend>Interacción</legend>
+        <button aria-pressed={!adjustmentMode} className={!adjustmentMode ? '' : 'secondary'} onClick={() => { setAdjustmentMode(false); setIntent(undefined) }}>MODO CONSULTA</button>
+        <button aria-pressed={adjustmentMode} className={adjustmentMode ? '' : 'secondary'} onClick={() => setAdjustmentMode(true)}>MODO AJUSTE</button>
+      </fieldset>
       <div className={styles.navigation}>
         <button className="secondary" onClick={() => changeAnchor(localDate(data.timezone))}>HOY</button>
         <button className="secondary" aria-label="Período anterior" onClick={() => changeAnchor(moveAnchor(anchor, view, -1, data.timezone))}>←</button>
@@ -103,6 +154,24 @@ export function GanttPage() {
         {data.available_scenarios.map(scenario => <option key={scenario.id} value={scenario.id}>{scenario.name}{scenario.stale ? ' · obsoleta' : ''}</option>)}
       </select></label>
     </section>
+    {adjustmentMode && <p className={styles.devNotice}>Modo ajuste DEV/interno: permite simular, no constituye autorización de seguridad. Arrastrá una operación futura o usá PROPONER HORARIO.</p>}
+
+    {intent && <section className={styles.intentPanel} aria-label="Proponer cambio">
+      <p className="eyebrow">PROPUESTA MANUAL</p>
+      <h2>{intent.kind === 'resize' ? 'Proponer duración planificada' : 'Proponer horario'}</h2>
+      <dl><dt>Proyecto</dt><dd>{intent.operation.project_name}</dd>
+        <dt>Operación</dt><dd>{intent.operation.operation_name}</dd>
+        <dt>Actual</dt><dd>{plantDateTime(intent.operation.planned_start!, data.timezone)}–{plantDateTime(intent.operation.planned_finish!, data.timezone)}</dd>
+        <dt>Solicitado</dt><dd>{plantDateTime(intent.requestedStart, data.timezone)}–{plantDateTime(intent.requestedFinish, data.timezone)}</dd>
+        {intent.kind === 'resize' && <><dt>Semántica</dt><dd>Estimación planificada hipotética; no modifica realidad ni estimación original.</dd></>}
+        {intent.requestedResourceId && <><dt>Recurso solicitado</dt><dd>{data.groups.find(group => group.id === intent.requestedResourceId)?.label ?? intent.requestedResourceId}</dd></>}
+      </dl>
+      <div className="actions">
+        <button disabled={simulate.isPending} onClick={() => simulate.mutate(intent)}>SIMULAR CAMBIO</button>
+        <button className="secondary" disabled={simulate.isPending} onClick={() => setIntent(undefined)}>CANCELAR</button>
+      </div>
+      {simulate.isPending && <p aria-live="polite">Validando disponibilidad y recalculando impacto…</p>}
+    </section>}
 
     <section className={styles.legend} aria-label="Leyenda">
       <span><i className={styles.real}/> Ejecutado real</span>
@@ -121,6 +190,12 @@ export function GanttPage() {
         <dt>Cambios de entrega</dt><dd>{data.scenario.project_finish_changes?.length ?? 0}</dd>
         <dt>Fuera de horizonte</dt><dd>{outside}</dd></dl>
       {data.scenario.communication_recommended && <p className="warning">Puede ser necesario avisar al cliente.</p>}
+      {data.scenario.manual_intent && <dl>
+        <dt>Solicitaste</dt><dd>{plantDateTime(String(data.scenario.manual_intent.requested_start), data.timezone)}</dd>
+        <dt>Primera posición factible</dt><dd>{data.scenario.manual_intent.proposed_start ? plantDateTime(String(data.scenario.manual_intent.proposed_start), data.timezone) : 'Sin posición factible'}</dd>
+        <dt>Resultado</dt><dd>{data.scenario.manual_intent.exact_request_satisfied ? 'Solicitud exacta satisfecha' : 'Alternativa propuesta por restricciones'}</dd>
+        <dt>Motivo</dt><dd>{Array.isArray(data.scenario.manual_intent.explanations) ? data.scenario.manual_intent.explanations.join(', ') : 'Sin bloqueos adicionales'}</dd>
+      </dl>}
       <ul>{(data.scenario.operations ?? []).map(item => <li key={item.operation_id}>{differenceLabel(item.difference)}{item.delta_minutes ? ` · ${Math.abs(item.delta_minutes)} min` : ''}</li>)}</ul>
       {!data.scenario.stale && data.scenario.status === 'ready' && <div className="actions">
         <button disabled={accept.isPending || reject.isPending} onClick={() => accept.mutate()}>CONFIRMAR NUEVO PLAN</button>
@@ -131,7 +206,8 @@ export function GanttPage() {
 
     {data.operations.length === 0
       ? <div className="state">No hay operaciones para este rango.</div>
-      : <GanttTimeline data={data} onSelect={selectOperation} />}
+      : <GanttTimeline data={data} onSelect={selectOperation}
+          adjustmentMode={adjustmentMode && !compactInteraction} onIntent={captureIntent} />}
 
     <section className={styles.mobileList} aria-label="Operaciones visibles">
       <h2>Operaciones visibles</h2>
@@ -154,6 +230,42 @@ export function GanttPage() {
         <dt>Ejecutado</dt><dd>{minutes(selected.executed_minutes)}</dd>
         <dt>Restante vigente</dt><dd>{minutes(selected.remaining_minutes)}</dd></dl>
       {blockerMessage(selected.blocker_code) && <p className="warning"><strong>Bloqueo:</strong> {blockerMessage(selected.blocker_code)}</p>}
+      {adjustmentMode && !['FINALIZADO', 'EN_CURSO'].includes(selected.operational_status)
+        && selected.executed_minutes === 0 && <section>
+        <h3>Alternativa accesible</h3>
+        <label>Fecha y hora solicitada
+          <input type="datetime-local" value={formStart} onChange={event => setFormStart(event.target.value)} />
+        </label>
+        <button disabled={!formStart} onClick={() => {
+          const start = moment.tz(formStart, data.timezone)
+          const currentMinutes = Math.max(1, Math.round(
+            (Date.parse(selected.planned_finish!) - Date.parse(selected.planned_start!)) / 60000,
+          ))
+          captureIntent({
+            kind: 'move', operation: selected,
+            requestedStart: start.toISOString(),
+            requestedFinish: start.clone().add(currentMinutes, 'minutes').toISOString(),
+            requestedDurationMinutes: currentMinutes,
+          })
+          setSelected(undefined)
+        }}>PROPONER HORARIO</button>
+        <label>Duración planificada (minutos)
+          <input type="number" min="1" value={formDuration}
+            onChange={event => setFormDuration(event.target.value)} />
+        </label>
+        <button disabled={!Number(formDuration)} onClick={() => {
+          const duration = Number(formDuration)
+          const start = selected.planned_start!
+          captureIntent({
+            kind: 'resize', operation: selected,
+            requestedStart: start,
+            requestedFinish: new Date(Date.parse(start) + duration * 60000).toISOString(),
+            requestedDurationMinutes: duration,
+          })
+          setSelected(undefined)
+        }}>PROPONER DURACIÓN</button>
+      </section>}
+      {adjustmentMode && selected.operational_status === 'EN_CURSO' && <p className="warning">Una operación en curso no se mueve: actualizá el tiempo restante y luego simulá la reprogramación.</p>}
       <Link to={`/operations/${selected.operation_id}`}>VER DETALLE</Link>
     </aside>}
   </main>

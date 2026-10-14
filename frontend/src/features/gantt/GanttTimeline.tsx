@@ -3,17 +3,30 @@ import moment, { type MomentInput } from 'moment-timezone'
 import { Timeline, type DataItem, type TimelineOptions } from 'vis-timeline'
 import 'vis-timeline/styles/vis-timeline-graph2d.css'
 import type { GanttData, GanttOperation } from '../../api/client'
-import { timelineGroups, timelineItems, type OperationalTimelineItem } from './timelineModel'
+import {
+  isAdjustable, timelineGroups, timelineItems, type OperationalTimelineItem,
+} from './timelineModel'
+
+export type GanttIntent = {
+  kind: 'move' | 'resize'
+  operation: GanttOperation
+  requestedStart: string
+  requestedFinish: string
+  requestedDurationMinutes: number
+  requestedResourceId?: string
+}
 
 export function GanttTimeline({
-  data, onSelect,
+  data, onSelect, adjustmentMode = false, onIntent,
 }: {
   data: GanttData
   onSelect: (operation: GanttOperation) => void
+  adjustmentMode?: boolean
+  onIntent?: (intent: GanttIntent) => void
 }) {
   const container = useRef<HTMLDivElement>(null)
   const groups = useMemo(() => timelineGroups(data), [data])
-  const items = useMemo(() => timelineItems(data), [data])
+  const items = useMemo(() => timelineItems(data, adjustmentMode), [data, adjustmentMode])
 
   useEffect(() => {
     if (!container.current) return
@@ -23,12 +36,41 @@ export function GanttTimeline({
       start: data.range_from, end: data.range_to,
       min: data.range_from, max: data.range_to,
       height: '580px', orientation: 'top',
-      editable: false, groupEditable: false, itemsAlwaysDraggable: false,
+      editable: adjustmentMode, groupEditable: false, itemsAlwaysDraggable: false,
       selectable: true, moveable: true, zoomable: true,
       horizontalScroll: true, verticalScroll: true, zoomKey: 'ctrlKey',
       stack: true, stackSubgroups: true, groupHeightMode: 'fitItems',
       showCurrentTime: true, locale: 'es',
       zoomMin: 60 * 60 * 1000, zoomMax: 31 * 24 * 60 * 60 * 1000,
+      snap: date => new Date(Math.round(date.valueOf() / 900000) * 900000),
+      onMove: (raw, callback) => {
+        const item = raw as OperationalTimelineItem
+        const original = items.find(value => value.id === item.id)
+        const operation = item.operationId ? byId.get(item.operationId) : undefined
+        if (!operation || !original || !isAdjustable(operation) || !onIntent) {
+          callback(null)
+          return
+        }
+        const requestedStart = new Date(item.start as Date | string | number)
+        const requestedFinish = new Date(item.end as Date | string | number)
+        const originalStart = new Date(original.start as Date | string | number)
+        const originalFinish = new Date(original.end as Date | string | number)
+        const resized = requestedStart.valueOf() === originalStart.valueOf()
+          && requestedFinish.valueOf() !== originalFinish.valueOf()
+        onIntent({
+          kind: resized ? 'resize' : 'move',
+          operation,
+          requestedStart: requestedStart.toISOString(),
+          requestedFinish: requestedFinish.toISOString(),
+          requestedDurationMinutes: Math.max(
+            1, Math.round((requestedFinish.valueOf() - requestedStart.valueOf()) / 60000),
+          ),
+          requestedResourceId: data.group_by === 'resource'
+            && typeof item.group === 'string' && item.group !== original.group
+            ? item.group : undefined,
+        })
+        callback(null)
+      },
       moment: ((value?: MomentInput) => moment(value).tz(data.timezone)) as NonNullable<TimelineOptions['moment']>,
       template: (raw: OperationalTimelineItem | undefined) => {
         const target = document.createElement('span')
@@ -69,6 +111,6 @@ export function GanttTimeline({
     ref={container}
     className="ganttTimeline"
     role="region"
-    aria-label={`Cronograma en zona horaria ${data.timezone}. Sólo lectura.`}
+    aria-label={`Cronograma en zona horaria ${data.timezone}. ${adjustmentMode ? 'Modo ajuste.' : 'Sólo lectura.'}`}
   />
 }

@@ -328,6 +328,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/planning/activities/{operation_id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Simulate a preferred start/resource without changing CURRENT */
+        post: operations["move_scheduled_activity_planning_activities__operation_id__move_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/planning/activities/{operation_id}/resize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Simulate a planned-duration hypothesis without changing reality */
+        post: operations["resize_scheduled_activity_planning_activities__operation_id__resize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scenarios/{scenario_id}/reject": {
         parameters: {
             query?: never;
@@ -977,6 +1011,10 @@ export interface components {
             }[];
             /** Operations */
             operations?: components["schemas"]["GanttScenarioOperationResponse"][];
+            /** Manual Intent */
+            manual_intent?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** GanttWorkingWindowResponse */
         GanttWorkingWindowResponse: {
@@ -1059,6 +1097,78 @@ export interface components {
              * @default true
              */
             is_mandatory: boolean;
+        };
+        /** ManualScheduleResponse */
+        ManualScheduleResponse: {
+            /**
+             * Scenario Id
+             * Format: uuid
+             */
+            scenario_id: string;
+            /**
+             * Schedule Solution Id
+             * Format: uuid
+             */
+            schedule_solution_id: string;
+            /** Status */
+            status: string;
+            /**
+             * Requested Start
+             * Format: date-time
+             */
+            requested_start: string;
+            /** Requested Finish */
+            requested_finish: string | null;
+            /** Proposed Start */
+            proposed_start: string | null;
+            /** Proposed Finish */
+            proposed_finish: string | null;
+            /** Exact Request Satisfied */
+            exact_request_satisfied: boolean;
+            /** Changed Operations */
+            changed_operations: number;
+            /** Affected Projects */
+            affected_projects: number;
+            /** Customer Date Alerts */
+            customer_date_alerts: number;
+            /** Communication Recommended */
+            communication_recommended: boolean;
+            /** Explanations */
+            explanations: string[];
+            /**
+             * Stale
+             * @default false
+             */
+            stale: boolean;
+            /** Idempotent Replay */
+            idempotent_replay: boolean;
+        };
+        /** MoveScheduledActivityRequest */
+        MoveScheduledActivityRequest: {
+            /**
+             * Base Plan Version Id
+             * Format: uuid
+             */
+            base_plan_version_id: string;
+            /**
+             * Requested Start
+             * Format: date-time
+             */
+            requested_start: string;
+            /**
+             * Cutoff At
+             * Format: date-time
+             */
+            cutoff_at: string;
+            /**
+             * Horizon End
+             * Format: date-time
+             */
+            horizon_end: string;
+            /** Phase Id */
+            phase_id?: string | null;
+            /** Requested Resource Id */
+            requested_resource_id?: string | null;
         };
         /** MutationResponse */
         MutationResponse: {
@@ -1415,6 +1525,33 @@ export interface components {
             communication_recommended: boolean;
             /** Idempotent Replay */
             idempotent_replay: boolean;
+        };
+        /** ResizeScheduledActivityRequest */
+        ResizeScheduledActivityRequest: {
+            /**
+             * Base Plan Version Id
+             * Format: uuid
+             */
+            base_plan_version_id: string;
+            /** Requested Duration Minutes */
+            requested_duration_minutes: number;
+            /**
+             * Cutoff At
+             * Format: date-time
+             */
+            cutoff_at: string;
+            /**
+             * Horizon End
+             * Format: date-time
+             */
+            horizon_end: string;
+            /** Phase Id */
+            phase_id?: string | null;
+            /**
+             * Resize Kind
+             * @constant
+             */
+            resize_kind: "PLANNED_DURATION_HYPOTHESIS";
         };
         /** ScenarioResponse */
         ScenarioResponse: {
@@ -2930,6 +3067,152 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReplanResponse"];
+                };
+            };
+            /** @description Semantically invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Resource not found or inaccessible in tenant */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description State, concurrency, availability, gate or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Structurally invalid path, header or body */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected internal error without implementation details */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Required infrastructure or identity provider unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    move_scheduled_activity_planning_activities__operation_id__move_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveScheduledActivityRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManualScheduleResponse"];
+                };
+            };
+            /** @description Semantically invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Resource not found or inaccessible in tenant */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description State, concurrency, availability, gate or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Structurally invalid path, header or body */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected internal error without implementation details */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Required infrastructure or identity provider unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    resize_scheduled_activity_planning_activities__operation_id__resize_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResizeScheduledActivityRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManualScheduleResponse"];
                 };
             };
             /** @description Semantically invalid request */

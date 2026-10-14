@@ -1,7 +1,7 @@
 # Etapa 5.1 — Motor de planificación factible V1
 
 Fecha de validación: 2026-09-07  
-Versión vigente del algoritmo: `v1-greedy-2`
+Versión vigente del algoritmo: `v1-greedy-3`
 
 ## 1. Alcance y garantía
 
@@ -229,3 +229,9 @@ Estado 5.2:
 Estado 5.3: el mismo motor `v1-greedy-2` es orquestado por `v1-replan-1` con
 frontera incremental, anclas del plan base, comparación persistida, alerta de fecha
 comunicada y rechazo sin promoción. Véase `docs/23-reprogramacion-desvios-v1.md`.
+
+Estado 6.3: `v1-greedy-3` conserva el comportamiento determinista anterior y agrega
+prioridad de intención manual para la fase objetivo, incluido un recurso físico
+solicitado. La solicitud sigue sometida a calendarios, precedencias, capacidad,
+skills, gates y reservas; por eso la propuesta puede diferir y lo declara de forma
+explícita. Véase `docs/27-gantt-ajustes-asistidos-v1.md`.

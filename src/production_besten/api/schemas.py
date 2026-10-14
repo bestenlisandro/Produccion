@@ -367,6 +367,42 @@ class ReplanResponse(ApiModel):
     idempotent_replay: bool
 
 
+class MoveScheduledActivityRequest(ApiModel):
+    base_plan_version_id: UUID
+    requested_start: datetime
+    cutoff_at: datetime
+    horizon_end: datetime
+    phase_id: UUID | None = None
+    requested_resource_id: UUID | None = None
+
+
+class ResizeScheduledActivityRequest(ApiModel):
+    base_plan_version_id: UUID
+    requested_duration_minutes: int = Field(gt=0)
+    cutoff_at: datetime
+    horizon_end: datetime
+    phase_id: UUID | None = None
+    resize_kind: Literal["PLANNED_DURATION_HYPOTHESIS"]
+
+
+class ManualScheduleResponse(ApiModel):
+    scenario_id: UUID
+    schedule_solution_id: UUID
+    status: str
+    requested_start: datetime
+    requested_finish: datetime | None
+    proposed_start: datetime | None
+    proposed_finish: datetime | None
+    exact_request_satisfied: bool
+    changed_operations: int
+    affected_projects: int
+    customer_date_alerts: int
+    communication_recommended: bool
+    explanations: list[str]
+    stale: bool = False
+    idempotent_replay: bool
+
+
 class RejectReplanRequest(ApiModel):
     expected_row_version: int = Field(gt=0)
     reason: str = Field(min_length=1)
@@ -489,6 +525,7 @@ class GanttScenarioResponse(ApiModel):
     communication_recommended: bool
     project_finish_changes: list[dict[str, Any]] = Field(default_factory=list)
     operations: list[GanttScenarioOperationResponse] = Field(default_factory=list)
+    manual_intent: dict[str, Any] | None = None
 
 
 class GanttResponse(ApiModel):

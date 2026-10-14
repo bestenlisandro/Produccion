@@ -13,7 +13,7 @@ from production_besten.domain.scheduling.models import (
 
 
 class GreedyFiniteCapacityScheduler:
-    version = "v1-greedy-2"
+    version = "v1-greedy-3"
 
     def __init__(self) -> None:
         self._calendar_cache: dict[object, list[TimeWindow]] = {}
@@ -36,7 +36,10 @@ class GreedyFiniteCapacityScheduler:
             eligible = [phase_id for phase_id in pending if dependencies[phase_id].keys() <= outcomes.keys()]
             if not eligible:  # Defensive; cycle was checked above.
                 return SchedulingOutput("failed", False, tuple(outcomes.values()), "PRECEDENCE_CYCLE")
-            eligible.sort(key=lambda phase_id: self._priority_key(projects[phases[phase_id].project_id], phases[phase_id]))
+            eligible.sort(key=lambda phase_id: (
+                0 if phases[phase_id].manual_intent_priority else 1,
+                self._priority_key(projects[phases[phase_id].project_id], phases[phase_id]),
+            ))
             phase_id = eligible[0]
             phase = phases[phase_id]
             ready_at, inherited = self._ready_time(value, phase, dependencies[phase_id], outcomes)
@@ -248,6 +251,9 @@ class GreedyFiniteCapacityScheduler:
                     or (need.resource_group_id is not None and need.resource_group_id in resource.group_ids)
                     or (need.work_center_id is not None and resource.work_center_id == need.work_center_id))
                 if selected:
+                    if (phase.requested_resource_id is not None
+                            and resource.id != phase.requested_resource_id):
+                        continue
                     if resource.scheduling_mode == "cumulative":
                         cumulative_match = True
                         if resource.capacity_units >= cumulative_demand:
@@ -272,6 +278,8 @@ class GreedyFiniteCapacityScheduler:
                 frozenset(),
             ) for resource in cumulative_candidates)
             if not options:
+                if phase.requested_resource_id is not None:
+                    return [], "REQUESTED_RESOURCE_UNAVAILABLE_OR_INCOMPATIBLE"
                 return [], ("CUMULATIVE_CAPACITY_EXHAUSTED" if cumulative_match
                             else "PHYSICAL_RESOURCE_UNAVAILABLE")
             choices.append(options)

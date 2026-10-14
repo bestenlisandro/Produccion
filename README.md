@@ -43,6 +43,7 @@ El producto se diseña como un APS de capacidad finita: considera simultáneamen
 - [Promoción atómica del programa V1](docs/24-promocion-programa-v1.md)
 - [Frontend operativo y tablero diario V1](docs/25-frontend-operativo-v1.md)
 - [Gantt operativo, timezone y comparación V1](docs/26-gantt-operativo-v1.md)
+- [Gantt asistido: mover y redimensionar como hipótesis](docs/27-gantt-ajustes-asistidos-v1.md)
 
 ## Entorno backend reproducible
 
@@ -98,6 +99,12 @@ Etapa 6.2 agrega `/planning/gantt`: cronograma de sólo lectura por centro, recu
 persona o proyecto; calendario en zona IANA de planta; realidad ejecutada, plan
 vigente, ocupaciones físicas y comparación semántica con simulaciones. No agrega
 migraciones ni permite drag-and-drop.
+
+Etapa 6.3 agrega un modo explícito de ajuste asistido. Mover o redimensionar una
+actividad futura genera una hipótesis y un escenario: el plan vigente nunca cambia
+por arrastre ni antes de una aceptación explícita. El motor `v1-greedy-3` prioriza
+la intención manual, conserva todas las restricciones y explica cualquier diferencia
+entre lo solicitado y lo propuesto.
 
 ```powershell
 cd frontend

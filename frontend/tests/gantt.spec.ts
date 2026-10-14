@@ -75,11 +75,34 @@ test('performance: render inicial de 50 proyectos y 250 operaciones',async({page
       group_ids:[group.id],actual_segments:[],
     }
   })
-  await page.route('**/api/planning/current/gantt**',route=>route.fulfill({json:{...ganttFixture,group_by:'project',groups,operations,occupations:[]}}))
+  const scenarioOperations=operations.map((item,index)=>({
+    operation_id:item.operation_id,
+    planned_start:'2026-09-29T12:00:00Z',
+    planned_finish:'2026-09-29T16:00:00Z',
+    difference:index%2===0?'DELAYED':'UNCHANGED',
+    delta_minutes:index%2===0?60:0,
+  }))
+  await page.route('**/api/planning/current/gantt**',route=>{
+    const selected=new URL(route.request().url()).searchParams.has('scenario_id')
+    return route.fulfill({json:{
+      ...ganttFixture,group_by:'project',groups,operations,occupations:[],
+      scenario:selected?{
+        ...ganttScenarioFixture.scenario!,changed_operations:250,
+        affected_projects:50,operations:scenarioOperations,
+      }:null,
+    }})
+  })
   const started=Date.now();await page.goto('/planning/gantt',{waitUntil:'domcontentloaded'})
   await expect(page.locator('.vis-item.gantt-plan').first()).toBeAttached()
   await expect(page.locator('section[aria-label="Operaciones visibles"] button')).toHaveCount(250)
   const elapsed=Date.now()-started
   console.log(`GANTT_RENDER_BENCHMARK 50/250=${elapsed}ms`)
   expect(elapsed).toBeLessThan(5000)
+  const overlayStarted=Date.now()
+  await page.getByLabel('Comparar con').selectOption(ganttScenarioFixture.scenario!.id)
+  await expect(page.locator('.vis-item.gantt-scenario').first()).toBeAttached()
+  await expect(page.getByText('Operaciones afectadas').locator('..')).toContainText('250')
+  const overlayElapsed=Date.now()-overlayStarted
+  console.log(`GANTT_OVERLAY_BENCHMARK 50/250=${overlayElapsed}ms`)
+  expect(overlayElapsed).toBeLessThan(5000)
 })

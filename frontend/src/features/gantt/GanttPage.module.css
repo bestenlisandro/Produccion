@@ -4,3 +4,21 @@
 
 @media(max-width:1200px){.toolbar{grid-template-columns:1fr 1fr}.navigation{grid-column:1/-1}.impact{grid-template-columns:1fr 1fr}}
 @media(max-width:700px){.heading{align-items:stretch;flex-direction:column}.toolbar{position:static;grid-template-columns:1fr}.navigation{grid-template-columns:auto auto 1fr auto}.navigation label{grid-column:1/-1}.toolbar fieldset{flex-wrap:wrap}.legend{font-size:.72rem}:global(.ganttTimeline){min-width:900px}.page{overflow-x:auto}.mobileList{display:grid;gap:.5rem;margin-top:1rem}.mobileList button{text-align:left}.impact{grid-template-columns:1fr}.popover{right:1rem;bottom:1rem}}
+.devNotice {
+  border-left: 4px solid var(--warning, #c87900);
+  padding: .75rem 1rem;
+  background: #fff6df;
+}
+
+.intentPanel {
+  border: 2px solid #235f77;
+  border-radius: .75rem;
+  padding: 1rem;
+  background: #f4fbfd;
+}
+
+.intentPanel dl {
+  display: grid;
+  grid-template-columns: minmax(8rem, auto) 1fr;
+  gap: .35rem 1rem;
+}

@@ -18,8 +18,9 @@ from production_besten.domain.errors import (
     SchedulingBaseStale,
 )
 from production_besten.domain.replanning import (
-    AcceptReplan, AcceptReplanResult, RejectReplan, RejectReplanResult,
-    ReplanRequest, ReplanResult,
+    AcceptReplan, AcceptReplanResult, ManualScheduleResult, MoveScheduledActivity,
+    RejectReplan, RejectReplanResult, ReplanRequest, ReplanResult,
+    ResizeScheduledActivity,
 )
 from production_besten.domain.scheduling.engine import GreedyFiniteCapacityScheduler
 from production_besten.domain.scheduling.models import (
@@ -187,7 +188,9 @@ class PostgresSchedulingUnitOfWork:
                              or replay_meta.get("trigger_project_id"))
             if (replay["parameters"].get("command") != command.command_name
                     or replay_meta.get("cutoff_at") != command.cutoff_at.isoformat()
-                    or stored_target != expected_target):
+                    or stored_target != expected_target
+                    or replay["parameters"].get("manual_hypothesis")
+                       != (command.parameters or {}).get("manual_hypothesis")):
                 raise IdempotencyConflict(
                     "idempotency key was reused with incompatible replan data"
                 )
@@ -289,6 +292,191 @@ class PostgresSchedulingUnitOfWork:
             generated.complete, frontier_projects, frontier_operations,
             comparison["changed_operations"], comparison["customer_date_alerts"],
             generated.solution_sha256, generated.elapsed_ms,
+        )
+
+    def move_scheduled_activity(
+        self, command: MoveScheduledActivity
+    ) -> ManualScheduleResult:
+        command.validate()
+        return self._manual_schedule(command, "MOVE_SCHEDULED_ACTIVITY")
+
+    def resize_scheduled_activity(
+        self, command: ResizeScheduledActivity
+    ) -> ManualScheduleResult:
+        command.validate()
+        return self._manual_schedule(command, "RESIZE_SCHEDULED_ACTIVITY")
+
+    def _manual_schedule(self, command, hypothesis_type: str) -> ManualScheduleResult:
+        baseline = self.conn.execute(text("""
+            SELECT pv.schedule_solution_id,opr.planned_start_at,opr.planned_end_at,
+                   opr.result_status,
+                   (SELECT oe.status
+                      FROM execution.operation_executions oe
+                     WHERE oe.organization_id=opr.organization_id
+                       AND oe.required_operation_id=opr.required_operation_id
+                     ORDER BY oe.created_at DESC,oe.id DESC LIMIT 1) AS execution_status
+              FROM planning.plan_versions pv
+              JOIN planning.operation_plan_results opr
+                ON opr.organization_id=pv.organization_id
+               AND opr.schedule_solution_id=pv.schedule_solution_id
+             WHERE pv.organization_id=:org AND pv.plant_id=:plant
+               AND pv.id=:plan AND opr.required_operation_id=:operation
+        """), {
+            "org": command.organization_id, "plant": command.plant_id,
+            "plan": command.base_plan_version_id, "operation": command.operation_id,
+        }).mappings().one_or_none()
+        if baseline is None:
+            raise EntityNotFound("scheduled activity not found in base plan and tenant")
+        if baseline["execution_status"] in {"completed", "cancelled"}:
+            raise ReplanConflict("completed or cancelled activity cannot be adjusted")
+        if baseline["execution_status"] in {"running", "paused"}:
+            raise ReplanConflict(
+                "running activity cannot be moved or resized; use UPDATE_REMAINING_ESTIMATE"
+            )
+        if baseline["planned_start_at"] is None:
+            raise ReplanConflict("activity outside the current horizon cannot be adjusted")
+        if command.phase_id is not None and not self.conn.scalar(text("""
+            SELECT EXISTS(
+                SELECT 1 FROM production.required_operation_phases
+                 WHERE organization_id=:org AND id=:phase
+                   AND required_operation_id=:operation
+            )
+        """), {
+            "org": command.organization_id, "phase": command.phase_id,
+            "operation": command.operation_id,
+        }):
+            raise EntityNotFound("phase not found in operation and tenant")
+
+        requested_start = (
+            command.requested_start
+            if hypothesis_type == "MOVE_SCHEDULED_ACTIVITY"
+            else baseline["planned_start_at"]
+        )
+        duration = (
+            command.requested_duration_minutes
+            if hypothesis_type == "RESIZE_SCHEDULED_ACTIVITY"
+            else None
+        )
+        requested_resource = getattr(command, "requested_resource_id", None)
+        if requested_resource is not None and not self.conn.scalar(text("""
+            SELECT EXISTS(
+                SELECT 1 FROM capacity.physical_resources
+                 WHERE organization_id=:org AND plant_id=:plant AND id=:resource
+                   AND status='active'
+            )
+        """), {
+            "org": command.organization_id, "plant": command.plant_id,
+            "resource": requested_resource,
+        }):
+            raise EntityNotFound("requested resource not found in plant and tenant")
+
+        manual = {
+            "schema_version": 1,
+            "type": hypothesis_type,
+            "target_operation_id": str(command.operation_id),
+            "target_phase_id": str(command.phase_id) if command.phase_id else None,
+            "requested_start": requested_start.isoformat(),
+            "requested_resource_id": str(requested_resource) if requested_resource else None,
+            "requested_duration_minutes": duration,
+            "anchor_policy": "earliest_at_or_after",
+            "resize_kind": (
+                "PLANNED_DURATION_HYPOTHESIS"
+                if hypothesis_type == "RESIZE_SCHEDULED_ACTIVITY" else None
+            ),
+        }
+        replan = ReplanRequest(
+            command.organization_id, command.plant_id, command.actor_id,
+            str(command.command_id), f"MAN-{command.command_id.hex[:12]}",
+            "Ajuste manual asistido", command.cutoff_at, command.horizon_end,
+            command.product_definition_revision_id,
+            command.planning_state_revision_id, command.base_plan_version_id,
+            trigger_operation_id=command.operation_id,
+            parameters={"source": "gantt-assisted-editing",
+                        "manual_hypothesis": manual},
+        )
+        generated = self.replan(replan)
+        self.conn.execute(text("""
+            INSERT INTO planning.simulation_hypotheses
+              (organization_id,scenario_id,hypothesis_no,hypothesis_type,
+               target_type,target_id,parameters,description)
+            VALUES (:org,:scenario,1,:type,'required_operation',:target,
+                    CAST(:parameters AS jsonb),:description)
+            ON CONFLICT (organization_id,scenario_id,hypothesis_no) DO NOTHING
+        """), {
+            "org": command.organization_id, "scenario": generated.scenario_id,
+            "type": hypothesis_type, "target": command.operation_id,
+            "parameters": _json(manual),
+            "description": (
+                "Preferencia de inicio/recurso creada desde el Gantt"
+                if hypothesis_type == "MOVE_SCHEDULED_ACTIVITY"
+                else "Estimación planificada hipotética creada desde el Gantt"
+            ),
+        })
+        proposed = self.conn.execute(text("""
+            SELECT opr.planned_start_at,opr.planned_end_at,opr.explanation,
+                   COALESCE(sum(ppr.planned_work_minutes),0) AS planned_minutes
+              FROM planning.operation_plan_results opr
+              LEFT JOIN planning.phase_plan_results ppr
+                ON ppr.organization_id=opr.organization_id
+               AND ppr.operation_plan_result_id=opr.id
+             WHERE opr.organization_id=:org AND opr.schedule_solution_id=:solution
+               AND opr.required_operation_id=:operation
+             GROUP BY opr.id
+        """), {
+            "org": command.organization_id, "solution": generated.solution_id,
+            "operation": command.operation_id,
+        }).mappings().one_or_none()
+        proposed_start = proposed["planned_start_at"] if proposed else None
+        proposed_finish = proposed["planned_end_at"] if proposed else None
+        old_span = (
+            baseline["planned_end_at"] - baseline["planned_start_at"]
+            if baseline["planned_end_at"] else None
+        )
+        requested_finish = (
+            requested_start + old_span
+            if hypothesis_type == "MOVE_SCHEDULED_ACTIVITY" and old_span
+            else requested_start + timedelta(minutes=duration)
+            if duration is not None else None
+        )
+        exact = (
+            proposed_start == requested_start
+            if hypothesis_type == "MOVE_SCHEDULED_ACTIVITY"
+            else bool(proposed and int(proposed["planned_minutes"]) == duration)
+        )
+        blockers = tuple((proposed["explanation"] or {}).get("blockers", ())) if proposed else (
+            "OUT_OF_HORIZON",
+        )
+        explanation = blockers or (
+            ("REQUESTED_START_SATISFIED",) if exact
+            else ("FIRST_FEASIBLE_POSITION_PROPOSED",)
+        )
+        comparison = self.conn.execute(text("""
+            SELECT comparison FROM planning.schedule_solutions
+             WHERE organization_id=:org AND id=:solution
+        """), {
+            "org": command.organization_id, "solution": generated.solution_id,
+        }).scalar_one() or {}
+        comparison["manual_intent"] = {
+            **manual,
+            "proposed_start": proposed_start,
+            "proposed_finish": proposed_finish,
+            "exact_request_satisfied": exact,
+            "explanations": list(explanation),
+        }
+        self.conn.execute(text("""
+            UPDATE planning.schedule_solutions
+               SET comparison=CAST(:comparison AS jsonb)
+             WHERE organization_id=:org AND id=:solution
+        """), {
+            "comparison": _json(comparison), "org": command.organization_id,
+            "solution": generated.solution_id,
+        })
+        return ManualScheduleResult(
+            generated.scenario_id, generated.solution_id, generated.status,
+            requested_start, requested_finish, proposed_start, proposed_finish,
+            exact, generated.changed_operations,
+            len(generated.frontier_project_ids), generated.customer_date_alerts,
+            explanation, generated.idempotent_replay,
         )
 
     def reject_replan(self, command: RejectReplan) -> RejectReplanResult:
@@ -919,6 +1107,7 @@ class PostgresSchedulingUnitOfWork:
     def _apply_replanning_state(self, command, phases):
         """Freeze history at cutoff and replace only running work with its latest remainder."""
         replan = command.parameters["replan"]
+        manual = command.parameters.get("manual_hypothesis")
         cutoff = datetime.fromisoformat(replan["cutoff_at"])
         baseline = UUID(replan["base_solution_id"])
         operation_ids = [phase.operation_id for phase in phases]
@@ -949,6 +1138,22 @@ class PostgresSchedulingUnitOfWork:
         result = []
         revision_by_phase = {}
         seen_running = set()
+        manual_phase_id = None
+        if manual:
+            target_operation_id = UUID(manual["target_operation_id"])
+            manual_phase_id = (
+                UUID(manual["target_phase_id"])
+                if manual.get("target_phase_id")
+                else min(
+                    (phase.id for phase in phases
+                     if phase.operation_id == target_operation_id),
+                    key=lambda phase_id: next(
+                        (item.sequence_no, item.code) for item in phases
+                        if item.id == phase_id
+                    ),
+                    default=None,
+                )
+            )
         for phase in phases:
             execution = by_operation.get(phase.operation_id)
             if execution and execution["status"] in {"completed", "cancelled"}:
@@ -967,8 +1172,21 @@ class PostgresSchedulingUnitOfWork:
                     if execution["revision_id"]:
                         revision_by_phase[phase.id] = execution["revision_id"]
                 earliest = cutoff
+            manual_priority = False
+            requested_resource_id = None
+            if manual and phase.id == manual_phase_id:
+                manual_priority = True
+                earliest = max(cutoff, datetime.fromisoformat(manual["requested_start"]))
+                if manual.get("requested_duration_minutes") is not None:
+                    minutes = int(manual["requested_duration_minutes"])
+                    if len(labor) == 1:
+                        labor = (replace(labor[0], work_minutes=minutes),)
+                if manual.get("requested_resource_id"):
+                    requested_resource_id = UUID(manual["requested_resource_id"])
             result.append(replace(
-                phase, original_minutes=minutes, labor=labor, earliest_start=earliest
+                phase, original_minutes=minutes, labor=labor, earliest_start=earliest,
+                manual_intent_priority=manual_priority,
+                requested_resource_id=requested_resource_id,
             ))
         return tuple(result), revision_by_phase
 

@@ -16,13 +16,19 @@ from production_besten.application.product_definition_services import (
     CreateRequiredOperationPhaseService, CreateRequiredOperationService, DefineBatchRouteService,
 )
 from production_besten.application.update_remaining_estimate import UpdateRemainingEstimateService
-from production_besten.application.replanning_services import AcceptReplanService, RejectReplanService, ReplanService
+from production_besten.application.replanning_services import (
+    AcceptReplanService, MoveScheduledActivityService, RejectReplanService,
+    ReplanService, ResizeScheduledActivityService,
+)
 from production_besten.domain.execution import FinishOperation, HumanUsage, PhysicalOccupation, PhysicalUsage, RegisterExecutionSegment, StartOperation
 from production_besten.domain.product_definition import (
     CreateProductDefinitionRevision, CreateProductionBatch, CreateProject, CreateRequiredOperation,
     CreateRequiredOperationPhase, DefineBatchRoute, LaborRequirement, OperationGate, PhysicalRequirement,
 )
-from production_besten.domain.replanning import AcceptReplan, RejectReplan, ReplanRequest
+from production_besten.domain.replanning import (
+    AcceptReplan, MoveScheduledActivity, RejectReplan, ReplanRequest,
+    ResizeScheduledActivity,
+)
 from production_besten.persistence.execution_uow import PostgresExecutionUnitOfWorkFactory
 from production_besten.persistence.product_definition_uow import PostgresProductDefinitionUnitOfWorkFactory
 from production_besten.persistence.remaining_estimate_uow import PostgresUnitOfWorkFactory
@@ -322,6 +328,75 @@ def replan_from_operation(operation_id: UUID, body: ReplanFromOperationRequest, 
         customer_date_alerts=result.customer_date_alerts,
         communication_recommended=result.customer_date_alerts > 0,
         idempotent_replay=result.idempotent_replay)
+
+
+def _manual_response(result) -> ManualScheduleResponse:
+    return ManualScheduleResponse(
+        scenario_id=result.scenario_id,
+        schedule_solution_id=result.solution_id,
+        status=result.status,
+        requested_start=result.requested_start,
+        requested_finish=result.requested_finish,
+        proposed_start=result.proposed_start,
+        proposed_finish=result.proposed_finish,
+        exact_request_satisfied=result.exact_request_satisfied,
+        changed_operations=result.changed_operations,
+        affected_projects=result.affected_projects,
+        customer_date_alerts=result.customer_date_alerts,
+        communication_recommended=result.customer_date_alerts > 0,
+        explanations=list(result.explanations),
+        idempotent_replay=result.idempotent_replay,
+    )
+
+
+@router.post("/planning/activities/{operation_id}/move",
+             response_model=ManualScheduleResponse,
+             status_code=status.HTTP_201_CREATED, tags=["planning"],
+             summary="Simulate a preferred start/resource without changing CURRENT")
+def move_scheduled_activity(
+    operation_id: UUID, body: MoveScheduledActivityRequest, response: Response,
+    command_id: UUID = Depends(get_idempotency_key),
+    context: RequestContext = Depends(get_request_context),
+    container: ApiContainer = Depends(get_container),
+) -> ManualScheduleResponse:
+    plant_id = require_plant(context)
+    base = container.queries.replan_context(context.organization_id, plant_id)
+    result = MoveScheduledActivityService(_scheduling_factory(container)).execute(
+        MoveScheduledActivity(
+            context.organization_id, plant_id, context.user_id, command_id,
+            operation_id, body.base_plan_version_id, base["definition_id"],
+            base["state_id"], body.requested_start, body.cutoff_at,
+            body.horizon_end, body.phase_id, body.requested_resource_id,
+        )
+    )
+    if result.idempotent_replay:
+        response.status_code = status.HTTP_200_OK
+    return _manual_response(result)
+
+
+@router.post("/planning/activities/{operation_id}/resize",
+             response_model=ManualScheduleResponse,
+             status_code=status.HTTP_201_CREATED, tags=["planning"],
+             summary="Simulate a planned-duration hypothesis without changing reality")
+def resize_scheduled_activity(
+    operation_id: UUID, body: ResizeScheduledActivityRequest, response: Response,
+    command_id: UUID = Depends(get_idempotency_key),
+    context: RequestContext = Depends(get_request_context),
+    container: ApiContainer = Depends(get_container),
+) -> ManualScheduleResponse:
+    plant_id = require_plant(context)
+    base = container.queries.replan_context(context.organization_id, plant_id)
+    result = ResizeScheduledActivityService(_scheduling_factory(container)).execute(
+        ResizeScheduledActivity(
+            context.organization_id, plant_id, context.user_id, command_id,
+            operation_id, body.base_plan_version_id, base["definition_id"],
+            base["state_id"], body.requested_duration_minutes, body.cutoff_at,
+            body.horizon_end, body.phase_id,
+        )
+    )
+    if result.idempotent_replay:
+        response.status_code = status.HTTP_200_OK
+    return _manual_response(result)
 
 
 @router.post("/scenarios/{scenario_id}/reject", response_model=RejectReplanResponse,

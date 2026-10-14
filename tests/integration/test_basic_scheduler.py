@@ -24,7 +24,7 @@ def test_creates_ready_scenario_and_solution_without_publishing_plan(engine, see
         row = connection.execute(text("SELECT s.status,x.status,x.algorithm_version FROM planning.scenarios s JOIN planning.schedule_solutions x ON x.organization_id=s.organization_id AND x.scenario_id=s.id WHERE s.id=:id"), {"id": result.scenario_id}).one()
         current = connection.scalar(text("SELECT current_plan_version_id FROM core.plants WHERE id=:id"), {"id": seeded_case.plant_id})
     assert result.status == "ready" and result.complete
-    assert row == ("ready", "ready", "v1-greedy-2")
+    assert row == ("ready", "ready", "v1-greedy-3")
     assert current == before
 
 
@@ -33,7 +33,7 @@ def test_persists_frozen_input_and_hashes(engine, seeded_case):
     result = generate(engine, seeded_case)
     with engine.connect() as connection:
         row = connection.execute(text("SELECT input_snapshot,octet_length(input_sha256),octet_length(solution_sha256) FROM planning.schedule_solutions WHERE id=:id"), {"id": result.solution_id}).one()
-    assert row[0]["scheduler_version"] == "v1-greedy-2"
+    assert row[0]["scheduler_version"] == "v1-greedy-3"
     assert "capacity_and_state" in row[0] and "product_definition" in row[0]
     assert row[1:] == (32, 32)
 

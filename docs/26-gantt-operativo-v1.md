@@ -10,8 +10,11 @@ ventanas de calendario y una simulación opcional sin mezclarla con el programa
 publicado. Permite vistas día, semana y dos semanas, navegación temporal y agrupación
 por centro, recurso físico, persona o proyecto.
 
-No existe drag-and-drop ni edición directa. Aceptar o rechazar reutiliza los comandos
-transaccionales de Etapa 5.4 y vuelve a leer el plan desde el servidor.
+En Etapa 6.2 no existía drag-and-drop ni edición directa. Etapa 6.3 extiende esta
+vista con un modo de ajuste asistido: el gesto se revierte visualmente, se confirma
+como hipótesis y sólo un ACCEPT_REPLAN explícito puede promover el escenario.
+Aceptar o rechazar reutiliza los comandos transaccionales de Etapa 5.4 y vuelve a
+leer el plan desde el servidor.
 
 ## Gate de zona horaria
 
