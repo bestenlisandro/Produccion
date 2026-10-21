@@ -249,6 +249,9 @@ def test_two_projects_share_capacity_by_priority(engine, seeded_case):
 def test_different_people_and_resources_allow_simultaneous_work(engine, seeded_case):
     prepare_basic(engine, seeded_case)
     with engine.begin() as connection:
+        # Two independent stations also require two units of center capacity.
+        connection.execute(text("UPDATE capacity.work_centers SET aggregate_capacity=2 WHERE organization_id=:org AND id=:id"),
+                           {"org": seeded_case.organization_id, "id": seeded_case.work_center_id})
         skill2, type2 = uuid4(), uuid4()
         connection.execute(text("INSERT INTO capacity.skills(id,organization_id,code,name) VALUES (:id,:org,:code,'Skill 2')"), {"id": skill2, "org": seeded_case.organization_id, "code": f"SK2-{skill2.hex[:6]}"})
         add_employee(connection, seeded_case, f"ZZ-EMP-{uuid4().hex[:6]}", skill_id=skill2)

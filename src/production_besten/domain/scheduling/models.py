@@ -69,6 +69,7 @@ class CalendarInterval:
     local_end: time
     valid_from: date | None
     valid_to: date | None
+    capacity_factor: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -77,6 +78,7 @@ class CalendarException:
     effect: str
     start: datetime | None
     end: datetime | None
+    capacity_factor: float | None = None
 
 
 @dataclass(frozen=True)
@@ -104,6 +106,14 @@ class ResourceData:
     work_center_id: UUID
     group_ids: frozenset[UUID]
     scheduling_mode: str
+    capacity_units: float
+
+
+@dataclass(frozen=True)
+class WorkCenterData:
+    id: UUID
+    code: str
+    calendar_id: UUID
     capacity_units: float
 
 
@@ -206,6 +216,7 @@ class SchedulingInput:
     actual_occupations: dict[UUID, tuple[TimeWindow, ...]]
     actual_capacity_usage: dict[UUID, tuple[CapacityUsage, ...]]
     overtime: tuple[OvertimeData, ...]
+    work_centers: dict[UUID, WorkCenterData] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

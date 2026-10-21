@@ -6,8 +6,9 @@ import { queryClient } from './app/queryClient'
 import { DailyBoard } from './features/daily-board/DailyBoard'
 import { OperationDetail } from './features/operations/OperationDetail'
 import { GanttPage } from './features/gantt/GanttPage'
+import { MasterDataPage } from './features/master-data/MasterDataPage'
 import { Root, RouteError } from './routes/Root'
 import './styles/global.css'
 
-const router=createBrowserRouter([{path:'/',Component:Root,ErrorBoundary:RouteError,children:[{index:true,Component:DailyBoard},{path:'operations/:operationId',Component:OperationDetail},{path:'planning/gantt',Component:GanttPage}]}])
+const router=createBrowserRouter([{path:'/',Component:Root,ErrorBoundary:RouteError,children:[{index:true,Component:DailyBoard},{path:'operations/:operationId',Component:OperationDetail},{path:'planning/gantt',Component:GanttPage},{path:'settings',Component:MasterDataPage}]}])
 createRoot(document.getElementById('root')!).render(<StrictMode><QueryClientProvider client={queryClient}><RouterProvider router={router}/></QueryClientProvider></StrictMode>)

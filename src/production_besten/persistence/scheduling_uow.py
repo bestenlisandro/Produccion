@@ -10,6 +10,7 @@ from decimal import Decimal
 from math import ceil
 from typing import Any
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import Connection, Engine, text
 
@@ -27,7 +28,7 @@ from production_besten.domain.scheduling.models import (
     CalendarData, CalendarException, CalendarInterval, CapacityUsage, EmployeeData, GateData,
     GenerateSchedule, LaborNeed, OvertimeData, PhaseData, PhysicalNeed,
     PrecedenceData, ProjectData, ResourceData, ScheduleGenerationResult,
-    SchedulingInput, SchedulingOutput, TimeWindow,
+    SchedulingInput, SchedulingOutput, TimeWindow, WorkCenterData,
 )
 
 
@@ -885,7 +886,8 @@ class PostgresSchedulingUnitOfWork:
             self.conn.scalar(text("SELECT base_calendar_id FROM core.plants WHERE organization_id=:org AND id=:plant"), {"org": command.organization_id, "plant": command.plant_id}),
             command.horizon_start, command.horizon_end, command.product_definition_revision_id,
             command.planning_state_revision_id, base_plan, projects, phases, precedences, calendars,
-            employees, resources, unavailability, occupations, actual_capacity, overtime), definition["canonical_snapshot"]
+            employees, resources, unavailability, occupations, actual_capacity, overtime,
+            self._work_centers), definition["canonical_snapshot"]
 
     def _impact_frontier(self, command, baseline_solution_id):
         operations = self.conn.execute(text("""
@@ -1260,27 +1262,39 @@ class PostgresSchedulingUnitOfWork:
         return result
 
     def _load_capacity(self, command, scenario_id):
+        center_rows = self.conn.execute(text("""
+            SELECT w.id,w.code,w.capacity_mode,w.aggregate_capacity,
+                   COALESCE(w.base_calendar_id,p.base_calendar_id) AS calendar
+            FROM capacity.work_centers w JOIN core.plants p
+              ON p.organization_id=w.organization_id AND p.id=w.plant_id
+            WHERE w.organization_id=:org AND w.plant_id=:plant AND w.status='active' ORDER BY w.code
+        """), {"org": command.organization_id, "plant": command.plant_id}).mappings().all()
+        self._work_centers = {r["id"]: WorkCenterData(r["id"], r["code"], r["calendar"],
+            1.0 if r["capacity_mode"] == "exclusive" else float(r["aggregate_capacity"])) for r in center_rows}
         employee_rows = self.conn.execute(text("SELECT id,code,base_calendar_id FROM capacity.employees WHERE organization_id=:org AND plant_id=:plant AND status='active' ORDER BY code"), {"org": command.organization_id, "plant": command.plant_id}).mappings().all()
-        end_date = (command.horizon_end - timedelta(microseconds=1)).date()
-        skill_rows = self.conn.execute(text("SELECT employee_id,skill_id FROM capacity.employee_skills WHERE organization_id=:org AND enabled AND employee_id=ANY(:ids) AND valid_during @> CAST(:start AS date) AND valid_during @> CAST(:finish AS date) ORDER BY employee_id,skill_id"), {"org": command.organization_id, "ids": [r["id"] for r in employee_rows], "start": command.horizon_start.date(), "finish": end_date}).all() if employee_rows else []
+        plant_zone = ZoneInfo(self.conn.scalar(text("SELECT timezone FROM core.plants WHERE organization_id=:org AND id=:plant"), {"org": command.organization_id, "plant": command.plant_id}))
+        start_date = command.horizon_start.astimezone(plant_zone).date()
+        end_date = (command.horizon_end - timedelta(microseconds=1)).astimezone(plant_zone).date()
+        skill_rows = self.conn.execute(text("SELECT es.employee_id,es.skill_id FROM capacity.employee_skills es JOIN capacity.skills s ON s.organization_id=es.organization_id AND s.id=es.skill_id AND s.status='active' WHERE es.organization_id=:org AND es.enabled AND es.employee_id=ANY(:ids) AND es.valid_during @> CAST(:start AS date) AND es.valid_during @> CAST(:finish AS date) ORDER BY es.employee_id,es.skill_id"), {"org": command.organization_id, "ids": [r["id"] for r in employee_rows], "start": start_date, "finish": end_date}).all() if employee_rows else []
         skills = defaultdict(set)
         for employee, skill in skill_rows: skills[employee].add(skill)
         employees = tuple(EmployeeData(row["id"], row["code"], row["base_calendar_id"], frozenset(skills[row["id"]])) for row in employee_rows)
-        resource_rows = self.conn.execute(text("SELECT id,code,base_calendar_id,resource_type_id,work_center_id,scheduling_mode,capacity_units FROM capacity.physical_resources WHERE organization_id=:org AND plant_id=:plant AND status='active' ORDER BY code"), {"org": command.organization_id, "plant": command.plant_id}).mappings().all()
-        membership = self.conn.execute(text("SELECT physical_resource_id,group_id FROM capacity.physical_resource_group_members WHERE organization_id=:org AND physical_resource_id=ANY(:ids) AND valid_during @> CAST(:start AS date) AND valid_during @> CAST(:finish AS date) ORDER BY physical_resource_id,group_id"), {"org": command.organization_id, "ids": [r["id"] for r in resource_rows], "start": command.horizon_start.date(), "finish": end_date}).all() if resource_rows else []
+        resource_rows = self.conn.execute(text("SELECT r.id,r.code,r.base_calendar_id,r.resource_type_id,r.work_center_id,r.scheduling_mode,r.capacity_units FROM capacity.physical_resources r JOIN capacity.work_centers w ON w.organization_id=r.organization_id AND w.id=r.work_center_id AND w.status='active' JOIN capacity.physical_resource_types t ON t.organization_id=r.organization_id AND t.id=r.resource_type_id AND t.status='active' WHERE r.organization_id=:org AND r.plant_id=:plant AND r.status='active' ORDER BY r.code"), {"org": command.organization_id, "plant": command.plant_id}).mappings().all()
+        membership = self.conn.execute(text("SELECT physical_resource_id,group_id FROM capacity.physical_resource_group_members WHERE organization_id=:org AND physical_resource_id=ANY(:ids) AND valid_during @> CAST(:start AS date) AND valid_during @> CAST(:finish AS date) ORDER BY physical_resource_id,group_id"), {"org": command.organization_id, "ids": [r["id"] for r in resource_rows], "start": start_date, "finish": end_date}).all() if resource_rows else []
         groups = defaultdict(set)
         for resource, group in membership: groups[resource].add(group)
         resources = tuple(ResourceData(row["id"], row["code"], row["base_calendar_id"], row["resource_type_id"], row["work_center_id"], frozenset(groups[row["id"]]), row["scheduling_mode"], float(row["capacity_units"])) for row in resource_rows)
         calendar_ids = {self.conn.scalar(text("SELECT base_calendar_id FROM core.plants WHERE organization_id=:org AND id=:plant"), {"org": command.organization_id, "plant": command.plant_id}), *(row["base_calendar_id"] for row in employee_rows), *(row["base_calendar_id"] for row in resource_rows)}
+        calendar_ids.update(center.calendar_id for center in self._work_centers.values())
         calendar_rows = self.conn.execute(text("SELECT id,timezone FROM capacity.calendars WHERE organization_id=:org AND id=ANY(:ids) AND status='active'"), {"org": command.organization_id, "ids": list(calendar_ids)}).mappings().all()
-        interval_rows = self.conn.execute(text("SELECT calendar_id,weekday,local_start,local_end,valid_during FROM capacity.calendar_working_intervals WHERE organization_id=:org AND calendar_id=ANY(:ids) ORDER BY calendar_id,weekday,local_start"), {"org": command.organization_id, "ids": list(calendar_ids)}).mappings().all()
-        exception_rows = self.conn.execute(text("SELECT calendar_id,exception_date,effect,lower(time_range) AS start_at,upper(time_range) AS end_at FROM capacity.calendar_exceptions WHERE organization_id=:org AND calendar_id=ANY(:ids) ORDER BY calendar_id,exception_date"), {"org": command.organization_id, "ids": list(calendar_ids)}).mappings().all()
+        interval_rows = self.conn.execute(text("SELECT calendar_id,weekday,local_start,local_end,valid_during,capacity_factor FROM capacity.calendar_working_intervals WHERE organization_id=:org AND calendar_id=ANY(:ids) ORDER BY calendar_id,weekday,local_start"), {"org": command.organization_id, "ids": list(calendar_ids)}).mappings().all()
+        exception_rows = self.conn.execute(text("SELECT calendar_id,exception_date,effect,lower(time_range) AS start_at,upper(time_range) AS end_at,capacity_factor FROM capacity.calendar_exceptions WHERE organization_id=:org AND calendar_id=ANY(:ids) ORDER BY calendar_id,exception_date"), {"org": command.organization_id, "ids": list(calendar_ids)}).mappings().all()
         intervals, exceptions = defaultdict(list), defaultdict(list)
         for row in interval_rows:
             range_value = row["valid_during"]
-            intervals[row["calendar_id"]].append(CalendarInterval(row["weekday"], row["local_start"], row["local_end"], range_value.lower, range_value.upper))
+            intervals[row["calendar_id"]].append(CalendarInterval(row["weekday"], row["local_start"], row["local_end"], range_value.lower, range_value.upper, float(row["capacity_factor"])))
         for row in exception_rows:
-            exceptions[row["calendar_id"]].append(CalendarException(row["exception_date"], row["effect"], row["start_at"], row["end_at"]))
+            exceptions[row["calendar_id"]].append(CalendarException(row["exception_date"], row["effect"], row["start_at"], row["end_at"], float(row["capacity_factor"]) if row["capacity_factor"] is not None else None))
         calendars = {row["id"]: CalendarData(row["id"], row["timezone"], tuple(intervals[row["id"]]), tuple(exceptions[row["id"]])) for row in calendar_rows}
         if calendar_ids != set(calendars):
             raise InvalidSchedulingInput("an effective calendar is missing or inactive")
@@ -1306,14 +1320,13 @@ class PostgresSchedulingUnitOfWork:
         occupations = defaultdict(list)
         for row in occupation_rows: occupations[row["physical_resource_id"]].append(TimeWindow(row["start_at"], row["end_at"]))
         actual_capacity_rows = self.conn.execute(text("""
-            SELECT aru.physical_resource_id,lower(aru.time_range) AS start_at,
+            SELECT aru.physical_resource_id,pr.work_center_id,pr.scheduling_mode,lower(aru.time_range) AS start_at,
                    upper(aru.time_range) AS end_at,
                    COALESCE(aru.capacity_units,pr.capacity_units) AS capacity_units
             FROM execution.actual_resource_usages aru
             JOIN capacity.physical_resources pr
               ON pr.organization_id=aru.organization_id AND pr.id=aru.physical_resource_id
             WHERE aru.organization_id=:org AND pr.plant_id=:plant
-              AND pr.scheduling_mode='cumulative'
               AND aru.time_range && tstzrange(:start,:finish,'[)')
               AND NOT EXISTS(
                 SELECT 1 FROM execution.actual_resource_usages successor
@@ -1323,10 +1336,36 @@ class PostgresSchedulingUnitOfWork:
         """), {"org": command.organization_id, "plant": command.plant_id,
                  "start": command.horizon_start, "finish": command.horizon_end}).mappings().all()
         actual_capacity = defaultdict(list)
+        center_usages = defaultdict(list)
         for row in actual_capacity_rows:
-            actual_capacity[row["physical_resource_id"]].append(CapacityUsage(
-                TimeWindow(row["start_at"], row["end_at"]), float(row["capacity_units"])
-            ))
+            usage = CapacityUsage(TimeWindow(row["start_at"], row["end_at"]), float(row["capacity_units"]))
+            if row["scheduling_mode"] == "cumulative":
+                actual_capacity[row["physical_resource_id"]].append(usage)
+            center_usages[(row["physical_resource_id"], row["work_center_id"])].append(usage)
+        # Actual occupations can hold a station beyond its execution segment.
+        # Their table has no demand column: reserve that station's nominal units
+        # conservatively, without adding execution usage twice for the same station.
+        held_rows = self.conn.execute(text("""
+            SELECT o.physical_resource_id,r.work_center_id,r.capacity_units,
+                   lower(o.time_range) AS start_at,upper(o.time_range) AS end_at
+            FROM planning.physical_occupations o JOIN capacity.physical_resources r
+              ON r.organization_id=o.organization_id AND r.id=o.physical_resource_id
+            WHERE o.organization_id=:org AND r.plant_id=:plant AND o.source_kind='actual'
+              AND o.is_effective AND o.time_range && tstzrange(:start,:finish,'[)')
+        """), {"org": command.organization_id, "plant": command.plant_id,
+                 "start": command.horizon_start, "finish": command.horizon_end}).mappings().all()
+        held = defaultdict(list)
+        for row in held_rows:
+            key = (row["physical_resource_id"], row["work_center_id"])
+            held[key].append(CapacityUsage(TimeWindow(row["start_at"],row["end_at"]),float(row["capacity_units"])))
+        for key in center_usages.keys() | held.keys():
+            usage, occupation = center_usages[key], held[key]
+            edges = sorted({instant for item in (*usage,*occupation) for instant in (item.window.start,item.window.end)})
+            for start, finish in zip(edges,edges[1:]):
+                units = sum(item.capacity_units for item in usage if item.window.start<finish and start<item.window.end)
+                units = max(units,max((item.capacity_units for item in occupation if item.window.start<finish and start<item.window.end),default=0))
+                if units:
+                    actual_capacity[key[1]].append(CapacityUsage(TimeWindow(start,finish),units))
         overtime_rows = self.conn.execute(text("""
             SELECT id,lower(time_range) AS start_at,upper(time_range) AS end_at,project_id,employee_id,physical_resource_id,work_center_id,max_minutes
             FROM capacity.overtime_authorizations WHERE organization_id=:org AND plant_id=:plant AND revoked_at IS NULL

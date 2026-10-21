@@ -379,6 +379,364 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/master-data/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Snapshot */
+        get: operations["snapshot_master_data_snapshot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/master-data/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Person */
+        post: operations["create_person_master_data_people_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/master-data/people/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Person */
+        patch: operations["update_person_master_data_people__entity_id__patch"];
+        trace?: never;
+    };
+    "/master-data/people/{entity_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Person Status */
+        post: operations["person_status_master_data_people__entity_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/master-data/people/{entity_id}/skills/{skill_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Assign Skill */
+        put: operations["assign_skill_master_data_people__entity_id__skills__skill_id__put"];
+        post?: never;
+        /** Remove Skill */
+        delete: operations["remove_skill_master_data_people__entity_id__skills__skill_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/master-data/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Skill */
+        post: operations["create_skill_master_data_skills_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/master-data/skills/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Skill */
+        patch: operations["update_skill_master_data_skills__entity_id__patch"];
+        trace?: never;
+    };
+    "/master-data/skills/{entity_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Skill Status */
+        post: operations["skill_status_master_data_skills__entity_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/master-data/work-centers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Center */
+        post: operations["create_center_master_data_work_centers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/master-data/work-centers/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Center */
+        patch: operations["update_center_master_data_work_centers__entity_id__patch"];
+        trace?: never;
+    };
+    "/master-data/work-centers/{entity_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Center Status */
+        post: operations["center_status_master_data_work_centers__entity_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/master-data/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Resource */
+        post: operations["create_resource_master_data_resources_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/master-data/resources/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Resource */
+        patch: operations["update_resource_master_data_resources__entity_id__patch"];
+        trace?: never;
+    };
+    "/master-data/resources/{entity_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resource Status */
+        post: operations["resource_status_master_data_resources__entity_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/master-data/calendars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Calendar */
+        post: operations["create_calendar_master_data_calendars_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/master-data/calendars/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Calendar */
+        patch: operations["update_calendar_master_data_calendars__entity_id__patch"];
+        trace?: never;
+    };
+    "/master-data/calendars/{entity_id}/windows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Define Windows */
+        put: operations["define_windows_master_data_calendars__entity_id__windows_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/master-data/calendars/{entity_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Calendar Status */
+        post: operations["calendar_status_master_data_calendars__entity_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/master-data/calendar-exceptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Exception */
+        post: operations["create_exception_master_data_calendar_exceptions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/master-data/calendar-exceptions/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Exception */
+        patch: operations["update_exception_master_data_calendar_exceptions__entity_id__patch"];
+        trace?: never;
+    };
+    "/master-data/plant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Plant */
+        patch: operations["update_plant_master_data_plant_patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -456,6 +814,110 @@ export interface components {
             hardware_status: string;
             /** Hardware Available At */
             hardware_available_at: string | null;
+        };
+        /** CalendarExceptionInput */
+        CalendarExceptionInput: {
+            /**
+             * Calendar Id
+             * Format: uuid
+             */
+            calendar_id: string;
+            /**
+             * Exception Date
+             * Format: date
+             */
+            exception_date: string;
+            /**
+             * Effect
+             * @enum {string}
+             */
+            effect: "add" | "remove" | "replace";
+            /** Local Start */
+            local_start?: string | null;
+            /** Local End */
+            local_end?: string | null;
+            /** Capacity Factor */
+            capacity_factor?: number | string | null;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** CalendarExceptionUpdate */
+        CalendarExceptionUpdate: {
+            /**
+             * Calendar Id
+             * Format: uuid
+             */
+            calendar_id: string;
+            /**
+             * Exception Date
+             * Format: date
+             */
+            exception_date: string;
+            /**
+             * Effect
+             * @enum {string}
+             */
+            effect: "add" | "remove" | "replace";
+            /** Local Start */
+            local_start?: string | null;
+            /** Local End */
+            local_end?: string | null;
+            /** Capacity Factor */
+            capacity_factor?: number | string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Expected Row Version */
+            expected_row_version: number;
+        };
+        /** CalendarInput */
+        CalendarInput: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Timezone */
+            timezone: string;
+            /** Calendar Kind */
+            calendar_kind: string;
+            /** Description */
+            description?: string | null;
+        };
+        /** CalendarUpdate */
+        CalendarUpdate: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Timezone */
+            timezone: string;
+            /** Calendar Kind */
+            calendar_kind: string;
+            /** Description */
+            description?: string | null;
+            /** Expected Row Version */
+            expected_row_version: number;
+        };
+        /** CalendarWindowInput */
+        CalendarWindowInput: {
+            /** Weekday */
+            weekday: number;
+            /**
+             * Local Start
+             * Format: time
+             */
+            local_start: string;
+            /**
+             * Local End
+             * Format: time
+             */
+            local_end: string;
+            /** Shift Code */
+            shift_code?: string | null;
+            /**
+             * Capacity Factor
+             * @default 1
+             */
+            capacity_factor: number | string;
         };
         /** CreateBatchRequest */
         CreateBatchRequest: {
@@ -661,6 +1123,18 @@ export interface components {
             remaining_minutes: number | null;
             /** Blocker Code */
             blocker_code: string | null;
+        };
+        /** DefineCalendarWindowsInput */
+        DefineCalendarWindowsInput: {
+            /** Expected Row Version */
+            expected_row_version: number;
+            /**
+             * Effective From
+             * Format: date
+             */
+            effective_from: string;
+            /** Windows */
+            windows: components["schemas"]["CalendarWindowInput"][];
         };
         /** DefineRouteRequest */
         DefineRouteRequest: {
@@ -1060,6 +1534,11 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /** HealthResponse */
         HealthResponse: {
             /** Status */
@@ -1141,6 +1620,69 @@ export interface components {
              */
             stale: boolean;
             /** Idempotent Replay */
+            idempotent_replay: boolean;
+        };
+        /** MasterDataSnapshotResponse */
+        MasterDataSnapshotResponse: {
+            /** People */
+            people: {
+                [key: string]: unknown;
+            }[];
+            /** Skills */
+            skills: {
+                [key: string]: unknown;
+            }[];
+            /** Work Centers */
+            work_centers: {
+                [key: string]: unknown;
+            }[];
+            /** Resource Types */
+            resource_types: {
+                [key: string]: unknown;
+            }[];
+            /** Resources */
+            resources: {
+                [key: string]: unknown;
+            }[];
+            /** Calendars */
+            calendars: {
+                [key: string]: unknown;
+            }[];
+            /** Calendar Windows */
+            calendar_windows: {
+                [key: string]: unknown;
+            }[];
+            /** Calendar Exceptions */
+            calendar_exceptions: {
+                [key: string]: unknown;
+            }[];
+            /** Plant */
+            plant: {
+                [key: string]: unknown;
+            };
+            /** Dev Only */
+            dev_only: boolean;
+        };
+        /** MasterMutationResponse */
+        MasterMutationResponse: {
+            /** Entity */
+            entity: {
+                [key: string]: unknown;
+            };
+            /**
+             * Current Usage Count
+             * @default 0
+             */
+            current_usage_count: number;
+            /**
+             * Plan Requires Reconciliation
+             * @default false
+             */
+            plan_requires_reconciliation: boolean;
+            /**
+             * Idempotent Replay
+             * @default false
+             */
             idempotent_replay: boolean;
         };
         /** MoveScheduledActivityRequest */
@@ -1262,6 +1804,45 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** PersonInput */
+        PersonInput: {
+            /** Code */
+            code: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Base Calendar Id
+             * Format: uuid
+             */
+            base_calendar_id: string;
+            /** Default Work Center Id */
+            default_work_center_id?: string | null;
+        };
+        /** PersonSkillInput */
+        PersonSkillInput: {
+            /** Valid From */
+            valid_from?: string | null;
+            /** Valid To */
+            valid_to?: string | null;
+            /** Level */
+            level?: number | string | null;
+        };
+        /** PersonUpdate */
+        PersonUpdate: {
+            /** Code */
+            code: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Base Calendar Id
+             * Format: uuid
+             */
+            base_calendar_id: string;
+            /** Default Work Center Id */
+            default_work_center_id?: string | null;
+            /** Expected Row Version */
+            expected_row_version: number;
+        };
         /** PhysicalOccupationRequest */
         PhysicalOccupationRequest: {
             /**
@@ -1317,6 +1898,24 @@ export interface components {
              * @default 1
              */
             capacity_units: number;
+        };
+        /** PlantUpdate */
+        PlantUpdate: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Timezone */
+            timezone: string;
+            /**
+             * Base Calendar Id
+             * Format: uuid
+             */
+            base_calendar_id: string;
+            /** Communication Threshold Business Days */
+            communication_threshold_business_days: number;
+            /** Expected Row Version */
+            expected_row_version: number;
         };
         /** ProductDefinitionRevisionResponse */
         ProductDefinitionRevisionResponse: {
@@ -1553,6 +2152,80 @@ export interface components {
              */
             resize_kind: "PLANNED_DURATION_HYPOTHESIS";
         };
+        /** ResourceInput */
+        ResourceInput: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /**
+             * Work Center Id
+             * Format: uuid
+             */
+            work_center_id: string;
+            /**
+             * Resource Type Id
+             * Format: uuid
+             */
+            resource_type_id: string;
+            /**
+             * Scheduling Mode
+             * @enum {string}
+             */
+            scheduling_mode: "exclusive" | "cumulative";
+            /** Capacity Units */
+            capacity_units: number | string;
+            /** Capacity Unit */
+            capacity_unit?: string | null;
+            /**
+             * Is Mobile
+             * @default false
+             */
+            is_mobile: boolean;
+            /**
+             * Base Calendar Id
+             * Format: uuid
+             */
+            base_calendar_id: string;
+        };
+        /** ResourceUpdate */
+        ResourceUpdate: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /**
+             * Work Center Id
+             * Format: uuid
+             */
+            work_center_id: string;
+            /**
+             * Resource Type Id
+             * Format: uuid
+             */
+            resource_type_id: string;
+            /**
+             * Scheduling Mode
+             * @enum {string}
+             */
+            scheduling_mode: "exclusive" | "cumulative";
+            /** Capacity Units */
+            capacity_units: number | string;
+            /** Capacity Unit */
+            capacity_unit?: string | null;
+            /**
+             * Is Mobile
+             * @default false
+             */
+            is_mobile: boolean;
+            /**
+             * Base Calendar Id
+             * Format: uuid
+             */
+            base_calendar_id: string;
+            /** Expected Row Version */
+            expected_row_version: number;
+        };
         /** ScenarioResponse */
         ScenarioResponse: {
             /**
@@ -1635,6 +2308,30 @@ export interface components {
             /** Idempotent Replay */
             idempotent_replay: boolean;
         };
+        /** SkillInput */
+        SkillInput: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /** Category */
+            category?: string | null;
+        };
+        /** SkillUpdate */
+        SkillUpdate: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /** Category */
+            category?: string | null;
+            /** Expected Row Version */
+            expected_row_version: number;
+        };
         /** StartOperationRequest */
         StartOperationRequest: {
             /**
@@ -1679,6 +2376,16 @@ export interface components {
             /** Idempotent Replay */
             idempotent_replay: boolean;
         };
+        /** StatusInput */
+        StatusInput: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "inactive";
+            /** Expected Row Version */
+            expected_row_version: number;
+        };
         /** UpdateRemainingEstimateRequest */
         UpdateRemainingEstimateRequest: {
             /**
@@ -1696,6 +2403,57 @@ export interface components {
              * @enum {string}
              */
             input_mode: "delta" | "remaining_duration" | "expected_finish";
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
+        };
+        /** WorkCenterInput */
+        WorkCenterInput: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /**
+             * Capacity Mode
+             * @enum {string}
+             */
+            capacity_mode: "exclusive" | "cumulative";
+            /** Aggregate Capacity */
+            aggregate_capacity?: number | string | null;
+            /** Capacity Unit */
+            capacity_unit?: string | null;
+            /** Base Calendar Id */
+            base_calendar_id?: string | null;
+        };
+        /** WorkCenterUpdate */
+        WorkCenterUpdate: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /**
+             * Capacity Mode
+             * @enum {string}
+             */
+            capacity_mode: "exclusive" | "cumulative";
+            /** Aggregate Capacity */
+            aggregate_capacity?: number | string | null;
+            /** Capacity Unit */
+            capacity_unit?: string | null;
+            /** Base Calendar Id */
+            base_calendar_id?: string | null;
+            /** Expected Row Version */
+            expected_row_version: number;
         };
     };
     responses: never;
@@ -3329,6 +4087,863 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    snapshot_master_data_snapshot_get: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterDataSnapshotResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_person_master_data_people_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_person_master_data_people__entity_id__patch: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    person_status_master_data_people__entity_id__status_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_skill_master_data_people__entity_id__skills__skill_id__put: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                entity_id: string;
+                skill_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonSkillInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_skill_master_data_people__entity_id__skills__skill_id__delete: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                entity_id: string;
+                skill_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_skill_master_data_skills_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_skill_master_data_skills__entity_id__patch: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    skill_status_master_data_skills__entity_id__status_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_center_master_data_work_centers_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkCenterInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_center_master_data_work_centers__entity_id__patch: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkCenterUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    center_status_master_data_work_centers__entity_id__status_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_resource_master_data_resources_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_resource_master_data_resources__entity_id__patch: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resource_status_master_data_resources__entity_id__status_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_calendar_master_data_calendars_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_calendar_master_data_calendars__entity_id__patch: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    define_windows_master_data_calendars__entity_id__windows_put: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DefineCalendarWindowsInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    calendar_status_master_data_calendars__entity_id__status_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_exception_master_data_calendar_exceptions_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarExceptionInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_exception_master_data_calendar_exceptions__entity_id__patch: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarExceptionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_plant_master_data_plant_patch: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlantUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };

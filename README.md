@@ -106,6 +106,12 @@ por arrastre ni antes de una aceptación explícita. El motor `v1-greedy-3` prio
 la intención manual, conserva todas las restricciones y explica cualquier diferencia
 entre lo solicitado y lo propuesto.
 
+Etapa 7.1 incorpora Configuración (`/settings`) para maestros operativos.
+Validada con PostgreSQL 18: capacidad nominal de centros en scheduler, vigencias
+históricas, excepciones, idempotencia contextual y reconciliation persistente sin
+reescribir CURRENT. Autenticación productiva diferida. Resultados y límites en
+[administración de maestros](docs/28-administracion-maestros-v1.md).
+
 ```powershell
 cd frontend
 npm ci

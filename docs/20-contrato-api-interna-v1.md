@@ -166,3 +166,27 @@ Las actividades finalizadas no se editan. Para una actividad en curso, la API de
 al flujo `UPDATE_REMAINING_ESTIMATE`. La selección del tenant se aplica antes de leer
 la actividad o el plan; un identificador de otra organización se informa como no
 encontrado. Véase `docs/27-gantt-ajustes-asistidos-v1.md`.
+
+## 12. Maestros operativos — Etapa 7.1
+
+`/master-data` expone snapshot y comandos de personas, skills, centros, recursos,
+calendarios/excepciones y planta. Son 22 operaciones HTTP; las mutaciones requieren
+Idempotency-Key UUID y contexto DEV. Ediciones principales exigen
+expected_row_version. Asignar calendario usa base_calendar_id de la entidad.
+
+PATCH de excepción admite cambiar calendar_id dentro de la organización y persiste
+el destino interpretando el horario local en su timezone IANA. Calendarios admiten
+POST ID/status. PUT ID/windows requiere effective_from explícito y conserva las
+vigencias históricas y programaciones posteriores. La fecha por defecto de una
+habilitación persona–skill es local de planta; su historia se conserva por tramos.
+
+El digest incorpora organización, planta, actor y comando. Replay sólo corresponde
+a la misma intención y contexto; una clave reutilizada con otro contexto produce
+409. Frontend conserva clave y payload para reintentar una respuesta incierta.
+
+Los cambios operativos adelantan PlanningStateRevision e invalidan escenarios
+anteriores. Si afectan operaciones de CURRENT, el detalle operativo representa
+persistentemente plan_requires_reconciliation. CURRENT no se reescribe. Los
+conteos expresan operaciones distintas de CURRENT e incluyen el calendario base
+de planta. OpenAPI y tipos fueron regenerados desde FastAPI real y validados.
+Alcance, semántica histórica y límites en `docs/28-administracion-maestros-v1.md`.

@@ -295,12 +295,18 @@ class PostgresApiQueries:
         with self.engine.connect() as conn:
             extra = conn.execute(text("""
                 SELECT ph.id AS phase_id,ph.original_estimate_minutes,
-                       EXISTS(SELECT 1 FROM execution.operation_executions oe
+                       (EXISTS(SELECT 1 FROM planning.planning_state_revisions sh
+                         JOIN core.plants p ON p.organization_id=sh.organization_id AND p.id=sh.plant_id
+                         JOIN planning.plan_versions pv ON pv.organization_id=p.organization_id AND pv.id=p.current_plan_version_id
+                         JOIN planning.planning_state_revisions base ON base.organization_id=pv.organization_id AND base.id=pv.planning_state_revision_id
+                         WHERE sh.organization_id=ro.organization_id AND sh.plant_id=:plant
+                           AND sh.revision_no>base.revision_no AND sh.change_summary @> jsonb_build_object('current_affected',true))
+                       OR EXISTS(SELECT 1 FROM execution.operation_executions oe
                          JOIN execution.remaining_estimate_revisions r ON r.organization_id=oe.organization_id AND r.operation_execution_id=oe.id AND r.superseded_at IS NULL
                          JOIN core.plants p ON p.organization_id=oe.organization_id
                          JOIN planning.plan_versions pv ON pv.organization_id=p.organization_id AND pv.id=p.current_plan_version_id
                         WHERE oe.organization_id=ro.organization_id AND oe.required_operation_id=ro.id
-                          AND p.id=:plant AND r.planning_state_revision_id<>pv.planning_state_revision_id) AS plan_requires_reconciliation,
+                          AND p.id=:plant AND r.planning_state_revision_id<>pv.planning_state_revision_id)) AS plan_requires_reconciliation,
                        (SELECT nxt.name FROM production.operation_precedences op
                          JOIN production.required_operations nxt ON nxt.organization_id=op.organization_id AND nxt.id=op.successor_operation_id
                         WHERE op.organization_id=ro.organization_id AND op.predecessor_operation_id=ro.id AND op.active

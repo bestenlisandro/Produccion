@@ -11,6 +11,15 @@ export type GanttOperation = components['schemas']['GanttOperationResponse']
 export type GanttScenario = components['schemas']['GanttScenarioResponse']
 export type ManualScheduleResult = components['schemas']['ManualScheduleResponse']
 export type GanttGrouping = 'center' | 'resource' | 'person' | 'project'
+export type MasterRecord = Record<string, unknown> & { id: string; row_version: number; status?: string }
+type SnapshotContract = components['schemas']['MasterDataSnapshotResponse']
+// The HTTP schema exposes open records. This adapter adds the database identity
+// used by editors without duplicating the generated collection contract.
+export type MasterSnapshot = {
+  [K in keyof SnapshotContract]: SnapshotContract[K] extends unknown[] ? MasterRecord[]
+    : K extends 'plant' ? MasterRecord : SnapshotContract[K]
+}
+export type MasterMutation = components['schemas']['MasterMutationResponse']
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string) { super(message) }
@@ -73,4 +82,9 @@ export const api = {
   ) => request<ManualScheduleResult>(`/planning/activities/${id}/resize`, {
     method: 'POST', body: JSON.stringify(body),
   }, commandId),
+  masterSnapshot: () => request<MasterSnapshot>('/master-data/snapshot'),
+  mutateMaster: (path: string, method: 'POST'|'PATCH'|'PUT'|'DELETE', body: unknown, commandId: string) =>
+    request<MasterMutation>(`/master-data${path}`, {
+      method, body: body === undefined ? undefined : JSON.stringify(body),
+    }, commandId),
 }

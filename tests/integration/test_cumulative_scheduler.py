@@ -19,6 +19,10 @@ from tests.integration.scheduling_helpers import (
 def _configure(engine, case, *, capacity=3, demand=1, minutes=120, split="splittable"):
     operation = prepare_basic(engine, case, minutes=minutes, split_policy=split)
     with engine.begin() as connection:
+        # These regressions isolate resource capacity; center capacity is tested
+        # independently in test_master_data.py and must not be the bottleneck.
+        connection.execute(text("UPDATE capacity.work_centers SET aggregate_capacity=100 WHERE organization_id=:org AND id=:id"),
+                           {"org": case.organization_id, "id": case.work_center_id})
         connection.execute(text("""
             UPDATE capacity.physical_resources
             SET scheduling_mode='cumulative',capacity_units=:capacity

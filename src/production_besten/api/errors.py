@@ -21,6 +21,7 @@ from production_besten.domain.errors import (
     StructuralAvailabilityConflict,
     SchedulingBaseStale,
 )
+from production_besten.domain.master_data import InvalidMasterData, MasterDataConflict
 
 
 def install_error_handlers(app: FastAPI) -> None:
@@ -34,6 +35,10 @@ def install_error_handlers(app: FastAPI) -> None:
                               ReplanConflict, SchedulingBaseStale)):
             status, code, message = 409, _code(exc), str(exc)
         elif isinstance(exc, (InvalidEstimate, InvalidProductDefinition)):
+            status, code, message = 400, _code(exc), str(exc)
+        elif isinstance(exc, MasterDataConflict):
+            status, code, message = 409, _code(exc), str(exc)
+        elif isinstance(exc, InvalidMasterData):
             status, code, message = 400, _code(exc), str(exc)
         else:
             status, code, message = 400, "DOMAIN_ERROR", str(exc)

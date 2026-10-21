@@ -17,9 +17,11 @@ class GreedyFiniteCapacityScheduler:
 
     def __init__(self) -> None:
         self._calendar_cache: dict[object, list[TimeWindow]] = {}
+        self._factor_cache = {}
 
     def schedule(self, value: SchedulingInput) -> SchedulingOutput:
         self._calendar_cache = {}
+        self._factor_cache = {}
         dependencies = self._dependencies(value)
         cycle = self._cycle(dependencies)
         if cycle:
@@ -57,6 +59,10 @@ class GreedyFiniteCapacityScheduler:
                 for owner in segment.employee_ids:
                     reservations[owner].append(window)
                 demands = dict(segment.resource_capacity_units)
+                for center, demand in self._center_demands(value, tuple(
+                        (owner, units) for owner, units in demands.items()
+                        if owner not in segment.occupation_resource_ids)).items():
+                    capacity_reservations[center].append((window, demand))
                 for owner in segment.resource_ids:
                     resource = self._resource(value, owner)
                     if resource.scheduling_mode == "exclusive":
@@ -65,6 +71,10 @@ class GreedyFiniteCapacityScheduler:
                         capacity_reservations[owner].append((window, demands[owner]))
             if outcome.segments:
                 occupation = TimeWindow(outcome.segments[0].start, outcome.segments[-1].end)
+                for center, demand in self._center_demands(value, tuple(
+                        (owner, units) for owner, units in outcome.segments[0].resource_capacity_units
+                        if owner in outcome.segments[0].occupation_resource_ids)).items():
+                    capacity_reservations[center].append((occupation, demand))
                 for owner in outcome.segments[0].occupation_resource_ids:
                     resource = self._resource(value, owner)
                     if resource.scheduling_mode == "exclusive":
@@ -247,6 +257,7 @@ class GreedyFiniteCapacityScheduler:
             cumulative_match = False
             cumulative_demand = need.quantity * need.capacity_units
             for resource in value.resources:
+                maximum = resource.capacity_units * max([1.0, *(factor for _, factor in self._capacity_factors(value, resource.calendar_id))])
                 selected = ((need.resource_type_id is not None and resource.resource_type_id == need.resource_type_id)
                     or (need.resource_group_id is not None and need.resource_group_id in resource.group_ids)
                     or (need.work_center_id is not None and resource.work_center_id == need.work_center_id))
@@ -256,7 +267,7 @@ class GreedyFiniteCapacityScheduler:
                         continue
                     if resource.scheduling_mode == "cumulative":
                         cumulative_match = True
-                        if resource.capacity_units >= cumulative_demand:
+                        if maximum >= cumulative_demand:
                             cumulative_candidates.append(resource)
                     elif resource.scheduling_mode == "exclusive" and resource.capacity_units >= need.capacity_units:
                         exclusive_candidates.append(resource)
@@ -293,7 +304,7 @@ class GreedyFiniteCapacityScheduler:
             for _, _, capacity, _ in selected:
                 for resource_id, units in capacity:
                     demands[resource_id] += units
-            if any(demands[resource.id] > resource.capacity_units for resource in value.resources
+            if any(demands[resource.id] > resource.capacity_units * max([1.0, *(factor for _, factor in self._capacity_factors(value, resource.calendar_id))]) for resource in value.resources
                    if resource.id in demands):
                 continue
             resources = tuple(sorted(set(flattened), key=lambda item: self._resource(value, item).code))
@@ -310,6 +321,14 @@ class GreedyFiniteCapacityScheduler:
         if not phase.scalable_labor or len(phase.labor) != 1:
             return phase.original_minutes
         return ceil(phase.labor[0].work_minutes / max(1, len(employees)))
+
+    def _center_demands(self, value, resource_capacity):
+        demands = defaultdict(float)
+        for owner, units in resource_capacity:
+            center = self._resource(value, owner).work_center_id
+            if center in value.work_centers:
+                demands[center] += units
+        return demands
 
     def _allocate(self, value, phase, ready, duration, employees, resources, occupations,
                   resource_capacity, reservations, capacity_reservations):
@@ -336,11 +355,30 @@ class GreedyFiniteCapacityScheduler:
                 windows = _intersect(windows, available)
                 if not windows:
                     break
+            for center_id, demand in self._center_demands(value, resource_capacity).items():
+                center = value.work_centers[center_id]
+                available = self._owner_windows(value, center.calendar_id, center_id,
+                                                center_id, phase.project_id, [])
+                available = self._capacity_windows(value, center, demand, available,
+                                                   capacity_reservations.get(center_id, []))
+                windows = _intersect(windows, available)
             allocation, complete = _consume(windows, duration, phase.split_policy == "splittable")
             if not allocation:
                 return None
             span = TimeWindow(allocation[0].start, allocation[-1].end)
             conflict_end = None
+            # Occupation holds center capacity across non-working gaps as well.
+            for center_id, demand in self._center_demands(value, tuple(
+                    (owner, units) for owner, units in resource_capacity if owner in occupations)).items():
+                center = value.work_centers[center_id]
+                usage = capacity_reservations.get(center_id, [])
+                if not _contains(self._capacity_windows(value, center, demand, [span], usage), span):
+                    changes = [busy.end for busy, _ in usage if _overlaps(span, busy)]
+                    changes.extend(item.window.end for item in value.actual_capacity_usage.get(center_id, ()) if _overlaps(span, item.window))
+                    if changes:
+                        conflict_end = min(changes)
+                    else:
+                        return None
             for owner in occupations:
                 resource = self._resource(value, owner)
                 if resource.scheduling_mode == "cumulative":
@@ -388,8 +426,12 @@ class GreedyFiniteCapacityScheduler:
             for item in value.actual_capacity_usage.get(resource.id, ())
         )
         result = []
+        factors = self._capacity_factors(value, resource.calendar_id)
         for window in windows:
             boundaries = {window.start, window.end}
+            for span, _ in factors:
+                if _overlaps(window, span):
+                    boundaries.update((max(window.start, span.start), min(window.end, span.end)))
             relevant = []
             for busy, units in usage:
                 if _overlaps(window, busy):
@@ -400,9 +442,46 @@ class GreedyFiniteCapacityScheduler:
             for start, end in zip(ordered, ordered[1:]):
                 interval = TimeWindow(start, end)
                 committed = sum(units for busy, units in relevant if _overlaps(interval, busy))
-                if committed + demand <= resource.capacity_units + 1e-9:
+                factor = min((factor for span, factor in factors if _overlaps(interval, span)), default=1.0)
+                if committed + demand <= resource.capacity_units * factor + 1e-9:
                     result.append(interval)
         return _merge(result)
+
+    def _capacity_factors(self, value, calendar_id):
+        key = (calendar_id, value.horizon_start, value.horizon_end)
+        if key in self._factor_cache:
+            return self._factor_cache[key]
+        calendar = value.calendars[calendar_id]
+        zone = ZoneInfo(calendar.timezone)
+        current = value.horizon_start.astimezone(zone).date()
+        finish = value.horizon_end.astimezone(zone).date()
+        factors = []
+        while current <= finish:
+            day = []
+            for item in calendar.intervals:
+                if (item.weekday == current.isoweekday()
+                        and (item.valid_from is None or current >= item.valid_from)
+                        and (item.valid_to is None or current < item.valid_to)):
+                    span = TimeWindow(datetime.combine(current, item.local_start, zone).astimezone(timezone.utc),
+                                      datetime.combine(current, item.local_end, zone).astimezone(timezone.utc))
+                    day.append((span, item.capacity_factor))
+            for exception in calendar.exceptions:
+                if exception.date != current:
+                    continue
+                if exception.effect == "replace":
+                    day = []
+                if exception.start is not None:
+                    changed = TimeWindow(exception.start, exception.end)
+                    if exception.effect in {"replace", "add"}:
+                        # An explicit exception replaces the factor on its span.
+                        day = [(part, factor) for span, factor in day for part in _subtract([span], [changed])]
+                        day.append((changed, exception.capacity_factor or 1.0))
+                elif exception.capacity_factor is not None:
+                    day = [(span, exception.capacity_factor) for span, _ in day]
+            factors.extend(day)
+            current += timedelta(days=1)
+        self._factor_cache[key] = factors
+        return factors
 
     def _overtime_for(self, value, project_id, owner_id, center_id, window):
         regular_calendar = (self._employee(value, owner_id).calendar_id

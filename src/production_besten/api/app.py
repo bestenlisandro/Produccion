@@ -6,6 +6,7 @@ from sqlalchemy import Engine
 from production_besten.api.context import DevRequestContextProvider
 from production_besten.api.dependencies import ApiContainer
 from production_besten.api.errors import install_error_handlers
+from production_besten.api.master_data_routes import router as master_data_router
 from production_besten.api.routes import router
 from production_besten.infrastructure.settings import Settings
 from production_besten.persistence.database import create_database_engine
@@ -26,4 +27,5 @@ def create_app(*, engine: Engine | None = None, enable_dev_context: bool | None 
     app.state.container = ApiContainer(engine, DevRequestContextProvider(enabled=enabled), failpoints or {})
     install_error_handlers(app)
     app.include_router(router)
+    app.include_router(master_data_router)
     return app
