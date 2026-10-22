@@ -9,7 +9,13 @@ from fastapi.testclient import TestClient
 from production_besten.api.app import create_app
 from tests.integration.test_project_intake import intake, mutate
 from tests.integration.test_product_definition_commands import _route
-from tests.integration.scheduling_helpers import prepare_basic, generate, solution_segments
+from tests.integration.scheduling_helpers import prepare_basic, generate as original_generate, solution_segments, seed_fixture_release
+
+
+def generate(engine,case,**kwargs):
+    # Existing editor regressions now explicitly arrange the release precondition.
+    seed_fixture_release(engine,case,include_intake=True)
+    return original_generate(engine,case,**kwargs)
 
 
 @pytest.fixture

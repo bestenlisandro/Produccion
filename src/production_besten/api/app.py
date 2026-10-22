@@ -10,6 +10,7 @@ from production_besten.api.master_data_routes import router as master_data_route
 from production_besten.api.routes import router
 from production_besten.api.project_intake_routes import router as project_intake_router
 from production_besten.api.product_editor_routes import router as product_editor_router
+from production_besten.api.production_readiness_routes import router as production_readiness_router
 from production_besten.infrastructure.settings import Settings
 from production_besten.persistence.database import create_database_engine
 
@@ -28,6 +29,7 @@ def create_app(*, engine: Engine | None = None, enable_dev_context: bool | None 
                   description="API interna mínima sobre servicios de dominio validados.")
     app.state.container = ApiContainer(engine, DevRequestContextProvider(enabled=enabled), failpoints or {})
     install_error_handlers(app)
+    app.include_router(production_readiness_router)
     app.include_router(router)
     app.include_router(master_data_router)
     app.include_router(project_intake_router)

@@ -75,15 +75,20 @@ class PostgresProjectIntakeUnitOfWork(PostgresProductDefinitionUnitOfWork):
         """), {"org":org,"plant":plant}).mappings().all()
         facts = {(r["project_id"],r["code"]):r for r in milestones}
         today = datetime.now(ZoneInfo(options["timezone"])).date()
+        from production_besten.persistence.production_release_uow import PostgresProductionReleaseUnitOfWork
+        readiness_uow = PostgresProductionReleaseUnitOfWork(self._engine)
+        readiness_uow._connection = self.conn
+        readiness_by_project = readiness_uow.readiness(org, plant)
         result=[]
         for row in rows:
             p={k:row[k] for k in ("id","plant_id","code","name","description","customer_id","customer_name","customer_email","customer_phone","priority_id","priority_code","status","committed_date","desired_start_at","row_version","lot_count","communicated_date","plan_requires_reconciliation","operation_ids","planned_operation_ids")}
             p["operation_count"]=len(p["operation_ids"])
+            p['production_readiness'] = readiness_by_project[p['id']]
             definition=next((item for item in (row["canonical_snapshot"] or {}).get("projects",[]) if item["code"]==p["code"]),None)
             defined=definition is not None
             released=bool(definition and any(op.get("phases") for group in [definition.get("unassigned_operations",[]),*(lot.get("operations",[]) for lot in definition.get("lots",[]))] for op in group))
             p["definition_revision_no"]=row["plant_revision_no"] if defined else None
-            p["plannable"]=bool(released and p["operation_count"] and p["status"]=="active")
+            p["plannable"]=bool(readiness_by_project[p['id']]['eligible'])
             for field,kind in (("measurement","MEASUREMENT"),("replanteo","REPLANTEO")):
                 fact=facts.get((p["id"],kind))
                 p[field]={"supported":True,"occurred_at":fact["occurred_at"] if fact else None,"notes":fact["notes"] if fact else None}

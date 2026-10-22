@@ -123,6 +123,10 @@ rutas, operaciones, fases y requisitos, con validación, congelado inmutable y n
 revisiones. El scheduler consume la demanda congelada y CURRENT se conserva.
 Alcance, restricciones y resultados en [definición productiva](docs/30-definicion-productiva-v1.md).
 
+Etapa 7.4 separa freeze de liberación: preparación derivada, checklist, release y
+retiro explícitos, autorización del scheduler y simulación separada, sin modificar
+CURRENT. Alcance y controles en [preparación y liberación](docs/31-preparacion-liberacion-produccion-v1.md).
+
 ```powershell
 cd frontend
 npm ci

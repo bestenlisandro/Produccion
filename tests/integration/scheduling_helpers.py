@@ -61,6 +61,7 @@ def required_operation_id(engine, case):
 def generate(engine, case, *, project_ids=None, start=HORIZON_START,
              end=None, state_id=None, definition_id=None, failpoint=None):
     end = end or start + timedelta(days=7)
+    seed_fixture_release(engine, case)
     command = GenerateSchedule(
         case.organization_id, case.plant_id, case.actor_id,
         f"AUTO-{uuid4().hex}", "Automatic finite-capacity test", start, end,
@@ -168,3 +169,24 @@ def solution_segments(engine, solution_id):
               ON p.organization_id=a.organization_id AND p.id=a.phase_plan_result_id
             WHERE s.schedule_solution_id=:solution ORDER BY start_at,p.required_operation_phase_id
         """), {"solution": solution_id}).mappings().all()
+
+
+def seed_fixture_release(engine, case, *, include_intake=False):
+    """Explicit release facts for historical scheduling fixtures, never runtime behavior.
+
+    New release tests invoke GenerateScheduleService directly and do not use this
+    fixture bootstrap. Intake projects remain unreleased unless requested by the
+    earlier editor regression fixtures after freezing their productive definition.
+    """
+    import json
+    from production_besten.persistence.production_release_uow import definition_digest
+    with engine.begin() as conn:
+        snapshot=conn.scalar(text('SELECT d.canonical_snapshot FROM core.plants p JOIN production.product_definition_revisions d ON d.organization_id=p.organization_id AND d.id=p.current_product_definition_revision_id WHERE p.id=:plant'),{'plant':case.plant_id}) or {}
+        projects=conn.execute(text("SELECT p.id,p.code,EXISTS(SELECT 1 FROM audit.audit_entries a WHERE a.organization_id=p.organization_id AND a.entity_id=p.id AND a.action_code='PROJECT_INTAKE_CREATE') AS intake FROM core.projects p WHERE organization_id=:org AND plant_id=:plant"),{'org':case.organization_id,'plant':case.plant_id}).mappings().all()
+        for project in projects:
+            definition=next((p for p in snapshot.get('projects',[]) if p['code']==project['code']),None)
+            if project['intake'] and (not include_intake or not definition or not any(o.get('phases') for l in definition.get('lots',[]) for o in l['operations'])):continue
+            digest=definition_digest(definition)
+            last=conn.execute(text("SELECT event_type_code,payload FROM planning.effective_events WHERE organization_id=:org AND entity_id=:project AND event_type_code IN ('PROJECT_PRODUCTION_RELEASED','PROJECT_PRODUCTION_WITHDRAWN') ORDER BY occurred_at DESC,created_at DESC LIMIT 1"),{'org':case.organization_id,'project':project['id']}).mappings().one_or_none()
+            if last and last['event_type_code']=='PROJECT_PRODUCTION_RELEASED' and last['payload']['project_definition_sha256']==digest:continue
+            conn.execute(text("INSERT INTO planning.effective_events(organization_id,plant_id,event_type_code,payload_schema_version,occurred_at,effective_at,entity_type,entity_id,payload,source_system,created_by) VALUES (:org,:plant,'PROJECT_PRODUCTION_RELEASED',1,now(),now(),'project',:project,CAST(:payload AS jsonb),'test_fixture',:actor)"),{'org':case.organization_id,'plant':case.plant_id,'project':project['id'],'actor':case.actor_id,'payload':json.dumps({'project_definition_sha256':digest,'fixture_bootstrap':True})})

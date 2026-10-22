@@ -97,10 +97,14 @@ def seed_case(engine: Engine) -> SeededCase:
         connection.execute(text("INSERT INTO planning.effective_events(id,organization_id,plant_id,event_type_code,payload_schema_version,occurred_at,effective_at,entity_type,entity_id,payload,planning_state_revision_id,source_system,external_reference,created_by) VALUES (:id,:org,:plant,'EXECUTION_STARTED',1,:start,:start,'operation_execution',:execution,'{}',:state,'test',:reference,:actor)"), {"id": ids["event"], "org": ids["org"], "plant": ids["plant"], "start": started, "execution": ids["execution"], "state": ids["state_revision"], "reference": f"start-{suffix}", "actor": ids["actor"]})
         connection.execute(text("INSERT INTO execution.remaining_estimate_revisions(id,organization_id,operation_execution_id,revision_no,cutoff_at,input_mode,raw_input,reason,effective_event_id,planning_state_revision_id,executed_labor_minutes_at_cutoff,remaining_labor_minutes,updated_total_labor_minutes,created_by) VALUES (:id,:org,:execution,1,:start,'remaining_duration',CAST(:raw_input AS jsonb),'initial',:event,:state,0,600,600,:actor)"), {"id": ids["remaining"], "org": ids["org"], "execution": ids["execution"], "start": started, "raw_input": '{"minutes":600}', "event": ids["event"], "state": ids["state_revision"], "actor": ids["actor"]})
         connection.execute(text("SET CONSTRAINTS ALL IMMEDIATE"))
-    return SeededCase(
+    case = SeededCase(
         ids["org"], ids["other_org"], ids["plant"], ids["actor"], ids["execution"],
         ids["phase"], ids["skill"], ids["physical_requirement"], ids["resource"],
         ids["remaining"], ids["state_revision"], ids["plan"], cutoff,
         ids["project"], ids["lot"], ids["operation_definition"], ids["definition_revision"],
         ids["solution"], ids["calendar"], ids["usage"], ids["resource_type"], ids["center"],
     )
+
+    from tests.integration.scheduling_helpers import seed_fixture_release
+    seed_fixture_release(engine, case)
+    return case

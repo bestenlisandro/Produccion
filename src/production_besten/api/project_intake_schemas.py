@@ -2,6 +2,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
+from production_besten.api.production_readiness_schemas import ProductionReadiness
 
 
 class IntakeModel(BaseModel):
@@ -59,6 +60,7 @@ class IntakeProject(IntakeModel):
     replanteo: IntakeMilestone
     operation_ids: list[UUID]
     planned_operation_ids: list[UUID] = Field(default_factory=list)
+    production_readiness: ProductionReadiness | None = None
 
 
 class ProjectIntakeUpdate(IntakeModel):

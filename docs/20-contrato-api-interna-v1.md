@@ -228,3 +228,16 @@ PRODUCT_EDITOR_VERSION_CONFLICT. Congelar no ejecuta scheduler ni modifica CURRE
 Se reutilizan los cinco comandos productivos existentes; no se agregan endpoints
 individuales redundantes. Contratos completos generados desde FastAPI y decisiones
 en [definición productiva](30-definicion-productiva-v1.md).
+
+## Etapa 7.4 — Preparación y liberación
+
+GET `/projects/{id}/production-readiness` deriva checklist e historia; GET
+`/projects/production-readiness` opera en lote. Los Project incluyen el indicador
+para evitar N+1 de la UI. POST `/projects/{id}/release` y `/unrelease` requieren
+Idempotency-Key, expected_row_version, evaluation_token y reason. Un conflicto
+de evaluación devuelve 409 PRODUCTION_RELEASE_VERSION_CONFLICT.
+
+POST `/projects/{id}/simulations` es una acción separada con horizonte timezone-aware
+y la misma protección de intención/concurrencia. Reutiliza GenerateSchedule, sin
+aceptar un escenario ni cambiar CURRENT. Freeze por sí solo no autoriza scheduler.
+Modelo, evidencia y límites en [preparación y liberación](31-preparacion-liberacion-produccion-v1.md).

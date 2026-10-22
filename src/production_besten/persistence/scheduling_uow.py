@@ -813,8 +813,10 @@ class PostgresSchedulingUnitOfWork:
 
     def _load_input(self, command, base_plan, scenario_id):
         definition = self.conn.execute(text("SELECT canonical_snapshot FROM production.product_definition_revisions WHERE organization_id=:org AND plant_id=:plant AND id=:id"), {"org": command.organization_id, "plant": command.plant_id, "id": command.product_definition_revision_id}).mappings().one()
+        from production_besten.persistence.production_release_uow import authorized_projects
+        released_ids = authorized_projects(self.conn, command.organization_id, command.plant_id, definition['canonical_snapshot'], check_readiness=True)
         params = {"org": command.organization_id, "plant": command.plant_id,
-                  "ids": list(command.project_ids), "all": not command.project_ids,
+                  "ids": list(command.project_ids), "all": not command.project_ids, "released_ids": released_ids,
                   "definition_scoped": "projects" in definition["canonical_snapshot"],
                   "editor_codes": definition['canonical_snapshot'].get('editor_frozen_projects', []),
                   "defined_codes": [p["code"] for p in definition["canonical_snapshot"].get("projects", [])
@@ -825,6 +827,7 @@ class PostgresSchedulingUnitOfWork:
             FROM core.projects p JOIN core.project_priorities pp
               ON pp.organization_id=p.organization_id AND pp.id=p.priority_id
             WHERE p.organization_id=:org AND p.plant_id=:plant AND p.status='active'
+              AND p.id=ANY(:released_ids)
               AND ((NOT :definition_scoped AND NOT EXISTS(
                   SELECT 1 FROM audit.audit_entries intake WHERE intake.organization_id=p.organization_id
                     AND intake.entity_id=p.id AND intake.entity_type='project' AND intake.action_code='PROJECT_INTAKE_CREATE'))

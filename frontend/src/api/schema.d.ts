@@ -4,6 +4,91 @@
  */
 
 export interface paths {
+    "/projects/production-readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Readiness List */
+        get: operations["readiness_list_projects_production_readiness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/production-readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Readiness */
+        get: operations["readiness_projects__project_id__production_readiness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Release */
+        post: operations["release_projects__project_id__release_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/unrelease": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unrelease */
+        post: operations["unrelease_projects__project_id__unrelease_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/simulations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Simulate */
+        post: operations["simulate_projects__project_id__simulations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1972,6 +2057,7 @@ export interface components {
             operation_ids: string[];
             /** Planned Operation Ids */
             planned_operation_ids?: string[];
+            production_readiness?: components["schemas"]["ProductionReadiness"] | null;
         };
         /** LaborRequirementRequest */
         LaborRequirementRequest: {
@@ -2361,6 +2447,107 @@ export interface components {
             /** Planning State Revision Number */
             planning_state_revision_number?: number | null;
         };
+        /** ProductionReadiness */
+        ProductionReadiness: {
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Row Version */
+            row_version: number;
+            /** Evaluation Token */
+            evaluation_token: string;
+            /** Evaluated At */
+            evaluated_at: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "not_ready" | "ready" | "released" | "blocked";
+            /** Ready */
+            ready: boolean;
+            /** Released */
+            released: boolean;
+            /** Eligible */
+            eligible: boolean;
+            /** Definition Revision Id */
+            definition_revision_id: string | null;
+            /** Definition Revision No */
+            definition_revision_no: number | null;
+            /** Released At */
+            released_at: string | null;
+            /** Items */
+            items: components["schemas"]["ReadinessItem"][];
+            /** History */
+            history: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Idempotent Replay
+             * @default false
+             */
+            idempotent_replay: boolean;
+        };
+        /** ProductionSimulation */
+        ProductionSimulation: {
+            /**
+             * Scenario Id
+             * Format: uuid
+             */
+            scenario_id: string;
+            /**
+             * Solution Id
+             * Format: uuid
+             */
+            solution_id: string;
+            /** Status */
+            status: string;
+            /** Complete */
+            complete: boolean;
+            /** Planned Phases */
+            planned_phases: number;
+            /** Blocked Phases */
+            blocked_phases: number;
+            /**
+             * Out Of Horizon Phases
+             * @default 0
+             */
+            out_of_horizon_phases: number;
+            /** Solution Sha256 */
+            solution_sha256?: string | null;
+            /**
+             * Elapsed Ms
+             * @default 0
+             */
+            elapsed_ms: number;
+            /** Failed Reason */
+            failed_reason?: string | null;
+            /**
+             * Idempotent Replay
+             * @default false
+             */
+            idempotent_replay: boolean;
+        };
+        /** ProductionSimulationRequest */
+        ProductionSimulationRequest: {
+            /** Expected Row Version */
+            expected_row_version: number;
+            /** Evaluation Token */
+            evaluation_token: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Horizon Start
+             * Format: date-time
+             */
+            horizon_start: string;
+            /**
+             * Horizon End
+             * Format: date-time
+             */
+            horizon_end: string;
+        };
         /** ProjectIntakeStatus */
         ProjectIntakeStatus: {
             /**
@@ -2403,6 +2590,22 @@ export interface components {
             notes?: string | null;
             /** Expected Row Version */
             expected_row_version: number;
+        };
+        /** ReadinessItem */
+        ReadinessItem: {
+            /** Code */
+            code: string;
+            /** Label */
+            label: string;
+            /** Satisfied */
+            satisfied: boolean;
+            /**
+             * Applicable
+             * @default true
+             */
+            applicable: boolean;
+            /** Detail */
+            detail: string;
         };
         /** RegisterSegmentRequest */
         RegisterSegmentRequest: {
@@ -2452,6 +2655,15 @@ export interface components {
             row_version: number;
             /** Idempotent Replay */
             idempotent_replay: boolean;
+        };
+        /** ReleaseProjectRequest */
+        ReleaseProjectRequest: {
+            /** Expected Row Version */
+            expected_row_version: number;
+            /** Evaluation Token */
+            evaluation_token: string;
+            /** Reason */
+            reason: string;
         };
         /** RemainingEstimateResponse */
         RemainingEstimateResponse: {
@@ -2891,6 +3103,194 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    readiness_list_projects_production_readiness_get: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionReadiness"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readiness_projects__project_id__production_readiness_get: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionReadiness"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    release_projects__project_id__release_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionReadiness"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unrelease_projects__project_id__unrelease_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionReadiness"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    simulate_projects__project_id__simulations_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductionSimulationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionSimulation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_health_get: {
         parameters: {
             query?: never;

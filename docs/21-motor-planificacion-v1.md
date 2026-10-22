@@ -235,3 +235,14 @@ prioridad de intención manual para la fase objetivo, incluido un recurso físic
 solicitado. La solicitud sigue sometida a calendarios, precedencias, capacidad,
 skills, gates y reservas; por eso la propuesta puede diferir y lo declara de forma
 explícita. Véase `docs/27-gantt-ajustes-asistidos-v1.md`.
+
+## Etapa 7.4 — Compuerta de autorización productiva
+
+La selección de demanda exige una liberación explícita PROJECT_PRODUCTION_RELEASED
+que autorice el hash industrial del proyecto en la definición congelada.
+PROJECT_PRODUCTION_WITHDRAWN retira sólo elegibilidad futura. No hay liberación
+automática por freeze, prioridad, compromiso vencido ni estado administrativo.
+Se reevalúa readiness en definiciones canónicas. Una revisión industrial nueva
+requiere nueva autorización; CURRENT y sus resultados históricos permanecen intactos.
+Un borrador no reemplaza la demanda congelada/autorizada. Detalle y pruebas en
+[preparación y liberación](31-preparacion-liberacion-produccion-v1.md).

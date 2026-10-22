@@ -1,0 +1,3 @@
+import type {components} from '../api/schema'
+import {projectIds} from './projectIntakeFixture'
+export const readinessFixture:components['schemas']['ProductionReadiness']={project_id:projectIds.project,row_version:1,evaluation_token:'a'.repeat(64),evaluated_at:'2026-10-22T12:00:00Z',state:'ready',ready:true,released:false,eligible:false,definition_revision_id:projectIds.project,definition_revision_no:1,released_at:null,items:[{code:'MEASUREMENT',label:'Medición realizada',satisfied:true,applicable:true,detail:'Realizada'},{code:'FROZEN',label:'Definición productiva congelada',satisfied:true,applicable:true,detail:'REV 1'}],history:[],idempotent_replay:false}
