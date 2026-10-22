@@ -77,7 +77,7 @@ def test_missing_dev_identity_is_structural_422(engine, seeded_case):
 
 def test_create_project_uses_context_tenant_and_plant(engine, seeded_case):
     refs = _project_refs(engine, seeded_case)
-    response = _client(engine).post("/projects", headers=_headers(seeded_case, key=False), json={
+    response = _client(engine).post("/projects", headers=_headers(seeded_case), json={
         "customer_id": str(refs["customer_id"]), "priority_id": str(refs["priority_id"]),
         "code": f"API-{uuid4().hex[:8]}", "name": "API project"
     })

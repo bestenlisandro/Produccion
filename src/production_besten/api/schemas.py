@@ -14,9 +14,9 @@ class ApiModel(BaseModel):
 class CreateProjectRequest(ApiModel):
     customer_id: UUID
     priority_id: UUID
-    code: str = Field(min_length=1)
-    name: str = Field(min_length=1)
-    description: str | None = None
+    code: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=4000)
     committed_date: date | None = None
     desired_start_at: datetime | None = None
     status: Literal["draft", "active", "inactive", "archived"] = "draft"

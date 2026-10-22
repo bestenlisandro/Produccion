@@ -35,7 +35,7 @@ function context(): DevContext {
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}, idempotencyKey?: string): Promise<T> {
+export async function request<T>(path: string, init: RequestInit = {}, idempotencyKey?: string): Promise<T> {
   const value = context()
   const headers = new Headers(init.headers)
   headers.set('Accept', 'application/json')

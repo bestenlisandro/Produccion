@@ -10,6 +10,8 @@ from production_besten.api.context import RequestContext, require_plant
 from production_besten.api.dependencies import ApiContainer, get_container, get_idempotency_key, get_request_context
 from production_besten.api.mappers import remaining_command
 from production_besten.api.schemas import *
+from production_besten.api.project_intake_schemas import IntakeProject
+from production_besten.api.project_intake_routes import service as intake_service, execute as execute_intake
 from production_besten.application.execution_services import FinishOperationService, RegisterExecutionSegmentService, StartOperationService
 from production_besten.application.product_definition_services import (
     CreateProductDefinitionRevisionService, CreateProductionBatchService, CreateProjectService,
@@ -74,21 +76,17 @@ def ready(container: ApiContainer = Depends(get_container)) -> HealthResponse:
     return HealthResponse(status="ready")
 
 
-@router.post("/projects", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED,
+@router.post("/projects", response_model=IntakeProject, status_code=status.HTTP_201_CREATED,
              tags=["projects"], summary="Create a project")
 def create_project(body: CreateProjectRequest, context: RequestContext = Depends(get_request_context),
-                   container: ApiContainer = Depends(get_container)) -> ProjectResponse:
-    plant_id = require_plant(context)
-    result = CreateProjectService(_product_factory(container)).execute(CreateProject(
-        context.organization_id, plant_id, body.customer_id, body.priority_id, body.code, body.name,
-        context.user_id, body.description, body.committed_date, body.desired_start_at, body.status))
-    return ProjectResponse.model_validate(container.queries.project(context.organization_id, result.entity_id, plant_id))
+                   key: UUID = Depends(get_idempotency_key), container: ApiContainer = Depends(get_container)):
+    return execute_intake(container,context,key,"create",body)["project"]
 
 
-@router.get("/projects/{project_id}", response_model=ProjectResponse, tags=["projects"], summary="Get a project")
+@router.get("/projects/{project_id}", response_model=IntakeProject, tags=["projects"], summary="Get a project")
 def get_project(project_id: UUID, context: RequestContext = Depends(get_request_context),
                 container: ApiContainer = Depends(get_container)) -> ProjectResponse:
-    return ProjectResponse.model_validate(container.queries.project(context.organization_id, project_id, context.plant_id))
+    return intake_service(container).detail(context.organization_id,require_plant(context),project_id)
 
 
 @router.post("/projects/{project_id}/batches", response_model=BatchResponse, status_code=status.HTTP_201_CREATED,

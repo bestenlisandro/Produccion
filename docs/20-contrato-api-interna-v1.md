@@ -190,3 +190,28 @@ persistentemente plan_requires_reconciliation. CURRENT no se reescribe. Los
 conteos expresan operaciones distintas de CURRENT e incluyen el calendario base
 de planta. OpenAPI y tipos fueron regenerados desde FastAPI real y validados.
 Alcance, semántica histórica y límites en `docs/28-administracion-maestros-v1.md`.
+
+## 13. Proyectos / pedidos — Etapa 7.2
+
+El agregado sigue siendo Project. POST /projects ahora exige Idempotency-Key,
+comienza en draft y reutiliza CREATE_PROJECT. GET /projects permite búsqueda y
+filtros; GET /projects/{id} agrega cliente, fechas separadas, hitos, revisión,
+readiness administrativa, admisión productiva y reconciliation. Se mantienen los
+campos previos de proyecto. GET /project-intake/options devuelve catálogos existentes
+y contexto de planta; no acepta organization_id ni plant_id desde el body.
+
+PATCH /projects/{id}, POST /projects/{id}/status y los POST de measurement/replanteo
+requieren clave y expected_row_version. Conflicto de versión: 409 con código
+PROJECT_INTAKE_VERSION_CONFLICT. Un replay exige el mismo payload/contexto.
+Archivo es baja lógica terminal y se rechaza con ejecución en curso.
+
+measurement/replanteo registran hechos realizados con fecha timezone-aware y
+observación; las correcciones usan supersedes_id. No admiten citas futuras.
+La fecha prevista de medición y ubicación de obra quedaron fuera del alcance
+acordado sin migraciones. No se reinterpretan notas o datos de privacidad como
+campos estructurales inexistentes.
+
+Prioridad/committed date afectan la siguiente simulación y su revisión operativa;
+CURRENT, ejecución, fechas comunicadas y snapshots industriales siguen intactos.
+Un alta administrativa no libera demanda sin definición congelada. No se agregan
+rutas de edición industrial. Detalle en `docs/29-proyectos-pedidos-v1.md`.

@@ -45,7 +45,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Projects */
+        get: operations["list_projects_projects_get"];
         put?: never;
         /** Create a project */
         post: operations["create_project_projects_post"];
@@ -69,7 +70,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update */
+        patch: operations["update_projects__project_id__patch"];
         trace?: never;
     };
     "/projects/{project_id}/batches": {
@@ -735,6 +737,74 @@ export interface paths {
         head?: never;
         /** Update Plant */
         patch: operations["update_plant_master_data_plant_patch"];
+        trace?: never;
+    };
+    "/project-intake/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Options */
+        get: operations["options_project_intake_options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Status */
+        post: operations["set_status_projects__project_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/measurement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Measurement */
+        post: operations["measurement_projects__project_id__measurement_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/replanteo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replanteo */
+        post: operations["replanteo_projects__project_id__replanteo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
 }
@@ -1554,6 +1624,121 @@ export interface components {
             /** Work Minutes */
             work_minutes: number;
         };
+        /** IntakeMilestone */
+        IntakeMilestone: {
+            /** Supported */
+            supported: boolean;
+            /** Occurred At */
+            occurred_at?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** IntakeMutation */
+        IntakeMutation: {
+            project: components["schemas"]["IntakeProject"];
+            /**
+             * Idempotent Replay
+             * @default false
+             */
+            idempotent_replay: boolean;
+        };
+        /** IntakeOption */
+        IntakeOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Code */
+            code?: string | null;
+            /** Name */
+            name: string;
+        };
+        /** IntakeOptions */
+        IntakeOptions: {
+            /** Customers */
+            customers: components["schemas"]["IntakeOption"][];
+            /** Priorities */
+            priorities: components["schemas"]["IntakeOption"][];
+            plant: components["schemas"]["IntakeOption"];
+            /** Timezone */
+            timezone: string;
+            /** Measurement Supported */
+            measurement_supported: boolean;
+            /** Replanteo Supported */
+            replanteo_supported: boolean;
+        };
+        /** IntakeProject */
+        IntakeProject: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Plant Id
+             * Format: uuid
+             */
+            plant_id: string;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /**
+             * Customer Id
+             * Format: uuid
+             */
+            customer_id: string;
+            /** Customer Name */
+            customer_name: string;
+            /** Customer Email */
+            customer_email: string | null;
+            /** Customer Phone */
+            customer_phone: string | null;
+            /**
+             * Priority Id
+             * Format: uuid
+             */
+            priority_id: string;
+            /** Priority Code */
+            priority_code: string;
+            /** Status */
+            status: string;
+            /** Committed Date */
+            committed_date: string | null;
+            /** Desired Start At */
+            desired_start_at: string | null;
+            /** Estimated Date */
+            estimated_date: string | null;
+            /** Communicated Date */
+            communicated_date: string | null;
+            /** Row Version */
+            row_version: number;
+            /** Lot Count */
+            lot_count: number;
+            /** Operation Count */
+            operation_count: number;
+            /** Definition Revision No */
+            definition_revision_no: number | null;
+            /** Ready For Definition */
+            ready_for_definition: boolean;
+            /** Plannable */
+            plannable: boolean;
+            /** Overdue */
+            overdue: boolean;
+            /** Plan Requires Reconciliation */
+            plan_requires_reconciliation: boolean;
+            /** Communication Recommended */
+            communication_recommended: boolean;
+            measurement: components["schemas"]["IntakeMilestone"];
+            replanteo: components["schemas"]["IntakeMilestone"];
+            /** Operation Ids */
+            operation_ids: string[];
+            /** Planned Operation Ids */
+            planned_operation_ids?: string[];
+        };
         /** LaborRequirementRequest */
         LaborRequirementRequest: {
             /**
@@ -1942,21 +2127,20 @@ export interface components {
             /** Planning State Revision Number */
             planning_state_revision_number?: number | null;
         };
-        /** ProjectResponse */
-        ProjectResponse: {
+        /** ProjectIntakeStatus */
+        ProjectIntakeStatus: {
             /**
-             * Id
-             * Format: uuid
+             * Status
+             * @enum {string}
              */
-            id: string;
-            /** Code */
-            code: string;
+            status: "active" | "inactive" | "archived";
+            /** Expected Row Version */
+            expected_row_version: number;
+        };
+        /** ProjectIntakeUpdate */
+        ProjectIntakeUpdate: {
             /** Name */
             name: string;
-            /** Description */
-            description: string | null;
-            /** Status */
-            status: string;
             /**
              * Customer Id
              * Format: uuid
@@ -1967,15 +2151,24 @@ export interface components {
              * Format: uuid
              */
             priority_id: string;
-            /**
-             * Plant Id
-             * Format: uuid
-             */
-            plant_id: string;
+            /** Description */
+            description?: string | null;
             /** Committed Date */
-            committed_date: string | null;
-            /** Desired Start At */
-            desired_start_at: string | null;
+            committed_date?: string | null;
+            /** Expected Row Version */
+            expected_row_version: number;
+        };
+        /** ProjectMilestoneInput */
+        ProjectMilestoneInput: {
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Notes */
+            notes?: string | null;
+            /** Expected Row Version */
+            expected_row_version: number;
         };
         /** RegisterSegmentRequest */
         RegisterSegmentRequest: {
@@ -2588,6 +2781,46 @@ export interface operations {
             };
         };
     };
+    list_projects_projects_get: {
+        parameters: {
+            query?: {
+                search?: string;
+                status?: string | null;
+                priority?: string | null;
+                customer_id?: string | null;
+                committed_from?: string | null;
+                committed_to?: string | null;
+            };
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeProject"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_project_projects_post: {
         parameters: {
             query?: never;
@@ -2595,6 +2828,7 @@ export interface operations {
                 "X-Dev-User-Id": string;
                 "X-Dev-Organization-Id": string;
                 "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
             };
             path?: never;
             cookie?: never;
@@ -2611,7 +2845,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProjectResponse"];
+                    "application/json": components["schemas"]["IntakeProject"];
                 };
             };
             /** @description Semantically invalid request */
@@ -2679,7 +2913,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProjectResponse"];
+                    "application/json": components["schemas"]["IntakeProject"];
                 };
             };
             /** @description Semantically invalid request */
@@ -2723,6 +2957,46 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    update_projects__project_id__patch: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectIntakeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeMutation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };
@@ -4934,6 +5208,159 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    options_project_intake_options_get: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeOptions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_status_projects__project_id__status_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectIntakeStatus"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeMutation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    measurement_projects__project_id__measurement_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectMilestoneInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeMutation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replanteo_projects__project_id__replanteo_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectMilestoneInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeMutation"];
                 };
             };
             /** @description Validation Error */

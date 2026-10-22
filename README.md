@@ -112,6 +112,12 @@ históricas, excepciones, idempotencia contextual y reconciliation persistente s
 reescribir CURRENT. Autenticación productiva diferida. Resultados y límites en
 [administración de maestros](docs/28-administracion-maestros-v1.md).
 
+Etapa 7.2 agrega Proyectos / pedidos (`/projects`): alta administrativa reutilizando
+Project, listado, detalle, edición, prioridad, compromisos e hitos realizados de
+medición/replanteo. La definición industrial permanece separada para 7.3; los cambios
+relevantes generan reconciliation sin reescribir CURRENT. No agrega migraciones.
+Alcance acordado y resultados en [proyectos y pedidos](docs/29-proyectos-pedidos-v1.md).
+
 ```powershell
 cd frontend
 npm ci
