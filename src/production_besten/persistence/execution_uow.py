@@ -83,6 +83,14 @@ class PostgresExecutionUnitOfWork:
             return replay
         if operation["current_product_definition_revision_id"] is None:
             raise InvalidExecutionState("plant has no current product definition revision")
+        editor_state = self.conn.scalar(text("""
+            SELECT action_code FROM audit.audit_entries
+            WHERE organization_id=:org AND entity_id=:project
+              AND action_code LIKE 'PRODUCT_EDITOR_%' AND action_code<>'PRODUCT_EDITOR_VALIDATE'
+            ORDER BY occurred_at DESC,created_at DESC,id DESC LIMIT 1
+        """), {"org": command.organization_id, "project": operation['project_id']})
+        if editor_state and editor_state != 'PRODUCT_EDITOR_FREEZE':
+            raise InvalidExecutionState("La definición tiene un borrador pendiente. Congelá la revisión antes de iniciar ejecución.")
         self._require_phase(command.organization_id, command.required_operation_id, command.phase_id)
         active = self.conn.execute(
             text(

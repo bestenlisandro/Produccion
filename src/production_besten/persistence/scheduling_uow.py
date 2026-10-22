@@ -816,6 +816,7 @@ class PostgresSchedulingUnitOfWork:
         params = {"org": command.organization_id, "plant": command.plant_id,
                   "ids": list(command.project_ids), "all": not command.project_ids,
                   "definition_scoped": "projects" in definition["canonical_snapshot"],
+                  "editor_codes": definition['canonical_snapshot'].get('editor_frozen_projects', []),
                   "defined_codes": [p["code"] for p in definition["canonical_snapshot"].get("projects", [])
                     if any(op.get("phases") for group in [p.get("unassigned_operations", []),
                         *(lot.get("operations", []) for lot in p.get("lots", []))] for op in group)]}
@@ -828,9 +829,9 @@ class PostgresSchedulingUnitOfWork:
                   SELECT 1 FROM audit.audit_entries intake WHERE intake.organization_id=p.organization_id
                     AND intake.entity_id=p.id AND intake.entity_type='project' AND intake.action_code='PROJECT_INTAKE_CREATE'))
                 OR p.code=ANY(:defined_codes))
-              AND EXISTS(SELECT 1 FROM production.required_operations ready
+              AND (p.code=ANY(:editor_codes) OR EXISTS(SELECT 1 FROM production.required_operations ready
                 WHERE ready.organization_id=p.organization_id AND ready.project_id=p.id
-                  AND ready.status IN ('draft','active') AND ready.cancelled_at IS NULL)
+                  AND ready.status IN ('draft','active') AND ready.cancelled_at IS NULL))
               AND (:all OR p.id=ANY(:ids)) ORDER BY p.code
         """), params).mappings().all()
         if command.project_ids and {row["id"] for row in project_rows} != set(command.project_ids):
@@ -863,6 +864,15 @@ class PostgresSchedulingUnitOfWork:
         phase_ids = [row["id"] for row in phase_rows]
         labor_rows = self.conn.execute(text("SELECT required_operation_phase_id,skill_id,min_people,max_people,work_minutes FROM production.operation_labor_requirements WHERE organization_id=:org AND required_operation_phase_id=ANY(:phases) AND is_mandatory ORDER BY id"), {"org": command.organization_id, "phases": phase_ids}).mappings().all() if phase_ids else []
         physical_rows = self.conn.execute(text("SELECT id,required_operation_phase_id,physical_resource_type_id,physical_resource_group_id,work_center_id,quantity,capacity_units,usage_mode FROM production.operation_physical_requirements WHERE organization_id=:org AND required_operation_phase_id=ANY(:phases) AND is_mandatory ORDER BY id"), {"org": command.organization_id, "phases": phase_ids}).mappings().all() if phase_ids else []
+        from production_besten.persistence.frozen_editor_demand import frozen_editor_rows
+        operation_rows, phase_rows, labor_rows, physical_rows = frozen_editor_rows(
+            self.conn, command.organization_id, definition['canonical_snapshot'], project_rows,
+            operation_rows, phase_rows, labor_rows, physical_rows)
+        if command.parameters.get('replan'):
+            allowed = {UUID(value) for value in command.parameters['replan']['frontier_operation_ids']}
+            operation_rows = [r for r in operation_rows if r['id'] in allowed]
+            phase_rows = [r for r in phase_rows if r['required_operation_id'] in allowed]
+        operation_ids = [r['id'] for r in operation_rows]
         gates = self._load_gates(command.organization_id, operation_rows, phase_rows)
         labor_by, physical_by = defaultdict(list), defaultdict(list)
         for row in labor_rows:
@@ -882,6 +892,8 @@ class PostgresSchedulingUnitOfWork:
             )
         self._remaining_revision_by_phase = remaining_revision_by_phase
         precedence_rows = self.conn.execute(text("SELECT predecessor_operation_id,successor_operation_id,precedence_type,lag_minutes FROM production.operation_precedences WHERE organization_id=:org AND active AND predecessor_operation_id=ANY(:operations) AND successor_operation_id=ANY(:operations) ORDER BY predecessor_operation_id,successor_operation_id"), {"org": command.organization_id, "operations": operation_ids}).mappings().all() if operation_ids else []
+        from production_besten.persistence.frozen_editor_demand import frozen_editor_precedences
+        precedence_rows = frozen_editor_precedences(definition['canonical_snapshot'], project_rows, operation_rows, precedence_rows)
         precedences = tuple(PrecedenceData(
             row["predecessor_operation_id"], row["successor_operation_id"],
             row["precedence_type"], row["lag_minutes"],

@@ -4998,6 +4998,363 @@
           }
         }
       }
+    },
+    "/product-definition/options": {
+      "get": {
+        "tags": [
+          "product-definition"
+        ],
+        "summary": "Options",
+        "operationId": "options_product_definition_options_get",
+        "parameters": [
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditorOptions"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/product-definition": {
+      "get": {
+        "tags": [
+          "product-definition"
+        ],
+        "summary": "Detail",
+        "operationId": "detail_projects__project_id__product_definition_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditorDefinition"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "product-definition"
+        ],
+        "summary": "Save",
+        "operationId": "save_projects__project_id__product_definition_put",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditorSave"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditorDefinition"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/product-definition/{action}": {
+      "post": {
+        "tags": [
+          "product-definition"
+        ],
+        "summary": "Action",
+        "operationId": "action_projects__project_id__product_definition__action__post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Action"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditorAction"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditorDefinition"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6163,6 +6520,538 @@
           "effective_at"
         ],
         "title": "DefineRouteRequest"
+      },
+      "EditorAction": {
+        "properties": {
+          "expected_row_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Row Version"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Reason",
+            "default": "Definición productiva desde interfaz"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_row_version"
+        ],
+        "title": "EditorAction"
+      },
+      "EditorDefinition": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Project Id"
+          },
+          "row_version": {
+            "type": "integer",
+            "title": "Row Version"
+          },
+          "draft_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "empty",
+              "draft",
+              "frozen"
+            ],
+            "title": "Status"
+          },
+          "lots": {
+            "items": {
+              "$ref": "#/components/schemas/EditorLot"
+            },
+            "type": "array",
+            "title": "Lots"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "revisions": {
+            "items": {
+              "$ref": "#/components/schemas/EditorRevision"
+            },
+            "type": "array",
+            "title": "Revisions"
+          },
+          "idempotent_replay": {
+            "type": "boolean",
+            "title": "Idempotent Replay",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "project_id",
+          "row_version",
+          "draft_id",
+          "status",
+          "lots",
+          "errors",
+          "revisions"
+        ],
+        "title": "EditorDefinition"
+      },
+      "EditorLot": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "route_version_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route Version Id"
+          },
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/EditorOperation"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Operations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "EditorLot"
+      },
+      "EditorOperation": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "operation_definition_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Operation Definition Id"
+          },
+          "predecessor_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Predecessor Codes"
+          },
+          "phases": {
+            "items": {
+              "$ref": "#/components/schemas/EditorPhase"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Phases"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "operation_definition_id"
+        ],
+        "title": "EditorOperation"
+      },
+      "EditorOption": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name"
+        ],
+        "title": "EditorOption"
+      },
+      "EditorOptions": {
+        "properties": {
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/EditorOption"
+            },
+            "type": "array",
+            "title": "Operations"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/EditorOption"
+            },
+            "type": "array",
+            "title": "Skills"
+          },
+          "centers": {
+            "items": {
+              "$ref": "#/components/schemas/EditorOption"
+            },
+            "type": "array",
+            "title": "Centers"
+          },
+          "resource_types": {
+            "items": {
+              "$ref": "#/components/schemas/EditorOption"
+            },
+            "type": "array",
+            "title": "Resource Types"
+          },
+          "resource_groups": {
+            "items": {
+              "$ref": "#/components/schemas/EditorOption"
+            },
+            "type": "array",
+            "title": "Resource Groups"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/EditorOption"
+            },
+            "type": "array",
+            "title": "Routes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "operations",
+          "skills",
+          "centers",
+          "resource_types",
+          "resource_groups",
+          "routes"
+        ],
+        "title": "EditorOptions"
+      },
+      "EditorPhase": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "estimate_kind": {
+            "type": "string",
+            "enum": [
+              "elapsed",
+              "labor"
+            ],
+            "title": "Estimate Kind",
+            "default": "elapsed"
+          },
+          "original_estimate_minutes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Original Estimate Minutes",
+            "default": 60
+          },
+          "split_policy": {
+            "type": "string",
+            "enum": [
+              "splittable",
+              "non_splittable",
+              "continuous"
+            ],
+            "title": "Split Policy",
+            "default": "splittable"
+          },
+          "labor_requirements": {
+            "items": {
+              "$ref": "#/components/schemas/LaborRequirementRequest"
+            },
+            "type": "array",
+            "title": "Labor Requirements"
+          },
+          "physical_requirements": {
+            "items": {
+              "$ref": "#/components/schemas/EditorPhysicalRequirement"
+            },
+            "type": "array",
+            "title": "Physical Requirements"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "EditorPhase"
+      },
+      "EditorPhysicalRequirement": {
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Quantity"
+          },
+          "capacity_units": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Capacity Units"
+          },
+          "usage_mode": {
+            "type": "string",
+            "enum": [
+              "active_use",
+              "occupation"
+            ],
+            "title": "Usage Mode"
+          },
+          "physical_resource_type_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Physical Resource Type Id"
+          },
+          "physical_resource_group_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Physical Resource Group Id"
+          },
+          "work_center_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Center Id"
+          },
+          "is_mandatory": {
+            "type": "boolean",
+            "title": "Is Mandatory",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "quantity",
+          "capacity_units",
+          "usage_mode"
+        ],
+        "title": "EditorPhysicalRequirement"
+      },
+      "EditorRevision": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "revision_no": {
+            "type": "integer",
+            "title": "Revision No"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "lot_count": {
+            "type": "integer",
+            "title": "Lot Count"
+          },
+          "operation_count": {
+            "type": "integer",
+            "title": "Operation Count"
+          },
+          "snapshot": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Snapshot"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "revision_no",
+          "created_at",
+          "lot_count",
+          "operation_count",
+          "snapshot"
+        ],
+        "title": "EditorRevision"
+      },
+      "EditorSave": {
+        "properties": {
+          "expected_row_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Row Version"
+          },
+          "lots": {
+            "items": {
+              "$ref": "#/components/schemas/EditorLot"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Lots"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_row_version"
+        ],
+        "title": "EditorSave"
       },
       "FinishOperationRequest": {
         "properties": {

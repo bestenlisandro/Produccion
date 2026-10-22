@@ -55,7 +55,7 @@ test('C registra medición y replanteo realizados',async({page})=>{
 
 test('D proyecto sin definición no ofrece planificación liberada',async({page})=>{
   await setup(page);await page.getByRole('link',{name:'Cocina Central'}).click()
-  await expect(page.getByText('Todavía no definida',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'DEFINIR PRODUCCIÓN'})).toBeDisabled()
+  await expect(page.getByText('Todavía no definida',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'DEFINIR PRODUCCIÓN'})).toBeEnabled()
   await expect(page.getByText('Sin trabajo planificable liberado.')).toBeVisible();await expect(page.getByRole('link',{name:'ABRIR GANTT'})).toHaveCount(0)
 })
 

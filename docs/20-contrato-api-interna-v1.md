@@ -215,3 +215,16 @@ Prioridad/committed date afectan la siguiente simulación y su revisión operati
 CURRENT, ejecución, fechas comunicadas y snapshots industriales siguen intactos.
 Un alta administrativa no libera demanda sin definición congelada. No se agregan
 rutas de edición industrial. Detalle en `docs/29-proyectos-pedidos-v1.md`.
+
+## Etapa 7.3 — Editor de definición productiva
+
+GET `/product-definition/options` y GET `/projects/{id}/product-definition`
+exponen maestros activos, borrador e historia congelada. PUT sobre la segunda ruta
+guarda el agregado editable; POST con sufijos `/validate`, `/freeze` y
+`/new-revision` coordina su lifecycle. Todas las mutaciones requieren
+Idempotency-Key y expected_row_version. Un conflicto de versión devuelve 409
+PRODUCT_EDITOR_VERSION_CONFLICT. Congelar no ejecuta scheduler ni modifica CURRENT.
+
+Se reutilizan los cinco comandos productivos existentes; no se agregan endpoints
+individuales redundantes. Contratos completos generados desde FastAPI y decisiones
+en [definición productiva](30-definicion-productiva-v1.md).

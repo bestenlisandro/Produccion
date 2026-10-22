@@ -807,6 +807,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/product-definition/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Options */
+        get: operations["options_product_definition_options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/product-definition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail */
+        get: operations["detail_projects__project_id__product_definition_get"];
+        /** Save */
+        put: operations["save_projects__project_id__product_definition_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/product-definition/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Action */
+        post: operations["action_projects__project_id__product_definition__action__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1220,6 +1272,188 @@ export interface components {
             effective_at: string;
             /** Reason */
             reason?: string | null;
+        };
+        /** EditorAction */
+        EditorAction: {
+            /** Expected Row Version */
+            expected_row_version: number;
+            /**
+             * Reason
+             * @default Definición productiva desde interfaz
+             */
+            reason: string;
+        };
+        /** EditorDefinition */
+        EditorDefinition: {
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Row Version */
+            row_version: number;
+            /** Draft Id */
+            draft_id: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "empty" | "draft" | "frozen";
+            /** Lots */
+            lots: components["schemas"]["EditorLot"][];
+            /** Errors */
+            errors: string[];
+            /** Revisions */
+            revisions: components["schemas"]["EditorRevision"][];
+            /**
+             * Idempotent Replay
+             * @default false
+             */
+            idempotent_replay: boolean;
+        };
+        /** EditorLot */
+        EditorLot: {
+            /** Id */
+            id?: string | null;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /** Quantity */
+            quantity?: number | null;
+            /** Unit */
+            unit?: string | null;
+            /** Route Version Id */
+            route_version_id?: string | null;
+            /** Operations */
+            operations?: components["schemas"]["EditorOperation"][];
+        };
+        /** EditorOperation */
+        EditorOperation: {
+            /** Id */
+            id?: string | null;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /**
+             * Operation Definition Id
+             * Format: uuid
+             */
+            operation_definition_id: string;
+            /** Predecessor Codes */
+            predecessor_codes?: string[];
+            /** Phases */
+            phases?: components["schemas"]["EditorPhase"][];
+        };
+        /** EditorOption */
+        EditorOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+        };
+        /** EditorOptions */
+        EditorOptions: {
+            /** Operations */
+            operations: components["schemas"]["EditorOption"][];
+            /** Skills */
+            skills: components["schemas"]["EditorOption"][];
+            /** Centers */
+            centers: components["schemas"]["EditorOption"][];
+            /** Resource Types */
+            resource_types: components["schemas"]["EditorOption"][];
+            /** Resource Groups */
+            resource_groups: components["schemas"]["EditorOption"][];
+            /** Routes */
+            routes: components["schemas"]["EditorOption"][];
+        };
+        /** EditorPhase */
+        EditorPhase: {
+            /** Id */
+            id?: string | null;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /**
+             * Estimate Kind
+             * @default elapsed
+             * @enum {string}
+             */
+            estimate_kind: "elapsed" | "labor";
+            /**
+             * Original Estimate Minutes
+             * @default 60
+             */
+            original_estimate_minutes: number;
+            /**
+             * Split Policy
+             * @default splittable
+             * @enum {string}
+             */
+            split_policy: "splittable" | "non_splittable" | "continuous";
+            /** Labor Requirements */
+            labor_requirements?: components["schemas"]["LaborRequirementRequest"][];
+            /** Physical Requirements */
+            physical_requirements?: components["schemas"]["EditorPhysicalRequirement"][];
+        };
+        /** EditorPhysicalRequirement */
+        EditorPhysicalRequirement: {
+            /** Quantity */
+            quantity: number;
+            /** Capacity Units */
+            capacity_units: number;
+            /**
+             * Usage Mode
+             * @enum {string}
+             */
+            usage_mode: "active_use" | "occupation";
+            /** Physical Resource Type Id */
+            physical_resource_type_id?: string | null;
+            /** Physical Resource Group Id */
+            physical_resource_group_id?: string | null;
+            /** Work Center Id */
+            work_center_id?: string | null;
+            /**
+             * Is Mandatory
+             * @default true
+             */
+            is_mandatory: boolean;
+        };
+        /** EditorRevision */
+        EditorRevision: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Revision No */
+            revision_no: number;
+            /** Created At */
+            created_at: string;
+            /** Lot Count */
+            lot_count: number;
+            /** Operation Count */
+            operation_count: number;
+            /** Snapshot */
+            snapshot: {
+                [key: string]: unknown;
+            };
+        };
+        /** EditorSave */
+        EditorSave: {
+            /** Expected Row Version */
+            expected_row_version: number;
+            /** Lots */
+            lots?: components["schemas"]["EditorLot"][];
         };
         /** FinishOperationRequest */
         FinishOperationRequest: {
@@ -5361,6 +5595,155 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IntakeMutation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    options_product_definition_options_get: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditorOptions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detail_projects__project_id__product_definition_get: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditorDefinition"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_projects__project_id__product_definition_put: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditorSave"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditorDefinition"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    action_projects__project_id__product_definition__action__post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                project_id: string;
+                action: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditorAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditorDefinition"];
                 };
             };
             /** @description Validation Error */

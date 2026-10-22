@@ -118,6 +118,11 @@ medición/replanteo. La definición industrial permanece separada para 7.3; los 
 relevantes generan reconciliation sin reescribir CURRENT. No agrega migraciones.
 Alcance acordado y resultados en [proyectos y pedidos](docs/29-proyectos-pedidos-v1.md).
 
+Etapa 7.3 incorpora el editor de definición productiva dentro del proyecto: lotes,
+rutas, operaciones, fases y requisitos, con validación, congelado inmutable y nuevas
+revisiones. El scheduler consume la demanda congelada y CURRENT se conserva.
+Alcance, restricciones y resultados en [definición productiva](docs/30-definicion-productiva-v1.md).
+
 ```powershell
 cd frontend
 npm ci

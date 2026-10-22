@@ -68,7 +68,7 @@ test('reintento incierto conserva command key y cuerpo',async()=>{
 test('detalle separa fechas, medición, definición y planificación',async()=>{
   renderPage('/projects/'+fixture.id);await screen.findByRole('heading',{name:'Resumen'})
   for(const heading of ['Cliente / obra','Fechas','Medición / replanteo','Estado','Definición productiva','Planificación'])expect(screen.getByRole('heading',{name:heading})).toBeInTheDocument()
-  expect(screen.getByText('Todavía no definida')).toBeInTheDocument();expect(screen.getByRole('button',{name:'DEFINIR PRODUCCIÓN'})).toBeDisabled()
+  expect(screen.getByText('Todavía no definida')).toBeInTheDocument();expect(screen.getByRole('button',{name:'DEFINIR PRODUCCIÓN'})).toBeEnabled()
   expect(screen.getByText('Sin trabajo planificable liberado.')).toBeInTheDocument()
 })
 test('edición guarda prioridad y fecha con row_version',async()=>{
