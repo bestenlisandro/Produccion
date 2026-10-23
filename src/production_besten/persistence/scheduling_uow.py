@@ -842,7 +842,7 @@ class PostgresSchedulingUnitOfWork:
         projects = tuple(ProjectData(row["id"], row["code"], row["priority_code"], row["priority_rank"], row["committed_date"]) for row in project_rows)
         project_ids = [row["id"] for row in project_rows]
         operation_rows = self.conn.execute(text("""
-            SELECT ro.id,ro.project_id,ro.project_lot_id,ro.code,ro.earliest_start_at,ro.settings,
+            SELECT ro.id,ro.project_id,ro.project_lot_id,ro.code,ro.earliest_start_at,ro.settings,ro.operation_kind,
                    l.code AS lot_code,COALESCE(l.sequence_no,32767) AS lot_sequence
             FROM production.required_operations ro
             LEFT JOIN core.project_lots l ON l.organization_id=ro.organization_id AND l.id=ro.project_lot_id
@@ -877,6 +877,12 @@ class PostgresSchedulingUnitOfWork:
             phase_rows = [r for r in phase_rows if r['required_operation_id'] in allowed]
         operation_ids = [r['id'] for r in operation_rows]
         gates = self._load_gates(command.organization_id, operation_rows, phase_rows)
+        # Location is a scheduling gate for installation phases only. Production can proceed.
+        missing_projects = set(self.conn.execute(text("SELECT p.id FROM core.projects p WHERE p.organization_id=:org AND p.plant_id=:plant AND (NULLIF(btrim(p.installation_address),'') IS NULL OR NULLIF(btrim(p.installation_locality),'') IS NULL)"),{'org':command.organization_id,'plant':command.plant_id}).scalars())
+        missing_location = {o['id'] for o in operation_rows if o['operation_kind']=='installation' and o['project_id'] in missing_projects}
+        for ph in phase_rows:
+            if ph['required_operation_id'] in missing_location:
+                gates[ph['id']].append(GateData('INSTALLATION_LOCATION',None,'INSTALLATION_LOCATION_MISSING'))
         labor_by, physical_by = defaultdict(list), defaultdict(list)
         for row in labor_rows:
             labor_by[row["required_operation_phase_id"]].append(LaborNeed(row["skill_id"], row["min_people"], row["max_people"], row["work_minutes"]))

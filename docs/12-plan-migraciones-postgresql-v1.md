@@ -123,3 +123,11 @@ No se insertan empleados, clientes, recursos, organizaciones ni proyectos. Los r
 - El total exacto de índices incluye índices automáticos de PK/UNIQUE/EXCLUDE y puede variar por versión PostgreSQL; se distingue de las 28 familias secundarias explícitas.
 
 No se detecta `BRECHA_IMPLEMENTACION` en el plan. Se autoriza continuar con el DDL dentro de esta Etapa 3.
+
+## M11 — Ubicación de instalación V1 (Etapa 7.5)
+
+`011_installation_location.sql` es aditiva y transaccional. Agrega seis columnas
+nullable a core.projects; no crea tablas, valores por defecto ni datos ficticios.
+M0–M10 históricos permanecen intactos. El runner aplica M0–M11 y verifica además
+un proyecto creado antes de M11: su descripción se preserva y los seis campos
+nuevos quedan NULL. El conteo continúa en 8 schemas y 87 tablas.

@@ -6,6 +6,7 @@ async function setup(page:Page){
   const calls:{path:string;body:any;key:string|undefined}[]=[]
   await page.route('**/api/**',async route=>{
     const request=route.request(),path=new URL(request.url()).pathname.replace('/api','')
+  if(path.endsWith('/installations'))return route.fulfill({json:{project_id:projectFixture.id,project_code:projectFixture.code,project_name:projectFixture.name,customer_name:projectFixture.customer_name,row_version:1,timezone:'America/Argentina/Buenos_Aires',required:false,can_complete:false,completed:false,installations:[]}})
     if(path==='/project-intake/options')return route.fulfill({json:projectOptions})
     if(path==='/projects'&&request.method()==='GET')return route.fulfill({json:rows})
     if(path.startsWith('/projects/')&&request.method()==='GET')return route.fulfill({json:rows.find(p=>path===`/projects/${p.id}`)})

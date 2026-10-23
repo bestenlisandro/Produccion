@@ -4,6 +4,74 @@
  */
 
 export interface paths {
+    "/installations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Agenda */
+        get: operations["agenda_installations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/installations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail */
+        get: operations["detail_projects__project_id__installations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/installation-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Plan */
+        post: operations["plan_projects__project_id__installation_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/installations/{operation_id}/remaining-estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remaining */
+        post: operations["remaining_installations__operation_id__remaining_estimate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/production-readiness": {
         parameters: {
             query?: never;
@@ -892,6 +960,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/installation-location": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Location */
+        patch: operations["location_projects__project_id__installation_location_patch"];
+        trace?: never;
+    };
+    "/projects/{project_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete */
+        post: operations["complete_projects__project_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/product-definition/options": {
         parameters: {
             query?: never;
@@ -1428,6 +1530,12 @@ export interface components {
              * Format: uuid
              */
             operation_definition_id: string;
+            /**
+             * Operation Kind
+             * @default production
+             * @enum {string}
+             */
+            operation_kind: "production" | "installation";
             /** Predecessor Codes */
             predecessor_codes?: string[];
             /** Phases */
@@ -1943,6 +2051,184 @@ export interface components {
             /** Work Minutes */
             work_minutes: number;
         };
+        /** InstallationLocationUpdate */
+        InstallationLocationUpdate: {
+            /** Installation Site Name */
+            installation_site_name?: string | null;
+            /** Installation Address */
+            installation_address?: string | null;
+            /** Installation Locality */
+            installation_locality?: string | null;
+            /** Installation Contact Name */
+            installation_contact_name?: string | null;
+            /** Installation Contact Phone */
+            installation_contact_phone?: string | null;
+            /** Installation Access Notes */
+            installation_access_notes?: string | null;
+            /** Expected Row Version */
+            expected_row_version: number;
+        };
+        /** InstallationOperation */
+        InstallationOperation: {
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /** Operation Name */
+            operation_name: string;
+            /** Phase Id */
+            phase_id: string | null;
+            /** Phase Name */
+            phase_name: string | null;
+            /** Execution Id */
+            execution_id: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "not_ready" | "ready" | "scheduled" | "running" | "finished" | "blocked";
+            /** Ready To Schedule */
+            ready_to_schedule: boolean;
+            /** Ready To Start */
+            ready_to_start: boolean;
+            /** Blockers */
+            blockers: string[];
+            /** Planned Start */
+            planned_start: string | null;
+            /** Planned Finish */
+            planned_finish: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /** Last Segment End */
+            last_segment_end: string | null;
+            /** Duration Minutes */
+            duration_minutes: number;
+            /** Required People */
+            required_people: number;
+            /** People */
+            people: components["schemas"]["InstallationPerson"][];
+            /** Resources */
+            resources: components["schemas"]["InstallationPerson"][];
+            /** Executed Minutes */
+            executed_minutes: number;
+            /** Remaining Minutes */
+            remaining_minutes: number | null;
+            /** Remaining Revision No */
+            remaining_revision_no: number | null;
+            /** Overdue */
+            overdue: boolean;
+            /** Scheduled Dates */
+            scheduled_dates?: string[];
+        };
+        /** InstallationPerson */
+        InstallationPerson: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** InstallationProject */
+        InstallationProject: {
+            /** Installation Site Name */
+            installation_site_name?: string | null;
+            /** Installation Address */
+            installation_address?: string | null;
+            /** Installation Locality */
+            installation_locality?: string | null;
+            /** Installation Contact Name */
+            installation_contact_name?: string | null;
+            /** Installation Contact Phone */
+            installation_contact_phone?: string | null;
+            /** Installation Access Notes */
+            installation_access_notes?: string | null;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Project Code */
+            project_code: string;
+            /** Project Name */
+            project_name: string;
+            /** Customer Name */
+            customer_name: string;
+            /** Row Version */
+            row_version: number;
+            /** Timezone */
+            timezone: string;
+            /** Committed Date */
+            committed_date?: string | null;
+            /** Desired Start At */
+            desired_start_at?: string | null;
+            /** Required */
+            required: boolean;
+            /** Can Complete */
+            can_complete: boolean;
+            /** Completed */
+            completed: boolean;
+            /** Installations */
+            installations: components["schemas"]["InstallationOperation"][];
+        };
+        /** InstallationRemaining */
+        InstallationRemaining: {
+            /**
+             * Cutoff At
+             * Format: date-time
+             */
+            cutoff_at: string;
+            /** Reason */
+            reason?: string | null;
+            /** Remaining */
+            remaining: components["schemas"]["RemainingInputRequest"][];
+            /**
+             * Input Mode
+             * @default remaining_duration
+             * @enum {string}
+             */
+            input_mode: "delta" | "remaining_duration" | "expected_finish";
+            /** Expected Revision No */
+            expected_revision_no: number;
+        };
+        /** InstallationRemainingResult */
+        InstallationRemainingResult: {
+            /**
+             * Revision Id
+             * Format: uuid
+             */
+            revision_id: string;
+            /** Revision No */
+            revision_no: number;
+            /**
+             * Planning State Revision Id
+             * Format: uuid
+             */
+            planning_state_revision_id: string;
+            /** Planning State Revision No */
+            planning_state_revision_no: number;
+            /**
+             * Effective Event Id
+             * Format: uuid
+             */
+            effective_event_id: string;
+            /** Original Labor Minutes */
+            original_labor_minutes: number;
+            /** Executed Labor Minutes */
+            executed_labor_minutes: number;
+            /** Remaining Labor Minutes */
+            remaining_labor_minutes: number;
+            /** Updated Total Labor Minutes */
+            updated_total_labor_minutes: number;
+            /** Current Plan Version Id */
+            current_plan_version_id: string | null;
+            /** Idempotent Replay */
+            idempotent_replay: boolean;
+        };
         /** IntakeMilestone */
         IntakeMilestone: {
             /** Supported */
@@ -1989,6 +2275,18 @@ export interface components {
         };
         /** IntakeProject */
         IntakeProject: {
+            /** Installation Site Name */
+            installation_site_name?: string | null;
+            /** Installation Address */
+            installation_address?: string | null;
+            /** Installation Locality */
+            installation_locality?: string | null;
+            /** Installation Contact Name */
+            installation_contact_name?: string | null;
+            /** Installation Contact Phone */
+            installation_contact_phone?: string | null;
+            /** Installation Access Notes */
+            installation_access_notes?: string | null;
             /**
              * Id
              * Format: uuid
@@ -2548,6 +2846,11 @@ export interface components {
              */
             horizon_end: string;
         };
+        /** ProjectCompletion */
+        ProjectCompletion: {
+            /** Expected Row Version */
+            expected_row_version: number;
+        };
         /** ProjectIntakeStatus */
         ProjectIntakeStatus: {
             /**
@@ -3103,6 +3406,154 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    agenda_installations_get: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstallationProject"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detail_projects__project_id__installations_get: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstallationProject"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_projects__project_id__installation_plan_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplanFromOperationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remaining_installations__operation_id__remaining_estimate_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstallationRemaining"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstallationRemainingResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     readiness_list_projects_production_readiness_get: {
         parameters: {
             query?: never;
@@ -5985,6 +6436,86 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ProjectMilestoneInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeMutation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    location_projects__project_id__installation_location_patch: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstallationLocationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeMutation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_projects__project_id__complete_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectCompletion"];
             };
         };
         responses: {

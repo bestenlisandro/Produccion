@@ -9,6 +9,7 @@ async function setup(page:Page,complete=true){
  function refresh(){r.ready=measured&&replanteo&&frozen;r.released=authorized;r.eligible=authorized&&r.ready;r.state=r.eligible?'released':r.ready?'ready':'blocked';r.row_version=p.row_version;r.definition_revision_no=frozen?d.revisions.length:null;r.items=[{code:'MEASUREMENT',label:'Medición realizada',satisfied:measured,applicable:true,detail:measured?'Realizada':'Pendiente'},{code:'REPLANTEO',label:'Replanteo realizado',satisfied:replanteo,applicable:true,detail:replanteo?'Realizado':'Pendiente'},{code:'FROZEN',label:'Definición productiva congelada',satisfied:frozen,applicable:true,detail:frozen?'Congelada':'Pendiente'}];p.production_readiness=r;p.plannable=r.eligible;p.definition_revision_no=r.definition_revision_no}
  await page.route('**/api/**',async route=>{
   const req=route.request(),path=new URL(req.url()).pathname.replace('/api','');refresh()
+  if(path.endsWith('/installations'))return route.fulfill({json:{project_id:projectFixture.id,project_code:projectFixture.code,project_name:projectFixture.name,customer_name:projectFixture.customer_name,row_version:1,timezone:'America/Argentina/Buenos_Aires',required:false,can_complete:false,completed:false,installations:[]}})
   if(path==='/project-intake/options')return route.fulfill({json:projectOptions})
   if(path==='/product-definition/options')return route.fulfill({json:editorOptions})
   if(path==='/projects'&&req.method()==='GET')return route.fulfill({json:[p]})

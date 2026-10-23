@@ -82,6 +82,7 @@ class PostgresProjectIntakeUnitOfWork(PostgresProductDefinitionUnitOfWork):
         result=[]
         for row in rows:
             p={k:row[k] for k in ("id","plant_id","code","name","description","customer_id","customer_name","customer_email","customer_phone","priority_id","priority_code","status","committed_date","desired_start_at","row_version","lot_count","communicated_date","plan_requires_reconciliation","operation_ids","planned_operation_ids")}
+            p.update({k:row[k] for k in ("installation_site_name","installation_address","installation_locality","installation_contact_name","installation_contact_phone","installation_access_notes")})
             p["operation_count"]=len(p["operation_ids"])
             p['production_readiness'] = readiness_by_project[p['id']]
             definition=next((item for item in (row["canonical_snapshot"] or {}).get("projects",[]) if item["code"]==p["code"]),None)
@@ -145,6 +146,17 @@ class PostgresProjectIntakeUnitOfWork(PostgresProductDefinitionUnitOfWork):
                 self.conn.execute(text("""UPDATE core.projects SET name=:name,description=:description,customer_id=:customer,
                     priority_id=:priority,committed_date=:committed,updated_at=now(),row_version=row_version+1
                     WHERE organization_id=:org AND id=:id"""),{"name":payload["name"].strip(),"description":payload.get("description"),"customer":payload["customer_id"],"priority":payload["priority_id"],"committed":payload.get("committed_date"),"org":org,"id":identifier})
+            elif c.action=="location":
+                fields=("installation_site_name","installation_address","installation_locality","installation_contact_name","installation_contact_phone","installation_access_notes")
+                values={k:(payload.get(k) or '').strip() or None for k in fields}
+                assignments=','.join(k+'=:'+k for k in fields)
+                self.conn.execute(text('UPDATE core.projects SET '+assignments+',updated_at=now(),row_version=row_version+1 WHERE organization_id=:org AND id=:id'),values|{'org':org,'id':identifier})
+            elif c.action=="complete":
+                self.conn.execute(text('SELECT id FROM production.required_operations WHERE organization_id=:org AND project_id=:id ORDER BY id FOR UPDATE'),{'org':org,'id':identifier})
+                from production_besten.persistence.installation_queries import project_completion
+                if not project_completion(self.conn,org,plant,identifier):
+                    raise ProductDefinitionConflict('No se puede cerrar: quedan operaciones obligatorias pendientes o falta definición congelada.')
+                self.conn.execute(text("UPDATE core.projects SET status='archived',closed_at=now(),updated_at=now(),row_version=row_version+1 WHERE organization_id=:org AND id=:id"),{'org':org,'id':identifier})
             elif c.action=="status":
                 allowed={"draft":{"active","archived"},"active":{"inactive","archived"},"inactive":{"active","archived"}}
                 if payload["status"] not in allowed.get(before["status"],set()):raise ProductDefinitionConflict("Transición de estado no permitida.")
@@ -155,7 +167,7 @@ class PostgresProjectIntakeUnitOfWork(PostgresProductDefinitionUnitOfWork):
                 self._register_milestone(c,identifier)
                 self.conn.execute(text("UPDATE core.projects SET updated_at=now(),row_version=row_version+1 WHERE organization_id=:org AND id=:id"),{"org":org,"id":identifier})
             else:raise InvalidProductDefinition("Comando de proyecto no soportado.")
-            relevant=c.action in {"status","measurement","replanteo"} or (c.action=="update" and any(str(before[key])!=str(payload.get(key)) for key in ("priority_id","committed_date")))
+            relevant=c.action in {"status","measurement","replanteo","location","complete"} or (c.action=="update" and any(str(before[key])!=str(payload.get(key)) for key in ("priority_id","committed_date")))
             if relevant:self._advance_intake_state(c,identifier)
         detail=self.project_detail(org,plant,identifier)
         after={"project":detail,"idempotent_replay":False}

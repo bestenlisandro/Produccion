@@ -246,3 +246,15 @@ Se reevalúa readiness en definiciones canónicas. Una revisión industrial nuev
 requiere nueva autorización; CURRENT y sus resultados históricos permanecen intactos.
 Un borrador no reemplaza la demanda congelada/autorizada. Detalle y pruebas en
 [preparación y liberación](31-preparacion-liberacion-produccion-v1.md).
+
+## Etapa 7.5 — Instalación y capacidad compartida
+
+Las operaciones installation congeladas usan el mismo algoritmo, precedencias,
+calendarios, personas y recursos de producción. Sin dirección o localidad, sus
+fases tienen blocker INSTALLATION_LOCATION_MISSING; la producción puede continuar.
+El tipo de operación también se recupera desde snapshot, preservando la revisión
+congelada frente a borradores posteriores. Un equipo permanece fijo entre segmentos
+de una misma fase; fases distintas o una nueva reprogramación pueden reasignarlo.
+La ejecución real y el resto se procesan mediante los casos de uso existentes.
+La planificación de proyecto produce REPLAN_PROJECT y requiere aceptación explícita;
+CURRENT sólo cambia mediante ACCEPT_REPLAN, conservando su versión anterior.

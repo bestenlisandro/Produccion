@@ -135,3 +135,7 @@ npm run dev
 npm run test
 npm run build
 ```
+
+Etapa 7.5 incorpora ubicación principal de instalación por proyecto mediante M11,
+agenda y ejecución sobre las mismas operaciones y personas del scheduler. El cierre
+operativo exige todas las operaciones finalizadas. Véase [instalaciones](docs/32-instalaciones-v1.md).

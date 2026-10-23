@@ -9,8 +9,9 @@ import { GanttPage } from './features/gantt/GanttPage'
 import { MasterDataPage } from './features/master-data/MasterDataPage'
 import { ProductEditorPage } from './features/projects/ProductEditor'
 import { ProjectsPage,NewProjectPage,ProjectDetailPage } from './features/projects/Projects'
+import {InstallationsPage} from './features/projects/Installations'
 import { Root, RouteError } from './routes/Root'
 import './styles/global.css'
 
-const router=createBrowserRouter([{path:'/',Component:Root,ErrorBoundary:RouteError,children:[{index:true,Component:DailyBoard},{path:'projects',Component:ProjectsPage},{path:'projects/new',Component:NewProjectPage},{path:'projects/:projectId',Component:ProjectDetailPage},{path:'projects/:projectId/product-definition',Component:ProductEditorPage},{path:'operations/:operationId',Component:OperationDetail},{path:'planning/gantt',Component:GanttPage},{path:'settings',Component:MasterDataPage}]}])
+const router=createBrowserRouter([{path:'/',Component:Root,ErrorBoundary:RouteError,children:[{index:true,Component:DailyBoard},{path:'installations',Component:InstallationsPage},{path:'projects',Component:ProjectsPage},{path:'projects/new',Component:NewProjectPage},{path:'projects/:projectId',Component:ProjectDetailPage},{path:'projects/:projectId/product-definition',Component:ProductEditorPage},{path:'operations/:operationId',Component:OperationDetail},{path:'planning/gantt',Component:GanttPage},{path:'settings',Component:MasterDataPage}]}])
 createRoot(document.getElementById('root')!).render(<StrictMode><QueryClientProvider client={queryClient}><RouterProvider router={router}/></QueryClientProvider></StrictMode>)

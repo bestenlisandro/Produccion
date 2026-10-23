@@ -4,7 +4,7 @@ $migrationDirectory = Join-Path $repositoryRoot 'db\migrations'
 $dictionaryPath = Join-Path $repositoryRoot 'docs\08-diccionario-datos-v1.md'
 
 $migrationFiles = Get-ChildItem -LiteralPath $migrationDirectory -Filter '*.sql' -File | Sort-Object Name
-if ($migrationFiles.Count -ne 11) { throw "Expected 11 migration files, found $($migrationFiles.Count)." }
+if ($migrationFiles.Count -ne 12) { throw "Expected 12 migration files, found $($migrationFiles.Count)." }
 
 $sql = ($migrationFiles | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n"
 $tableMatches = [regex]::Matches($sql, '(?m)^CREATE TABLE ([a-z_]+\.[a-z_]+)')

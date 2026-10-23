@@ -241,3 +241,23 @@ POST `/projects/{id}/simulations` es una acción separada con horizonte timezone
 y la misma protección de intención/concurrencia. Reutiliza GenerateSchedule, sin
 aceptar un escenario ni cambiar CURRENT. Freeze por sí solo no autoriza scheduler.
 Modelo, evidencia y límites en [preparación y liberación](31-preparacion-liberacion-produccion-v1.md).
+
+## Etapa 7.5 — Instalaciones
+
+- GET `/installations`: agenda derivada de operaciones installation congeladas,
+  CURRENT y hechos reales, filtrada por organización/planta; sin agenda paralela.
+- GET `/projects/{id}/installations`: preparación, ubicación, asignación, avance y
+  posibilidad de cierre; incluye proyectos sin instalación.
+- PATCH `/projects/{id}/installation-location`: seis datos estructurados; reutiliza
+  Idempotency-Key, expected_row_version y conflicto de proyectos existente.
+- POST `/projects/{id}/installation-plan`: REPLAN_PROJECT explícito con horizonte;
+  reutiliza scheduler y ACCEPT_REPLAN, no publica automáticamente CURRENT.
+- POST `/installations/{operation_id}/remaining-estimate`: wrapper del caso de uso
+  existente con Idempotency-Key y expected_revision_no; replay no duplica revisiones.
+- POST `/projects/{id}/complete`: cierre explícito, versionado e idempotente; exige
+  definición congelada con todas sus operaciones finalizadas, incluida instalación.
+
+START_OPERATION, REGISTER_EXECUTION_SEGMENT y FINISH_OPERATION conservan sus rutas.
+El inicio de instalación exige ubicación, liberación y precedencias realmente
+finalizadas, respetando sus timestamps. Registro real verifica personas y recursos.
+Véase [instalaciones](32-instalaciones-v1.md). Autenticación productiva diferida.

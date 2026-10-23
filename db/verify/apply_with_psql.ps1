@@ -10,8 +10,8 @@ $repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $migrationDirectory = Join-Path $repositoryRoot 'db\migrations'
 
 $migrationFiles = Get-ChildItem -LiteralPath $migrationDirectory -Filter '*.sql' -File | Sort-Object Name
-if ($migrationFiles.Count -ne 11) {
-    throw "Expected 11 migrations, found $($migrationFiles.Count)."
+if ($migrationFiles.Count -ne 12) {
+    throw "Expected 12 migrations, found $($migrationFiles.Count)."
 }
 
 foreach ($migration in $migrationFiles) {

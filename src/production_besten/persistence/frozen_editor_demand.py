@@ -39,6 +39,7 @@ def frozen_editor_rows(conn, org, snapshot, projects, operations, phases, labor,
             for op in ops:
                 row = dict(op_by[(project_id, lot['code'] if lot else None, op['code'])])
                 row['settings'] = op['settings']
+                row['operation_kind'] = op['operation_kind']
                 row['earliest_start_at'] = instant(op['earliest_start_at'])
                 operations.append(row)
                 for ph in op['phases']:

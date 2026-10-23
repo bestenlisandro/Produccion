@@ -502,3 +502,12 @@ Los comandos `UPDATE_REMAINING_ESTIMATE`, `RESIZE_SCHEDULED_ACTIVITY`, `MOVE_SCH
 El esquema simplificado mantiene las distinciones de dominio, la capacidad finita, temporalidad contextual, versionado, reprogramación, portal seguro, integración y concurrencia. Tiene 87 tablas, 68 familias de constraints relevantes y 28 familias de índices secundarios explícitos.
 
 La conclusión formal se emite en `docs/11-cierre-esquema-fisico-v1.md`; este documento por sí solo no autoriza migraciones.
+
+## Extensión M11 — Ubicación de instalación V1
+
+V1 soporta una ubicación principal de instalación por proyecto. M11 agrega seis
+columnas text nullable a core.projects: nombre del sitio, dirección, localidad,
+contacto, teléfono e indicaciones de acceso. Dirección y localidad se validan en
+readiness de instalación; no se exige backfill a proyectos históricos o sin
+instalación. Se conservan 8 schemas y 87 tablas. M0–M10 históricos intactos.
+Múltiples sitios por proyecto requerirían entidad installation_sites; no se implementa.

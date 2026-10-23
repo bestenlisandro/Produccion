@@ -35,7 +35,7 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
         p = self.project(org,plant,project)
         latest = self.rows("SELECT action_code,metadata FROM audit.audit_entries WHERE organization_id=:org AND entity_id=:project AND action_code LIKE 'PRODUCT_EDITOR_%' AND action_code<>'PRODUCT_EDITOR_VALIDATE' ORDER BY occurred_at DESC,created_at DESC,id DESC LIMIT 1",org=org,project=project)
         lots = self.rows("SELECT id,code,name,description,quantity,unit FROM core.project_lots WHERE organization_id=:org AND project_id=:project AND status<>'archived' ORDER BY sequence_no,code",org=org,project=project)
-        ops = self.rows("SELECT id,project_lot_id,code,name,operation_definition_id FROM production.required_operations WHERE organization_id=:org AND project_id=:project AND status<>'archived' ORDER BY code",org=org,project=project)
+        ops = self.rows("SELECT id,project_lot_id,code,name,operation_definition_id,operation_kind FROM production.required_operations WHERE organization_id=:org AND project_id=:project AND status<>'archived' ORDER BY code",org=org,project=project)
         phases = self.rows("SELECT ph.* FROM production.required_operation_phases ph JOIN production.required_operations o ON o.organization_id=ph.organization_id AND o.id=ph.required_operation_id WHERE o.organization_id=:org AND o.project_id=:project AND ph.status<>'archived' ORDER BY ph.sequence_no",org=org,project=project)
         labor = self.rows("SELECT r.* FROM production.operation_labor_requirements r JOIN production.required_operation_phases ph ON ph.organization_id=r.organization_id AND ph.id=r.required_operation_phase_id JOIN production.required_operations o ON o.organization_id=ph.organization_id AND o.id=ph.required_operation_id WHERE o.organization_id=:org AND o.project_id=:project AND r.is_mandatory",org=org,project=project)
         physical = self.rows("SELECT r.* FROM production.operation_physical_requirements r JOIN production.required_operation_phases ph ON ph.organization_id=r.organization_id AND ph.id=r.required_operation_phase_id JOIN production.required_operations o ON o.organization_id=ph.organization_id AND o.id=ph.required_operation_id WHERE o.organization_id=:org AND o.project_id=:project AND r.is_mandatory",org=org,project=project)
@@ -93,6 +93,10 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
                 if len({p['code'] for p in o['phases']})!=len(o['phases']): errors.append(label+'Códigos de fase repetidos.')
                 for ph in o['phases']:
                     if ph['original_estimate_minutes']<=0: errors.append(label+'La duración debe ser mayor que cero minutos.')
+                    if o.get('operation_kind')=='installation':
+                        mandatory=[r for r in ph['labor_requirements'] if r['is_mandatory']]
+                        if not mandatory:errors.append(label+'La instalación requiere equipo humano.')
+                        if any(not 1<=r['min_people']<=r['max_people']<=3 for r in mandatory):errors.append(label+'Equipo de instalación incoherente: requiere entre 1 y 3 personas.')
                     for req in ph['labor_requirements']:
                         if str(req['skill_id']) not in active['skills']: errors.append(label+'Habilidad inactiva o inexistente.')
                         if req['min_people']<1 or req['max_people']<req['min_people'] or req['work_minutes']<=0: errors.append(label+'Requisito humano incoherente.')
@@ -195,8 +199,8 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
                 oid=o.get('id')
                 if oid:
                     if oid not in old_ops or old_ops[oid]['project_lot_id']!=lid or old_ops[oid]['code']!=o['code']: raise EntityNotFound()
-                    self.conn.execute(text("UPDATE production.required_operations SET name=:name,operation_definition_id=:operation_definition_id,status='draft',row_version=row_version+1,updated_at=now() WHERE organization_id=:org AND id=:id"),o|{'org':org,'id':oid})
-                else: oid=self.create_required_operation(CreateRequiredOperation(org,project,o['operation_definition_id'],o['code'],o['name'],actor,command_id(f'op{li}:{oi}'),project_lot_id=lid)).entity_id
+                    self.conn.execute(text("UPDATE production.required_operations SET name=:name,operation_definition_id=:operation_definition_id,operation_kind=CAST(:operation_kind AS production.operation_kind),status='draft',row_version=row_version+1,updated_at=now() WHERE organization_id=:org AND id=:id"),o|{'org':org,'id':oid})
+                else: oid=self.create_required_operation(CreateRequiredOperation(org,project,o['operation_definition_id'],o['code'],o['name'],actor,command_id(f'op{li}:{oi}'),project_lot_id=lid,operation_kind=o['operation_kind'])).entity_id
                 kept_ops.append(oid);op_ids[o['code']]=oid
                 for pi,ph in enumerate(o['phases'],1):
                     pid=ph.get('id')
@@ -230,7 +234,7 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
         if template is None:
             template=uuid4()
             self.conn.execute(text("INSERT INTO production.route_templates(id,organization_id,code,name,status) VALUES (:id,:org,:code,:name,'active')"),{'id':template,'org':org,'code':code,'name':'Ruta de '+lot['name']})
-        content=[{k:o[k] for k in ('code','name','operation_definition_id','predecessor_codes')}|{'phases':o['phases']} for o in lot['operations']]
+        content=[{k:o[k] for k in ('code','name','operation_definition_id','operation_kind','predecessor_codes')}|{'phases':o['phases']} for o in lot['operations']]
         digest=hashlib.sha256(json.dumps(content,default=str,sort_keys=True).encode()).hexdigest()
         existing=self.rows('SELECT id,version_no,notes FROM production.route_versions WHERE organization_id=:org AND route_template_id=:template ORDER BY version_no DESC LIMIT 1',org=org,template=template)
         if existing and existing[0]['notes']==digest:return existing[0]['id']

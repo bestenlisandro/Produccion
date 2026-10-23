@@ -29,6 +29,7 @@ class EditorOperation(EditorItem):
     code: str = Field(min_length=1, max_length=80)
     name: str = Field(min_length=1, max_length=200)
     operation_definition_id: UUID
+    operation_kind: Literal['production', 'installation'] = 'production'
     predecessor_codes: list[str] = Field(default_factory=list)
     phases: list[EditorPhase] = Field(default_factory=list, max_length=200)
 

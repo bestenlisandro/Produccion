@@ -30,7 +30,24 @@ class IntakeMilestone(IntakeModel):
     notes: str | None = None
 
 
-class IntakeProject(IntakeModel):
+class InstallationLocation(IntakeModel):
+    installation_site_name: str | None = Field(default=None, max_length=200)
+    installation_address: str | None = Field(default=None, max_length=500)
+    installation_locality: str | None = Field(default=None, max_length=200)
+    installation_contact_name: str | None = Field(default=None, max_length=200)
+    installation_contact_phone: str | None = Field(default=None, max_length=80)
+    installation_access_notes: str | None = Field(default=None, max_length=2000)
+
+
+class InstallationLocationUpdate(InstallationLocation):
+    expected_row_version: int = Field(ge=1)
+
+
+class ProjectCompletion(IntakeModel):
+    expected_row_version: int = Field(ge=1)
+
+
+class IntakeProject(InstallationLocation):
     id: UUID
     plant_id: UUID
     code: str

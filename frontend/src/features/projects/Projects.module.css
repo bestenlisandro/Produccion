@@ -2,3 +2,5 @@
 
 .field{display:flex;flex-direction:column;gap:.4rem;min-width:0}.form{min-width:0}.form input,.form select,.form textarea{min-width:0;max-width:100%}
 .form{grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));max-width:100%}.form>label,.form>button{min-width:0;max-width:100%}
+
+.installation{grid-column:1/-1}.installation fieldset{display:grid;gap:.7rem;min-width:0;margin:1rem 0}.installation label{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}.installation input,.installation button{max-width:100%;min-width:0}.installation article{border-top:1px solid var(--border);margin-top:1rem;padding-top:1rem}

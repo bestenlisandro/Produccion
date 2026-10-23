@@ -54,3 +54,16 @@ def measurement(project_id:UUID,body:ProjectMilestoneInput,key=Depends(get_idemp
 @router.post("/projects/{project_id}/replanteo",response_model=IntakeMutation)
 def replanteo(project_id:UUID,body:ProjectMilestoneInput,key=Depends(get_idempotency_key),context=Depends(get_request_context),container=Depends(get_container)):
     return execute(container,context,key,"replanteo",body,project_id)
+
+
+from production_besten.api.project_intake_schemas import InstallationLocationUpdate, ProjectCompletion
+
+
+@router.patch('/projects/{project_id}/installation-location', response_model=IntakeMutation)
+def location(project_id: UUID, body: InstallationLocationUpdate, key=Depends(get_idempotency_key), context=Depends(get_request_context), container=Depends(get_container)):
+    return execute(container, context, key, 'location', body, project_id)
+
+
+@router.post('/projects/{project_id}/complete', response_model=IntakeMutation)
+def complete(project_id: UUID, body: ProjectCompletion, key=Depends(get_idempotency_key), context=Depends(get_request_context), container=Depends(get_container)):
+    return execute(container, context, key, 'complete', body, project_id)

@@ -29,9 +29,9 @@ class PostgresProductionReleaseUnitOfWork(PostgresProductDefinitionUnitOfWork):
     def rows(self,sql,**params):return [dict(r) for r in self.conn.execute(text(sql),params).mappings()]
 
     def readiness(self,org,plant):
-        plants=self.rows('SELECT p.*,d.canonical_snapshot,d.revision_no,h.current_revision_id FROM core.plants p LEFT JOIN production.product_definition_revisions d ON d.organization_id=p.organization_id AND d.id=p.current_product_definition_revision_id LEFT JOIN planning.planning_state_heads h ON h.organization_id=p.organization_id AND h.plant_id=p.id WHERE p.organization_id=:org AND p.id=:plant',org=org,plant=plant)
+        plants=self.rows('SELECT p.*,clock_timestamp() AS evaluated_at,d.canonical_snapshot,d.revision_no,h.current_revision_id FROM core.plants p LEFT JOIN production.product_definition_revisions d ON d.organization_id=p.organization_id AND d.id=p.current_product_definition_revision_id LEFT JOIN planning.planning_state_heads h ON h.organization_id=p.organization_id AND h.plant_id=p.id WHERE p.organization_id=:org AND p.id=:plant',org=org,plant=plant)
         if not plants:raise EntityNotFound()
-        pl=plants[0];snapshot=pl['canonical_snapshot'] or {};now=datetime.now(timezone.utc)
+        pl=plants[0];snapshot=pl['canonical_snapshot'] or {};now=pl['evaluated_at']
         projects=self.rows('SELECT * FROM core.projects WHERE organization_id=:org AND plant_id=:plant ORDER BY code',org=org,plant=plant)
         editor=self.rows("SELECT DISTINCT ON(entity_id) entity_id,action_code FROM audit.audit_entries WHERE organization_id=:org AND entity_type='project' AND action_code LIKE 'PRODUCT_EDITOR_%' AND action_code<>'PRODUCT_EDITOR_VALIDATE' ORDER BY entity_id,occurred_at DESC,created_at DESC,id DESC",org=org)
         draft={r['entity_id']:r['action_code']!='PRODUCT_EDITOR_FREEZE' for r in editor}

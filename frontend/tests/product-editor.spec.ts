@@ -6,6 +6,7 @@ async function setup(page:Page,empty=false){
  if(empty){data.lots=[];data.status='empty';data.errors=['Agregá al menos un lote productivo.']}
  await page.route('**/api/**',async route=>{
   const req=route.request(),path=new URL(req.url()).pathname.replace('/api','')
+  if(path.endsWith('/installations'))return route.fulfill({json:{project_id:projectFixture.id,project_code:projectFixture.code,project_name:projectFixture.name,customer_name:projectFixture.customer_name,row_version:1,timezone:'America/Argentina/Buenos_Aires',required:false,can_complete:false,completed:false,installations:[]}})
   if(path==='/product-definition/options')return route.fulfill({json:editorOptions})
   if(path==='/project-intake/options')return route.fulfill({json:projectOptions})
   if(path==='/projects'&&req.method()==='GET')return route.fulfill({json:[project]})

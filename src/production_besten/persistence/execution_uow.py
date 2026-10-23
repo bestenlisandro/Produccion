@@ -62,10 +62,23 @@ class PostgresExecutionUnitOfWork:
         if replay:
             return replay
 
+        installation = self.conn.execute(text("SELECT o.project_id,p.plant_id FROM production.required_operations o JOIN core.projects p ON p.organization_id=o.organization_id AND p.id=o.project_id WHERE o.organization_id=:org AND o.id=:id AND o.operation_kind='installation'"), {'org':command.organization_id,'id':command.required_operation_id}).mappings().one_or_none()
+        if installation:
+            # Same order as project/location edits; readiness is evaluated under these locks.
+            self.conn.execute(text('SELECT id FROM core.organizations WHERE id=:org FOR UPDATE'),{'org':command.organization_id})
+            self.conn.execute(text('SELECT id FROM core.plants WHERE organization_id=:org AND id=:plant FOR UPDATE'),{'org':command.organization_id,'plant':installation['plant_id']})
+            self.conn.execute(text('SELECT id FROM core.projects WHERE organization_id=:org AND id=:id FOR UPDATE'),{'org':command.organization_id,'id':installation['project_id']})
+            from production_besten.persistence.installation_queries import installation_overview
+            overview=installation_overview(self.conn,command.organization_id,installation['plant_id'],installation['project_id'])[0]
+            item=next((i for i in overview['installations'] if i['operation_id']==command.required_operation_id),None)
+            if not item or not item['ready_to_start']:
+                raise InvalidExecutionState('Instalación no preparada: ubicación, liberación o producción precedente pendiente; o ya finalizada.')
+            late_predecessor=self.conn.scalar(text("SELECT EXISTS(SELECT 1 FROM production.operation_precedences pr LEFT JOIN LATERAL (SELECT completed_at,status FROM execution.operation_executions e WHERE e.organization_id=pr.organization_id AND e.required_operation_id=pr.predecessor_operation_id ORDER BY e.created_at DESC LIMIT 1) e ON true WHERE pr.organization_id=:org AND pr.successor_operation_id=:id AND pr.active AND (e.status IS DISTINCT FROM 'completed' OR e.completed_at+pr.lag_minutes*interval '1 minute'>:at))"),{'org':command.organization_id,'id':command.required_operation_id,'at':command.started_at})
+            if late_predecessor:raise InvalidExecutionState('El inicio no puede preceder a la finalización real de sus operaciones precedentes.')
         operation = self.conn.execute(
             text(
                 """
-                SELECT ro.id,ro.project_id,ro.project_lot_id,p.plant_id,
+                SELECT ro.id,ro.project_id,ro.project_lot_id,p.plant_id,p.status AS project_status,ro.status AS operation_status,
                        pl.current_product_definition_revision_id
                   FROM production.required_operations ro
                   JOIN core.projects p ON p.organization_id=ro.organization_id AND p.id=ro.project_id
@@ -81,6 +94,10 @@ class PostgresExecutionUnitOfWork:
         replay = self._start_replay(command.organization_id, command.source_system, external_reference, command.required_operation_id, command.phase_id)
         if replay:
             return replay
+        if operation['project_status'] in {'inactive','archived'} or operation['operation_status']=='archived':
+            raise InvalidExecutionState('El proyecto u operación no está activo para iniciar ejecución.')
+        if self.conn.scalar(text("SELECT EXISTS(SELECT 1 FROM execution.operation_executions WHERE organization_id=:org AND required_operation_id=:id AND status='completed')"),{'org':command.organization_id,'id':command.required_operation_id}):
+            raise ExecutionAlreadyCompleted('La operación finalizada conserva su historia y no se reabre.')
         if operation["current_product_definition_revision_id"] is None:
             raise InvalidExecutionState("plant has no current product definition revision")
         editor_state = self.conn.scalar(text("""
@@ -308,6 +325,19 @@ class PostgresExecutionUnitOfWork:
                 include_operation_level=False,
             )
         self._validate_segment_origin(command)
+        is_installation=self.conn.scalar(text("SELECT operation_kind='installation' FROM production.required_operations WHERE organization_id=:org AND id=:id"),{'org':command.organization_id,'id':execution['required_operation_id']})
+        if is_installation:
+            if not command.humans:raise StructuralAvailabilityConflict('La instalación debe registrar su equipo real.')
+            for table,ids in [('capacity.employees',[h.employee_id for h in command.humans]),('capacity.physical_resources',[h.physical_resource_id for h in command.physical_usages])]:
+                count=self.conn.scalar(text('SELECT count(*) FROM '+table+" WHERE organization_id=:org AND plant_id=:plant AND id=ANY(:ids) AND status='active'"),{'org':command.organization_id,'plant':execution['plant_id'],'ids':ids})
+                if count!=len(set(ids)):raise EntityNotFound('Equipo real fuera de planta.')
+            required=self.conn.execute(text('SELECT * FROM production.operation_physical_requirements WHERE organization_id=:org AND required_operation_phase_id=:phase AND is_mandatory'),{'org':command.organization_id,'phase':command.phase_id}).mappings().all()
+            for req in required:
+                ids=[h.physical_resource_id for h in command.physical_usages]
+                count=self.conn.scalar(text('''SELECT count(*) FROM capacity.physical_resources r WHERE r.organization_id=:org AND r.plant_id=:plant AND r.id=ANY(:ids)
+                    AND (CAST(:type AS uuid) IS NULL OR r.resource_type_id=:type) AND (CAST(:center AS uuid) IS NULL OR r.work_center_id=:center)
+                    AND (CAST(:group AS uuid) IS NULL OR EXISTS(SELECT 1 FROM capacity.physical_resource_group_members m WHERE m.organization_id=r.organization_id AND m.physical_resource_id=r.id AND m.group_id=:group AND m.valid_during @> CAST(:day AS date)))'''),{'org':command.organization_id,'plant':execution['plant_id'],'ids':ids,'type':req['physical_resource_type_id'],'center':req['work_center_id'],'group':req['physical_resource_group_id'],'day':command.started_at.date()})
+                if count<req['quantity']:raise StructuralAvailabilityConflict('Falta recurso físico requerido para instalación.')
         self._validate_actual_resources(command)
         if command.occupations and execution["project_lot_id"] is None:
             raise InvalidEstimate("physical occupation requires an operation project lot")

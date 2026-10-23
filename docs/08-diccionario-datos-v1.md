@@ -54,7 +54,7 @@ Resumen:
 
 ### D008 `core.projects` — M
 
-`plant_id uuid FK`; `customer_id uuid FK`; `code text`; `name text`; `description text ?`; `commercial_owner_id uuid FK ?`; `priority_id uuid FK`; `status text`; `accepted_on date ?`; `desired_start_at timestamptz ?`; `committed_date date ?`; `closed_at timestamptz ?`. UQ organización/código.
+`plant_id uuid FK`; `customer_id uuid FK`; `code text`; `name text`; `description text ?`; `commercial_owner_id uuid FK ?`; `priority_id uuid FK`; `status text`; `accepted_on date ?`; `desired_start_at timestamptz ?`; `committed_date date ?`; `closed_at timestamptz ?`; desde M11: `installation_site_name text ?`, `installation_address text ?`, `installation_locality text ?`, `installation_contact_name text ?`, `installation_contact_phone text ?`, `installation_access_notes text ?`. Una ubicación principal por proyecto; sin defaults ni backfill. UQ organización/código.
 
 ### D009 `core.project_lots` — M
 

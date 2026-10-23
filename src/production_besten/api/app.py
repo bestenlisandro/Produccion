@@ -29,6 +29,8 @@ def create_app(*, engine: Engine | None = None, enable_dev_context: bool | None 
                   description="API interna mínima sobre servicios de dominio validados.")
     app.state.container = ApiContainer(engine, DevRequestContextProvider(enabled=enabled), failpoints or {})
     install_error_handlers(app)
+    from production_besten.api.installation_routes import router as installation_router
+    app.include_router(installation_router)
     app.include_router(production_readiness_router)
     app.include_router(router)
     app.include_router(master_data_router)
