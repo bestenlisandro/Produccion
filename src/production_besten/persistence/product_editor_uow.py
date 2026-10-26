@@ -96,7 +96,7 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
                     if o.get('operation_kind')=='installation':
                         mandatory=[r for r in ph['labor_requirements'] if r['is_mandatory']]
                         if not mandatory:errors.append(label+'La instalación requiere equipo humano.')
-                        if any(not 1<=r['min_people']<=r['max_people']<=3 for r in mandatory):errors.append(label+'Equipo de instalación incoherente: requiere entre 1 y 3 personas.')
+                        if any(not 1<=r['min_people']<=r['max_people']<=6 for r in mandatory):errors.append(label+'Equipo de instalación incoherente: requiere entre 1 y 6 personas.')
                     for req in ph['labor_requirements']:
                         if str(req['skill_id']) not in active['skills']: errors.append(label+'Habilidad inactiva o inexistente.')
                         if req['min_people']<1 or req['max_people']<req['min_people'] or req['work_minutes']<=0: errors.append(label+'Requisito humano incoherente.')

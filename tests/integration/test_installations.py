@@ -242,7 +242,7 @@ def test_project_without_installation_completes(editor):
     assert mutate(api,'POST',path.replace('product-definition','complete'),{'expected_row_version':p['row_version']}).status_code==200
 
 
-@pytest.mark.parametrize('team',[1,2,3])
+@pytest.mark.parametrize('team',[1,2,3,6])
 def test_installation_team_size(installation,team):
     case,api,path,_=installation;engine=engine_for(api)
     if team>1:
@@ -260,6 +260,42 @@ def test_installation_team_size(installation,team):
     with engine.connect() as conn:
         counts=conn.execute(text("SELECT count(DISTINCT h.employee_id) FROM planning.human_segment_assignments h JOIN planning.assignment_segments s ON s.id=h.assignment_segment_id JOIN planning.planned_phase_assignments a ON a.id=s.planned_phase_assignment_id JOIN planning.phase_plan_results p ON p.id=a.phase_plan_result_id JOIN production.required_operation_phases ph ON ph.id=p.required_operation_phase_id JOIN production.required_operations o ON o.id=ph.required_operation_id WHERE h.schedule_solution_id=:id AND o.code='INSTALL' GROUP BY s.id"),{'id':result.solution_id}).scalars().all()
     assert counts and all(n==team for n in counts)
+
+
+def test_five_person_installation_requires_five_real_eligible_people(installation):
+    case,api,path,_=installation
+    engine=engine_for(api)
+
+    def add_people(count):
+        with engine.begin() as conn:
+            for _ in range(count):
+                employee=uuid4()
+                conn.execute(text("INSERT INTO capacity.employees(id,organization_id,plant_id,code,display_name,base_calendar_id) VALUES (:id,:org,:plant,:code,'Disposable installer',:cal)"),{'id':employee,'org':case.organization_id,'plant':case.plant_id,'code':'INSTALL-'+employee.hex,'cal':case.calendar_id})
+                conn.execute(text("INSERT INTO capacity.employee_skills(organization_id,employee_id,skill_id,valid_during,enabled) VALUES (:org,:id,:skill,daterange('2026-01-01','2027-01-01','[)'),true)"),{'org':case.organization_id,'id':employee,'skill':case.skill_id})
+
+    add_people(2)
+    assert action(api,path,'new-revision').status_code==200
+    lots=read(api,path)['lots']
+    req=lots[0]['operations'][1]['phases'][0]['labor_requirements'][0]
+    req.update(min_people=5,max_people=5,work_minutes=780*5)
+    assert save(api,path,lots).status_code==200
+    assert action(api,path,'freeze').status_code==200
+    assert command(api,path,'release').status_code==200
+    assert overview(api,path)['installations'][0]['required_people']==5
+    assert overview(api,path)['installations'][0]['ready_to_schedule']
+    blocked=simulate_raw(engine,case,(UUID(overview(api,path)['project_id']),))
+    assert not blocked.complete and blocked.blocked_phases>=1
+    with engine.connect() as conn:
+        assert conn.scalar(text('SELECT count(*) FROM capacity.employees WHERE organization_id=:org'),{'org':case.organization_id})==3
+        assert conn.scalar(text("SELECT count(*) FROM planning.human_segment_assignments h JOIN planning.assignment_segments s ON s.id=h.assignment_segment_id JOIN planning.planned_phase_assignments a ON a.id=s.planned_phase_assignment_id JOIN planning.phase_plan_results p ON p.id=a.phase_plan_result_id JOIN production.required_operation_phases ph ON ph.id=p.required_operation_phase_id JOIN production.required_operations o ON o.id=ph.required_operation_id WHERE h.schedule_solution_id=:id AND o.code='INSTALL'"),{'id':blocked.solution_id})==0
+    assert read(api,path)['lots'][0]['operations'][1]['phases'][0]['labor_requirements'][0]['min_people']==5
+
+    add_people(2)
+    feasible=simulate_raw(engine,case,(UUID(overview(api,path)['project_id']),))
+    assert feasible.complete and feasible.planned_phases==2
+    with engine.connect() as conn:
+        counts=conn.execute(text("SELECT count(DISTINCT h.employee_id) FROM planning.human_segment_assignments h JOIN planning.assignment_segments s ON s.id=h.assignment_segment_id JOIN planning.planned_phase_assignments a ON a.id=s.planned_phase_assignment_id JOIN planning.phase_plan_results p ON p.id=a.phase_plan_result_id JOIN production.required_operation_phases ph ON ph.id=p.required_operation_phase_id JOIN production.required_operations o ON o.id=ph.required_operation_id WHERE h.schedule_solution_id=:id AND o.code='INSTALL' GROUP BY s.id"),{'id':feasible.solution_id}).scalars().all()
+    assert counts and all(count==5 for count in counts)
 
 
 @pytest.mark.parametrize('master',['skills','physical_resource_types','work_centers'])
@@ -301,7 +337,7 @@ def test_agenda_benchmark_50_installations(installation):
     print(f'INSTALLATION_AGENDA_BENCHMARK 50 installations: {elapsed:.2f} ms; {len(statements)} queries; {len(r.content)} bytes')
 
 
-@pytest.mark.parametrize('team',[0,4])
+@pytest.mark.parametrize('team',[0,7])
 def test_invalid_installation_team_cannot_freeze(editor,team):
     _,api,path,lot=editor
     lot['operations'][0]['operation_kind']='installation'

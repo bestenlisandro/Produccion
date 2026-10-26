@@ -60,7 +60,7 @@ def installation_overview(conn, org, plant, project=None):
             if not (p['installation_locality'] or '').strip(): blockers.append('Falta localidad de obra.')
             if not preparation[p['id']]['eligible']: blockers.append('Falta liberación productiva vigente y preparación válida.')
             needs = [r for ph in frozen.get('phases', []) for r in ph['labor_requirements'] if r['is_mandatory']]
-            if not needs or any(not 1 <= r['min_people'] <= r['max_people'] <= 3 for r in needs): blockers.append('Se requiere un equipo válido de 1 a 3 personas.')
+            if not needs or any(not 1 <= r['min_people'] <= r['max_people'] <= 6 for r in needs): blockers.append('Se requiere un equipo válido de 1 a 6 personas.')
             pred_keys = {(e.get('predecessor_lot_code'),e['predecessor_code']) for e in frozen.get('predecessors',[])}
             predecessors = [live[k] for k in pred_keys if k in live]
             predecessors_complete = len(predecessors) == len(pred_keys) and all(v['execution_status'] == 'completed' for v in predecessors)

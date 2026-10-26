@@ -19,6 +19,15 @@ test.beforeEach(async({page},testInfo)=>{
   })
 })
 
+test('planta sin CURRENT orienta hacia el primer proyecto',async({page})=>{
+  await page.route('**/api/planning/current/gantt?*',route=>route.fulfill({status:404,json:{error:{code:'RESOURCE_NOT_FOUND',message:'resource not found'}}}))
+  await page.goto('/planning/gantt')
+  await expect(page.getByRole('heading',{name:'Todavía no existe un plan vigente.'})).toBeVisible()
+  await expect(page.getByText('Cargá y liberá un proyecto y generá una simulación para comenzar.')).toBeVisible()
+  await expect(page.getByRole('link',{name:'IR A PROYECTOS'})).toHaveAttribute('href','/projects')
+  await expect(page.getByText('REINTENTAR')).toHaveCount(0)
+})
+
 async function openGantt(page:Page){
   await page.goto('/planning/gantt',{waitUntil:'domcontentloaded'})
   await expect(page.getByRole('heading',{name:'Gantt operativo'})).toBeVisible()

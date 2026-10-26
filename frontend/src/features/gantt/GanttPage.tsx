@@ -117,7 +117,17 @@ export function GanttPage() {
   }, [])
 
   if (query.isPending) return <Loading label="Cargando Gantt operativo…" />
-  if (query.isError) return <ErrorState retry={() => void query.refetch()} />
+  if (query.isError) {
+    if (!scenarioId && query.error instanceof ApiError && query.error.status === 404
+      && query.error.code === 'RESOURCE_NOT_FOUND') {
+      return <main><section className="state" role="status">
+        <h1>Todavía no existe un plan vigente.</h1>
+        <p>Cargá y liberá un proyecto y generá una simulación para comenzar.</p>
+        <Link to="/projects">IR A PROYECTOS</Link>
+      </section></main>
+    }
+    return <ErrorState retry={() => void query.refetch()} />
+  }
   const data = query.data
   const changeAnchor = (value: string) => { setAnchorChanged(true); setAnchor(value) }
   const outside = (data.scenario?.operations ?? []).filter(

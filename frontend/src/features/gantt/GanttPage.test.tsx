@@ -42,6 +42,22 @@ test('muestra empty, error y retry',async()=>{
   renderPage();await userEvent.click(await screen.findByText('REINTENTAR'));expect(await screen.findByText(/Plan vigente V6/)).toBeInTheDocument()
 })
 
+test('sin CURRENT muestra orientación y enlace a proyectos',async()=>{
+  server.use(http.get('/api/planning/current/gantt',()=>HttpResponse.json({error:{code:'RESOURCE_NOT_FOUND',message:'resource not found'}},{status:404})))
+  renderPage()
+  expect(await screen.findByRole('heading',{name:'Todavía no existe un plan vigente.'})).toBeInTheDocument()
+  expect(screen.getByText('Cargá y liberá un proyecto y generá una simulación para comenzar.')).toBeInTheDocument()
+  expect(screen.getByRole('link',{name:'IR A PROYECTOS'})).toHaveAttribute('href','/projects')
+  expect(screen.queryByText('REINTENTAR')).not.toBeInTheDocument()
+})
+
+test('un 404 ajeno al contrato de CURRENT conserva el error',async()=>{
+  server.use(http.get('/api/planning/current/gantt',()=>HttpResponse.json({error:{code:'OTHER_NOT_FOUND'}},{status:404})))
+  renderPage()
+  expect(await screen.findByText('REINTENTAR')).toBeInTheDocument()
+  expect(screen.queryByText('Todavía no existe un plan vigente.')).not.toBeInTheDocument()
+})
+
 test('compara impacto semántico y confirma el nuevo plan',async()=>{
   let accepted=false;server.use(http.post('/api/scenarios/:id/accept',()=>{accepted=true;return HttpResponse.json({status:'promoted'})}))
   renderPage();await screen.findByText(/Plan vigente V6/);await userEvent.selectOptions(screen.getByLabelText('Comparar con'),'13131313-1313-4131-8131-131313131313')

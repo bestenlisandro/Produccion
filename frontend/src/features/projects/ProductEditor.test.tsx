@@ -26,6 +26,16 @@ test('duración canónica en minutos',async()=>{await ready();await userEvent.cl
 test('centro requerido activo',async()=>{await ready();await click('AGREGAR RECURSO');expect(screen.getByLabelText('Centro de trabajo')).toHaveValue(editorIds.center)})
 test('demanda de capacidad independiente',async()=>{await ready();await click('AGREGAR RECURSO');await userEvent.clear(screen.getByLabelText('Demanda de capacidad'));await userEvent.type(screen.getByLabelText('Demanda de capacidad'),'2');await click('GUARDAR BORRADOR');await waitFor(()=>expect(calls[0].body.lots[0].operations[0].phases[0].physical_requirements[0].capacity_units).toBe(2))})
 test('personas necesarias abstractas',async()=>{await ready();await click('AGREGAR HABILIDAD');await userEvent.clear(screen.getByLabelText('Personas necesarias'));await userEvent.type(screen.getByLabelText('Personas necesarias'),'2');await click('GUARDAR BORRADOR');await waitFor(()=>expect(calls[0].body.lots[0].operations[0].phases[0].labor_requirements[0].min_people).toBe(2))})
+
+test('instalación permite seis personas sin limitar otros procesos',async()=>{
+ await ready();await click('AGREGAR HABILIDAD')
+ const input=screen.getByLabelText('Personas necesarias')
+ expect(input).not.toHaveAttribute('max')
+ await userEvent.selectOptions(screen.getByLabelText('Clase de trabajo'),'installation')
+ expect(input).toHaveAttribute('max','6')
+ await userEvent.clear(input);await userEvent.type(input,'6');await click('GUARDAR BORRADOR')
+ await waitFor(()=>expect(calls[0].body.lots[0].operations[0].phases[0].labor_requirements[0]).toMatchObject({min_people:6,max_people:6}))
+})
 test('skills se pueden agregar y quitar',async()=>{await ready();await click('AGREGAR HABILIDAD');expect(screen.getByLabelText('Habilidad requerida')).toHaveValue(editorIds.skill);await click('QUITAR HABILIDAD');expect(screen.queryByLabelText('Habilidad requerida')).not.toBeInTheDocument()})
 test('recurso físico se selecciona por tipo',async()=>{await ready();await click('AGREGAR RECURSO');await userEvent.selectOptions(screen.getByLabelText('Recurso necesario (tipo)'),editorIds.resource);expect(screen.getByLabelText('Recurso necesario (tipo)')).toHaveValue(editorIds.resource)})
 test('agregar múltiples fases',async()=>{await ready();await click('AGREGAR FASE');expect(screen.getAllByLabelText('Nombre de fase')).toHaveLength(2)})
