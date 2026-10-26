@@ -65,7 +65,10 @@ def main() -> int:
         environment["TEST_DATABASE_URL"] = (
             f"postgresql+psycopg://postgres@127.0.0.1:5432/{name}?"
             + urlencode({"options": f"-c role={name}"}))
-        return subprocess.call([sys.executable, "-m", "pytest", *sys.argv[1:]],
+        command=([sys.executable,str(root/'scripts/smoke_customer_ui.py')]
+                 if sys.argv[1:]==['--customer-ui-smoke']
+                 else [sys.executable,"-m","pytest",*sys.argv[1:]])
+        return subprocess.call(command,
                                cwd=root, env=environment)
     finally:
         if database_created:

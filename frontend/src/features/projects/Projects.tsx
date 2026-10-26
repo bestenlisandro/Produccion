@@ -5,6 +5,7 @@ import moment from 'moment-timezone'
 import { ApiError } from '../../api/client'
 import { projectApi,type Project,type ProjectOptions } from './projectApi'
 import styles from './Projects.module.css'
+import { CustomerDialog } from './CustomerDialog'
 import {InstallationSection} from './Installations'
 import { ProductionReadinessCard,readinessLabels } from './ProductionReadiness'
 
@@ -58,19 +59,20 @@ export function NewProjectPage(){
   const options=useQuery({queryKey:['project-options'],queryFn:projectApi.options})
   const navigate=useNavigate()
   const save=useSave(p=>navigate(`/projects/${p.id}`))
-  return <main><Link to="/projects">← Proyectos</Link><h1>Nuevo proyecto</h1>{options.isPending?<State loading/>:options.isError?<State error={options.error} retry={()=>void options.refetch()}/>:<><SaveState save={save}/><ProjectForm options={options.data} busy={save.busy} submit={body=>save.save('/projects','POST',body)} cancel={()=>navigate('/projects')}/></>}</main>
+  return <main><Link to="/projects">← Proyectos</Link><h1>Nuevo proyecto</h1>{options.isPending?<State loading/>:!options.data?<State error={options.error} retry={()=>void options.refetch()}/>:<><SaveState save={save}/><ProjectForm options={options.data} busy={save.busy} submit={body=>save.save('/projects','POST',body)} cancel={()=>navigate('/projects')}/></>}</main>
 }
 
 function ProjectForm({project,options,busy,submit,cancel}:{project?:Project;options:ProjectOptions;busy:boolean;submit:(body:unknown)=>void;cancel:()=>void}){
+  const [newCustomer,setNewCustomer]=useState(false)
   const [name,setName]=useState(project?.name??''),[code,setCode]=useState(project?.code??''),[customer,setCustomer]=useState(project?.customer_id??''),[priority,setPriority]=useState(project?.priority_id??options.priorities.find(p=>p.code==='NORMAL')?.id??''),[committed,setCommitted]=useState(project?.committed_date??''),[notes,setNotes]=useState(project?.description??'')
   const send=(e:FormEvent)=>{e.preventDefault();submit({name:name.trim(),customer_id:customer,priority_id:priority,committed_date:committed||null,description:notes||null,...(project?{expected_row_version:project.row_version}:{code:code.trim()})})}
   const available=options.customers.length>0&&options.priorities.length>0
-  return <form className={styles.form} onSubmit={send} aria-label={project?'Editar proyecto':'Alta de proyecto'}><h2>{project?'Editar datos del proyecto':'Datos básicos'}</h2><p>Planta: {options.plant.name}</p>{!available&&<p role="alert">Se necesita un cliente activo y las prioridades configuradas para guardar el proyecto.</p>}<fieldset disabled={busy} style={{display:'contents'}}>
+  return <><form className={styles.form} onSubmit={send} aria-label={project?'Editar proyecto':'Alta de proyecto'}><h2>{project?'Editar datos del proyecto':'Datos básicos'}</h2><p>Planta: {options.plant.name}</p>{!available&&<p role="alert">Se necesita un cliente activo y las prioridades configuradas para guardar el proyecto.</p>}<fieldset disabled={busy} style={{display:'contents'}}>
     {!project&&<label>Código del proyecto<input required name="code" value={code} onChange={e=>setCode(e.target.value)}/></label>}<label>Nombre / referencia<input required maxLength={200} name="name" value={name} onChange={e=>setName(e.target.value)}/></label>
-    <SelectField label="Cliente"><select required value={customer} onChange={e=>setCustomer(e.target.value)}><option value="">Seleccionar cliente</option>{options.customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></SelectField>
+    <div className={styles.field}><SelectField label="Cliente"><select required value={customer} onChange={e=>setCustomer(e.target.value)}><option value="">Seleccionar cliente</option>{options.customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></SelectField>{!project&&<button type="button" className="secondary" onClick={()=>setNewCustomer(true)}>+ NUEVO CLIENTE</button>}</div>
     <SelectField label="Prioridad del proyecto"><select required value={priority} onChange={e=>setPriority(e.target.value)}><option value="">Seleccionar prioridad</option>{options.priorities.map(p=><option key={p.id} value={p.id}>{priorities[p.code??'']??p.name}</option>)}</select></SelectField>
     <label>Fecha comprometida<input type="date" value={committed} onChange={e=>setCommitted(e.target.value)}/></label><label className={styles.wide}>Notas<textarea maxLength={4000} value={notes} onChange={e=>setNotes(e.target.value)}/></label>
-    <div className={`${styles.wide} actions`}><button disabled={busy||!available||!name.trim()||(!project&&!code.trim())}>GUARDAR</button><button type="button" className="secondary" onClick={cancel}>CANCELAR</button></div></fieldset></form>
+    <div className={`${styles.wide} actions`}><button disabled={busy||!available||!name.trim()||(!project&&!code.trim())}>GUARDAR</button><button type="button" className="secondary" onClick={cancel}>CANCELAR</button></div></fieldset></form>{newCustomer&&<CustomerDialog customers={options.customers} onClose={()=>setNewCustomer(false)} onSelect={id=>{setCustomer(id);setNewCustomer(false)}}/>}</>
 }
 
 export function ProjectDetailPage(){

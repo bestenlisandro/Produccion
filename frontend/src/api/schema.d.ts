@@ -909,6 +909,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Customer */
+        post: operations["create_customer_customers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/status": {
         parameters: {
             query?: never;
@@ -1365,6 +1382,21 @@ export interface components {
              * @enum {string}
              */
             status: "draft" | "active" | "inactive" | "archived";
+        };
+        /** CustomerCreate */
+        CustomerCreate: {
+            /** Display Name */
+            display_name: string;
+            /** Phone */
+            phone?: string | null;
+            /** Email */
+            email?: string | null;
+        };
+        /** CustomerMutation */
+        CustomerMutation: {
+            customer: components["schemas"]["IntakeCustomer"];
+            /** Idempotent Replay */
+            idempotent_replay: boolean;
         };
         /** DailyBoardResponse */
         DailyBoardResponse: {
@@ -2228,6 +2260,20 @@ export interface components {
             current_plan_version_id: string | null;
             /** Idempotent Replay */
             idempotent_replay: boolean;
+        };
+        /** IntakeCustomer */
+        IntakeCustomer: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /** Phone */
+            phone: string | null;
+            /** Email */
+            email: string | null;
         };
         /** IntakeMilestone */
         IntakeMilestone: {
@@ -6326,6 +6372,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IntakeOptions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_customer_customers_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerMutation"];
                 };
             };
             /** @description Validation Error */

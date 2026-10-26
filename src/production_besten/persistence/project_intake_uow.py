@@ -126,7 +126,14 @@ class PostgresProjectIntakeUnitOfWork(PostgresProductDefinitionUnitOfWork):
             return {**replay["after_data"],"idempotent_replay":True}
         before=None
         payload=c.payload
-        if c.action=="create":
+        if c.action=="create_customer":
+            if not payload['display_name'].strip():
+                raise InvalidProductDefinition('El nombre del cliente es obligatorio.')
+            identifier=uuid4()
+            customer=dict(self.conn.execute(text("""INSERT INTO core.customers(id,organization_id,display_name,phone,email)
+                VALUES (:id,:org,:name,:phone,:email) RETURNING id,display_name,phone,email"""),
+                {'id':identifier,'org':org,'name':payload['display_name'].strip(),'phone':payload.get('phone'),'email':payload.get('email')}).mappings().one())
+        elif c.action=="create":
             if payload.get("status","draft")!="draft":
                 raise InvalidProductDefinition("El proyecto nuevo comienza como borrador.")
             result=self.create_project(CreateProject(org,plant,payload["customer_id"],payload["priority_id"],payload["code"],payload["name"],c.actor_id,
@@ -169,11 +176,11 @@ class PostgresProjectIntakeUnitOfWork(PostgresProductDefinitionUnitOfWork):
             else:raise InvalidProductDefinition("Comando de proyecto no soportado.")
             relevant=c.action in {"status","measurement","replanteo","location","complete"} or (c.action=="update" and any(str(before[key])!=str(payload.get(key)) for key in ("priority_id","committed_date")))
             if relevant:self._advance_intake_state(c,identifier)
-        detail=self.project_detail(org,plant,identifier)
-        after={"project":detail,"idempotent_replay":False}
+        after=({'customer':customer,'idempotent_replay':False} if c.action=='create_customer'
+               else {"project":self.project_detail(org,plant,identifier),"idempotent_replay":False})
         self.conn.execute(text("""INSERT INTO audit.audit_entries (organization_id,actor_user_id,action_code,entity_type,entity_id,request_id,transaction_key,before_data,after_data,metadata)
-            VALUES (:org,:actor,:action,'project',:id,:key,:key,CAST(:before AS jsonb),CAST(:after AS jsonb),CAST(:metadata AS jsonb))"""),
-            {"org":org,"actor":c.actor_id,"action":"PROJECT_INTAKE_"+c.action.upper(),"id":identifier,"key":c.command_id,"before":json.dumps(dict(before),default=str) if before else None,"after":json.dumps(after,default=str),"metadata":json.dumps({"project_intake_hash":digest,"plant_id":str(plant),"dev_only":True})})
+            VALUES (:org,:actor,:action,:entity,:id,:key,:key,CAST(:before AS jsonb),CAST(:after AS jsonb),CAST(:metadata AS jsonb))"""),
+            {"org":org,"actor":c.actor_id,"action":"PROJECT_INTAKE_"+c.action.upper(),"entity":"customer" if c.action=='create_customer' else "project","id":identifier,"key":c.command_id,"before":json.dumps(dict(before),default=str) if before else None,"after":json.dumps(after,default=str),"metadata":json.dumps({"project_intake_hash":digest,"plant_id":str(plant),"dev_only":True})})
         if self._failpoint=="after_intake":raise RuntimeError("intake rollback probe")
         return after
 

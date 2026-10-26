@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from production_besten.api.production_readiness_schemas import ProductionReadiness
 
 
@@ -13,6 +13,30 @@ class IntakeOption(IntakeModel):
     id: UUID
     code: str | None = None
     name: str
+
+
+class CustomerCreate(IntakeModel):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+    display_name: str = Field(min_length=1, max_length=200)
+    phone: str | None = Field(default=None, max_length=80)
+    email: str | None = Field(default=None, max_length=254, pattern=r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+
+    @field_validator('phone', 'email', mode='before')
+    @classmethod
+    def empty_contact(cls, value):
+        return value.strip() or None if isinstance(value, str) else value
+
+
+class IntakeCustomer(IntakeModel):
+    id: UUID
+    display_name: str
+    phone: str | None
+    email: str | None
+
+
+class CustomerMutation(IntakeModel):
+    customer: IntakeCustomer
+    idempotent_replay: bool
 
 
 class IntakeOptions(IntakeModel):

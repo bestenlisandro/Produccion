@@ -5,6 +5,7 @@ from production_besten.api.context import require_plant
 from production_besten.api.dependencies import get_container, get_request_context, get_idempotency_key
 from production_besten.api.project_intake_schemas import (
     IntakeProject, IntakeMutation, IntakeOptions, ProjectIntakeUpdate, ProjectIntakeStatus, ProjectMilestoneInput,
+    CustomerCreate, CustomerMutation,
 )
 from production_besten.application.project_intake_services import ProjectIntakeService
 from production_besten.domain.project_intake import ProjectIntakeCommand
@@ -39,6 +40,11 @@ def options(context=Depends(get_request_context),container=Depends(get_container
 @router.patch("/projects/{project_id}",response_model=IntakeMutation)
 def update(project_id:UUID,body:ProjectIntakeUpdate,key=Depends(get_idempotency_key),context=Depends(get_request_context),container=Depends(get_container)):
     return execute(container,context,key,"update",body,project_id)
+
+
+@router.post('/customers', response_model=CustomerMutation, status_code=201)
+def create_customer(body: CustomerCreate, key=Depends(get_idempotency_key), context=Depends(get_request_context), container=Depends(get_container)):
+    return execute(container, context, key, 'create_customer', body)
 
 
 @router.post("/projects/{project_id}/status",response_model=IntakeMutation)
