@@ -57,7 +57,7 @@ test('C recurso usado exige confirmación y muestra reconciliation',async({page}
   await setup(page);await page.getByRole('button',{name:'Recursos',exact:true}).click()
   page.once('dialog',async dialog=>{expect(dialog.message()).toContain('4 operaciones');await dialog.accept()})
   await page.getByRole('button',{name:'DESACTIVAR',exact:true}).click()
-  await expect(page.getByRole('status')).toContainText('PLAN_REQUIRES_RECONCILIATION')
+  await expect(page.getByRole('status').filter({hasText:'PLAN_REQUIRES_RECONCILIATION'})).toContainText('PLAN_REQUIRES_RECONCILIATION')
 })
 
 test('D jornada y excepción sobreviven recarga',async({page})=>{
@@ -75,7 +75,7 @@ test('E error backend conserva input',async({page})=>{
   await page.route('**/api/master-data/people',route=>route.fulfill({status:409,json:{error:{message:'Código duplicado'}}}))
   await page.getByLabel('Código',{exact:true}).fill('DUP');await page.getByLabel('Nombre visible').fill('No perder')
   await page.getByLabel('Calendario',{exact:true}).selectOption(ids.calendar);await page.getByRole('button',{name:'GUARDAR',exact:true}).click()
-  await expect(page.getByRole('alert')).toContainText('Código duplicado');await expect(page.getByLabel('Nombre visible')).toHaveValue('No perder')
+  await expect(page.getByRole('alert').filter({hasText:'Código duplicado'})).toContainText('Código duplicado');await expect(page.getByLabel('Nombre visible')).toHaveValue('No perder')
 })
 
 test('F cambio rápido conserva ID y datos de persona B',async({page})=>{

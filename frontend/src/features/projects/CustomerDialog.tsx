@@ -49,7 +49,7 @@ export function CustomerDialog({customers,onClose,onSelect}:{customers:ProjectOp
         <label>Teléfono (opcional)<input type="tel" maxLength={80} value={phone} onChange={e=>setPhone(e.target.value)}/></label>
         <label>Email (opcional)<input type="email" maxLength={254} value={email} onChange={e=>setEmail(e.target.value)}/></label>
         {matches.length>0&&<div><p>Ya hay clientes con ese nombre. Podés seleccionar uno existente.</p>{matches.map(c=><button type="button" className="secondary" key={c.id} onClick={()=>onSelect(c.id)}>USAR CLIENTE EXISTENTE: {c.name}</button>)}</div>}
-        <button type="submit" disabled={!name.trim()}>CREAR CLIENTE</button>
+        <button type="submit" disabled={!name.trim()}>{mutation.isPending?'CREANDO…':'CREAR CLIENTE'}</button>
       </fieldset>
       {mutation.error&&<p role="alert">{mutation.error instanceof ApiError&&mutation.error.status===422?'Revisá el nombre, teléfono y email del cliente.':mutation.error instanceof ApiError&&mutation.error.status<500?mutation.error.message:'No pudimos confirmar la creación del cliente. Reintentá el mismo envío.'}</p>}
       {uncertain&&<button type="button" disabled={mutation.isPending} onClick={()=>{if(intent.current)mutation.mutate(intent.current)}}>REINTENTAR CREACIÓN</button>}

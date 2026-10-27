@@ -182,7 +182,7 @@ export function GanttPage() {
         {intent.requestedResourceId && <><dt>Recurso solicitado</dt><dd>{data.groups.find(group => group.id === intent.requestedResourceId)?.label ?? intent.requestedResourceId}</dd></>}
       </dl>
       <div className="actions">
-        <button disabled={simulate.isPending} onClick={() => simulate.mutate(intent)}>SIMULAR CAMBIO</button>
+        <button disabled={simulate.isPending} onClick={() => simulate.mutate(intent)}>{simulate.isPending?'GENERANDO…':'SIMULAR CAMBIO'}</button>
         <button className="secondary" disabled={simulate.isPending} onClick={() => setIntent(undefined)}>CANCELAR</button>
       </div>
       {simulate.isPending && <p aria-live="polite">Validando disponibilidad y recalculando impacto…</p>}
@@ -213,7 +213,7 @@ export function GanttPage() {
       </dl>}
       <ul>{(data.scenario.operations ?? []).map(item => <li key={item.operation_id}>{differenceLabel(item.difference)}{item.delta_minutes ? ` · ${Math.abs(item.delta_minutes)} min` : ''}</li>)}</ul>
       {!data.scenario.stale && data.scenario.status === 'ready' && <div className="actions">
-        <button disabled={data.scenario.complete===false || accept.isPending || reject.isPending} onClick={() => accept.mutate()}>CONFIRMAR NUEVO PLAN</button>
+        <button disabled={data.scenario.complete===false || accept.isPending || reject.isPending} onClick={() => accept.mutate()}>{accept.isPending?'CONFIRMANDO…':'CONFIRMAR NUEVO PLAN'}</button>
         {initial?<button className="secondary" disabled={accept.isPending} onClick={()=>void refreshCurrent()}>VOLVER SIN ACEPTAR</button>:<button className="secondary" disabled={accept.isPending || reject.isPending} onClick={() => reject.mutate()}>CANCELAR PROPUESTA</button>}
       </div>}
     </section>}

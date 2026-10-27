@@ -40,6 +40,7 @@ test('alta con nombre selecciona cliente y preserva todo el proyecto',async({pag
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy()
   await page.getByRole('button',{name:'CREAR CLIENTE',exact:true}).click()
   await expect(dialog).toHaveCount(0)
+  await expect(page.getByRole('region',{name:'Notificaciones'})).toContainText('Cliente creado correctamente.')
   expect(calls).toHaveLength(1)
   expect(calls[0].body).toEqual({display_name:'Nico del Castillo',phone:null,email:null})
   expect(calls[0].key).toBeTruthy()

@@ -34,7 +34,7 @@ test('B inválida informa errores y bloquea freeze',async({page})=>{await setup(
 test('C confirmación freeze y read-only',async({page})=>{await setup(page);await open(page);await freeze(page);await expect(page.getByLabel('Nombre del lote')).toHaveCount(0);await expect(page.getByRole('button',{name:'CREAR NUEVA REVISIÓN'})).toBeEnabled()})
 test('D nueva revisión conserva anterior',async({page})=>{const {data}=await setup(page);await open(page);await freeze(page);await page.getByRole('button',{name:'CREAR NUEVA REVISIÓN'}).click();await expect(page.getByLabel('Duración estimada (minutos)')).toBeEnabled();await page.getByLabel('Duración estimada (minutos)').fill('90');await page.getByRole('button',{name:'GUARDAR BORRADOR'}).click();await expect(page.getByRole('button',{name:'CONGELAR DEFINICIÓN'})).toBeEnabled();await freeze(page);expect(data.revisions).toHaveLength(2);expect(data.revisions[1].snapshot.lots[0].operations[0].phases[0].original_estimate_minutes).toBe(30);await page.getByText(/VER REVISIÓN 1/).click();await expect(page.getByText(/Trabajo: 30 minutos/)).toBeVisible()})
 test('E congelada muestra elegibilidad',async({page})=>{await setup(page);await open(page);await freeze(page);await page.getByRole('link',{name:'← Volver al proyecto'}).click();await expect(page.getByText('Demanda con definición productiva disponible')).toBeVisible()})
-test('F 409 conserva input',async({page})=>{const {setConflict}=await setup(page);await open(page);setConflict();await page.getByLabel('Nombre del lote').fill('Mi cocina');await page.getByRole('button',{name:'GUARDAR BORRADOR'}).click();await expect(page.getByRole('alert')).toContainText('La definición productiva cambió');await expect(page.getByLabel('Nombre del lote')).toHaveValue('Mi cocina')})
+test('F 409 conserva input',async({page})=>{const {setConflict}=await setup(page);await open(page);setConflict();await page.getByLabel('Nombre del lote').fill('Mi cocina');await page.getByRole('button',{name:'GUARDAR BORRADOR'}).click();await expect(page.getByRole('alert').filter({hasText:'La definición productiva cambió'})).toContainText('La definición productiva cambió');await expect(page.getByLabel('Nombre del lote')).toHaveValue('Mi cocina')})
 test('G benchmark responsive 5 lotes 50 operaciones 100 fases',async({page},info)=>{
  const {data}=await setup(page);data.lots=[]
  for(let li=0;li<5;li++){const l:any=structuredClone(editorLot);l.code=`L${li}`;l.name=`Lote ${li}`;l.operations=[];for(let oi=0;oi<10;oi++){const o=structuredClone(editorLot.operations[0]);o.code=`O${oi}`;o.name=`Operación ${oi}`;o.phases.push({...structuredClone(o.phases[0]),code:'FINISH'});l.operations.push(o)}data.lots.push(l)}
@@ -106,4 +106,53 @@ test('J personas sin habilidad guardan, recargan y no reciben skill por defecto'
  await page.reload();await expect(page.getByText(/Sin habilidad requerida/)).toBeVisible()
  await page.getByLabel('Personas necesarias',{exact:true}).scrollIntoViewIfNeeded()
  await page.screenshot({path:`test-results/optional-skill-${info.project.name}.png`})
+})
+
+
+test('K confirma cada acción de definición y mantiene validaciones visibles',async({page},info)=>{
+ const {data}=await setup(page);await open(page)
+ const notices=page.getByRole('region',{name:'Notificaciones'})
+ await page.getByRole('button',{name:'GUARDAR BORRADOR',exact:true}).click()
+ await expect(notices.getByText('Borrador guardado correctamente.',{exact:true})).toBeVisible()
+ data.errors=['Falta completar una fase.']
+ await page.getByRole('button',{name:'VALIDAR',exact:true}).click()
+ await expect(notices.getByText('Hay errores que deben corregirse antes de congelar.',{exact:true})).toBeVisible()
+ await expect(page.getByRole('region',{name:'Errores de validación'})).toContainText('Falta completar una fase.')
+ data.errors=[]
+ await page.getByRole('button',{name:'VALIDAR',exact:true}).click()
+ await expect(notices.getByText('Definición validada correctamente.',{exact:true})).toBeVisible()
+ await freeze(page)
+ await expect(notices.getByText('Revisión congelada correctamente.',{exact:true})).toBeVisible()
+ await page.getByRole('button',{name:'CREAR NUEVA REVISIÓN',exact:true}).click()
+ await expect(notices.getByText('Nueva revisión creada correctamente.',{exact:true})).toBeVisible()
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy()
+ await page.screenshot({path:`test-results/action-feedback-${info.project.name}.png`})
+ const latest=notices.getByRole('status').filter({hasText:'Nueva revisión creada correctamente.'})
+ await latest.getByRole('button',{name:'Cerrar notificación'}).click()
+ await expect(latest).toHaveCount(0)
+})
+
+test('L guardado pendiente evita doble envío y retry reemplaza error sin exponer detalles técnicos',async({page})=>{
+ const {data}=await setup(page);let finish!:()=>void
+ const waiting=new Promise<void>(resolve=>{finish=resolve});const keys:string[]=[]
+ await page.route('**/api/projects/*/product-definition',async route=>{
+  const req=route.request();if(req.method()!=='PUT')return route.fallback()
+  keys.push(req.headers()['idempotency-key'])
+  if(keys.length===1){await waiting;return route.fulfill({status:500,json:{error:{message:'Traceback SQLSTATE 42501 SELECT password FROM audit deadbeef-1111-4111-8111-111111111111'}}})}
+  return route.fulfill({json:{...data,row_version:data.row_version+1}})
+ })
+ await open(page)
+ await page.getByRole('button',{name:'GUARDAR BORRADOR',exact:true}).dblclick()
+ await expect(page.getByRole('button',{name:'GUARDANDO…',exact:true})).toBeDisabled()
+ await expect(page.getByText('Borrador guardado correctamente.',{exact:true})).toHaveCount(0)
+ expect(keys).toHaveLength(1);finish()
+ const notices=page.getByRole('region',{name:'Notificaciones'})
+ await expect(notices.getByRole('alert')).toContainText('No se pudo guardar el borrador.')
+ await expect(page.getByText('Borrador guardado correctamente.',{exact:true})).toHaveCount(0)
+ expect(await page.locator('body').innerText()).not.toMatch(/Traceback|SQLSTATE|SELECT password|deadbeef/)
+ await expect(page.getByLabel('Nombre del lote')).toHaveValue('Cocina')
+ await page.getByRole('button',{name:'REINTENTAR GUARDADO',exact:true}).click()
+ await expect(notices.getByText('Borrador guardado correctamente.',{exact:true})).toBeVisible()
+ await expect(notices.getByRole('alert')).toHaveCount(0)
+ expect(keys).toHaveLength(2);expect(keys[0]).toBe(keys[1])
 })

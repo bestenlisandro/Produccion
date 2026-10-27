@@ -11,7 +11,7 @@ import { ProductionReadinessCard } from './ProductionReadiness'
 let calls:{body:any;key:string|null}[]
 const result={scenario_id:projectFixture.id,solution_id:projectFixture.id,status:'ready',complete:true,planned_phases:1,blocked_phases:0}
 function show(){render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}})}><MemoryRouter><ProductionReadinessCard project={{...projectFixture,production_readiness:{...readinessFixture,released:true,eligible:true,state:'released'}}}/></MemoryRouter></QueryClientProvider>)}
-const generate=()=>screen.getByRole('button',{name:'GENERAR SIMULACIÓN'})
+const generate=()=>screen.getByRole('button',{name:/^(GENERAR SIMULACIÓN|GENERANDO…)$/})
 beforeEach(()=>{
  vi.spyOn(Date,'now').mockReturnValue(Date.parse('2026-10-26T01:00:00Z'))
  calls=[]

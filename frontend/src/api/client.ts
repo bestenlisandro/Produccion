@@ -1,3 +1,5 @@
+import {actionFor,completedAction} from '../notifications/actions'
+import {notify} from '../notifications/store'
 import type { components } from './schema'
 
 export type DailyBoard = components['schemas']['DailyBoardResponse']
@@ -22,7 +24,7 @@ export type MasterSnapshot = {
 export type MasterMutation = components['schemas']['MasterMutationResponse']
 
 export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string) { super(message) }
+  constructor(public status: number, public code: string, message: string) { super(safeErrorMessage(status,message)) }
 }
 
 type DevContext = { userId: string; organizationId: string; plantId: string }
@@ -35,6 +37,15 @@ function context(): DevContext {
   }
 }
 
+export function safeErrorMessage(status:number,message:unknown):string {
+  if(status>=500)return 'No pudimos confirmar el resultado. Reintentá el mismo envío.'
+  const fallback='No se pudo completar la solicitud. Revisá los datos e intentá nuevamente.'
+  if(typeof message!=='string'||!message.trim())return fallback
+  const technical=/\b(?:traceback|sqlstate|sqlalchemy|psycopg|stack trace)\b|\b\w*(?:Error|Exception):|\bSELECT\s+.+\s+FROM\b|\bINSERT\s+INTO\b|\bUPDATE\s+\S+\s+SET\b|\bDELETE\s+FROM\b|[A-Z]:\\|node_modules[\\/]/i
+  if(technical.test(message))return fallback
+  return message.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,'referencia interna').slice(0,600)
+}
+
 export async function request<T>(path: string, init: RequestInit = {}, idempotencyKey?: string): Promise<T> {
   const value = context()
   const headers = new Headers(init.headers)
@@ -44,12 +55,27 @@ export async function request<T>(path: string, init: RequestInit = {}, idempoten
   headers.set('X-Dev-Organization-Id', value.organizationId)
   headers.set('X-Dev-Plant-Id', value.plantId)
   if (idempotencyKey) headers.set('Idempotency-Key', idempotencyKey)
-  const response = await fetch(`/api${path}`, { ...init, headers })
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({})) as { error?: { code?: string; message?: string }; detail?: unknown }
-    throw new ApiError(response.status, body.error?.code ?? 'HTTP_ERROR', body.error?.message ?? 'No se pudo completar la solicitud.')
+  const method=(init.method??'GET').toUpperCase(),mutating=!['GET','HEAD'].includes(method)
+  let payload:Record<string,unknown>={}
+  if(typeof init.body==='string'){try{payload=JSON.parse(init.body)}catch{/* Only used for human-readable feedback. */}}
+  try{
+    const response = await fetch(`/api${path}`, { ...init, headers })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({})) as { error?: { code?: string; message?: string } }
+      throw new ApiError(response.status, body.error?.code ?? 'HTTP_ERROR',body.error?.message ?? 'No se pudo completar la solicitud.')
+    }
+    let result:T
+    try{result=response.status===204?undefined as T:await response.json() as T}
+    catch{throw new ApiError(502,'INVALID_RESPONSE','No se pudo interpretar la respuesta.')}
+    if(mutating)completedAction(path,method,payload,result)
+    return result
+  }catch(error){
+    // A transport/parse failure has an uncertain outcome: preserve existing retry/key handling.
+    const safe=error instanceof ApiError?error:new ApiError(503,'NETWORK_ERROR','No se pudo conectar.')
+    console.error('API request failed',{method,path,status:safe.status,code:safe.code})
+    if(mutating)notify('error',actionFor(path,method,payload).failure,`${method} ${path}`)
+    throw safe
   }
-  return response.json() as Promise<T>
 }
 
 export const api = {

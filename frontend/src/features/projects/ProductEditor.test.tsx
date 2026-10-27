@@ -5,6 +5,7 @@ import {MemoryRouter} from 'react-router'
 import {beforeEach,test,expect,vi} from 'vitest'
 import {http,HttpResponse,server} from '../../test/server'
 import {ProductEditor} from './ProductEditor'
+import {Notifications} from '../../notifications/Notifications'
 import {editorFixture,editorOptions,editorIds} from '../../test/productEditorFixture'
 let data:any,calls:any[]
 function show(){return render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}})}><MemoryRouter><ProductEditor projectId={editorIds.project}/></MemoryRouter></QueryClientProvider>)}
@@ -116,4 +117,41 @@ test('quitar última skill de fase antigua conserva su demanda humana',async()=>
  await click('QUITAR HABILIDAD');expect(screen.getByLabelText('Personas necesarias')).toHaveValue(2)
  await click('GUARDAR BORRADOR');await waitFor(()=>expect(calls).toHaveLength(1))
  expect(calls[0].body.lots[0].operations[0].phases[0]).toMatchObject({required_people:2,labor_requirements:[]})
+})
+
+
+test('feedback específico al guardar, validar, congelar y crear revisión',async()=>{
+ render(<Notifications/>);await ready()
+ await click('GUARDAR BORRADOR');await screen.findByText('Borrador guardado correctamente.')
+ await click('VALIDAR');await screen.findByText('Definición validada correctamente.')
+ await click('CONGELAR DEFINICIÓN');await screen.findByText('Revisión congelada correctamente.')
+ await click('CREAR NUEVA REVISIÓN');await screen.findByText('Nueva revisión creada correctamente.')
+})
+
+test('validación con pendientes advierte y conserva errores específicos',async()=>{
+ data.errors=['Agregá al menos una fase con duración.'];render(<Notifications/>);await ready()
+ await click('VALIDAR');await screen.findByText('Hay errores que deben corregirse antes de congelar.')
+ expect(screen.getByRole('region',{name:'Errores de validación'})).toHaveTextContent('Agregá al menos una fase con duración.')
+ expect(screen.queryByText('Definición validada correctamente.')).not.toBeInTheDocument()
+})
+
+test('guardado pendiente bloquea doble click sin adelantar éxito',async()=>{
+ let finish!:()=>void;const pending=new Promise<void>(resolve=>{finish=resolve});let attempts=0
+ server.use(http.put('/api/projects/:id/product-definition',async()=>{attempts++;await pending;return HttpResponse.json(data)}))
+ render(<Notifications/>);await ready()
+ await userEvent.dblClick(screen.getByRole('button',{name:'GUARDAR BORRADOR'}))
+ expect(screen.getByRole('button',{name:'GUARDANDO…'})).toBeDisabled()
+ expect(screen.queryByText('Borrador guardado correctamente.')).not.toBeInTheDocument()
+ expect(attempts).toBe(1)
+ finish();await screen.findByText('Borrador guardado correctamente.')
+})
+
+test('error de guardado no expone SQL ni stack y nunca muestra success',async()=>{
+ server.use(http.put('/api/projects/:id/product-definition',()=>HttpResponse.json({error:{message:'Traceback: psycopg.errors SELECT secret FROM audit'}},{status:500})))
+ render(<Notifications/>);await ready();await click('GUARDAR BORRADOR')
+ await screen.findByText('No se pudo guardar el borrador.')
+ expect(screen.queryByText('Borrador guardado correctamente.')).not.toBeInTheDocument()
+ expect(document.body.textContent).not.toMatch(/Traceback|psycopg|SELECT|secret/)
+ expect(screen.getByLabelText('Nombre del lote')).toHaveValue('Cocina')
+ expect(screen.getByRole('button',{name:'REINTENTAR GUARDADO'})).toBeInTheDocument()
 })

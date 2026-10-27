@@ -20,6 +20,7 @@ test('primera simulación visible y CURRENT sólo tras aceptar explícitamente',
  expect(accepts).toBe(0);expect(accepted).toBe(false)
  await page.getByRole('button',{name:'CONFIRMAR NUEVO PLAN'}).click()
  await expect(page.getByText(/Plan vigente V1/)).toBeVisible()
+ await expect(page.getByRole('region',{name:'Notificaciones'})).toContainText('Nuevo plan confirmado.')
  expect(accepts).toBe(1)
 })
 
