@@ -27,7 +27,7 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
             raise EntityNotFound()
         result = {}
         for key, table, scoped in [('operations','production.operation_definitions',False),('skills','capacity.skills',False),('centers','capacity.work_centers',True),('resource_types','capacity.physical_resource_types',False),('resource_groups','capacity.physical_resource_groups',True)]:
-            result[key] = self.rows(f"SELECT id,code,name FROM {table} WHERE organization_id=:org AND status='active'" + (' AND plant_id=:plant' if scoped else '') + ' ORDER BY name,id', org=org, plant=plant)
+            result[key] = self.rows(f"SELECT id,code,name{',display_order,status' if key=='operations' else ''} FROM {table} WHERE organization_id=:org" + ("" if key=='operations' else " AND status='active'") + (' AND plant_id=:plant' if scoped else '') + (' ORDER BY display_order,code,id' if key=='operations' else ' ORDER BY name,id'), org=org, plant=plant)
         result['routes'] = self.rows("SELECT v.id,t.code||' / '||v.version_no AS code,t.name||' · Rev '||v.version_no AS name FROM production.route_versions v JOIN production.route_templates t ON t.organization_id=v.organization_id AND t.id=v.route_template_id WHERE v.organization_id=:org AND v.status='published' AND t.status='active' ORDER BY t.name,v.version_no",org=org)
         return result
 
@@ -35,13 +35,16 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
         p = self.project(org,plant,project)
         latest = self.rows("SELECT action_code,metadata FROM audit.audit_entries WHERE organization_id=:org AND entity_id=:project AND action_code LIKE 'PRODUCT_EDITOR_%' AND action_code<>'PRODUCT_EDITOR_VALIDATE' ORDER BY occurred_at DESC,created_at DESC,id DESC LIMIT 1",org=org,project=project)
         lots = self.rows("SELECT id,code,name,description,quantity,unit FROM core.project_lots WHERE organization_id=:org AND project_id=:project AND status<>'archived' ORDER BY sequence_no,code",org=org,project=project)
-        ops = self.rows("SELECT id,project_lot_id,code,name,operation_definition_id,operation_kind FROM production.required_operations WHERE organization_id=:org AND project_id=:project AND status<>'archived' ORDER BY code",org=org,project=project)
+        ops = self.rows("SELECT id,project_lot_id,code,name,operation_definition_id,operation_kind,settings FROM production.required_operations WHERE organization_id=:org AND project_id=:project AND status<>'archived' ORDER BY code",org=org,project=project)
         phases = self.rows("SELECT ph.* FROM production.required_operation_phases ph JOIN production.required_operations o ON o.organization_id=ph.organization_id AND o.id=ph.required_operation_id WHERE o.organization_id=:org AND o.project_id=:project AND ph.status<>'archived' ORDER BY ph.sequence_no",org=org,project=project)
         labor = self.rows("SELECT r.* FROM production.operation_labor_requirements r JOIN production.required_operation_phases ph ON ph.organization_id=r.organization_id AND ph.id=r.required_operation_phase_id JOIN production.required_operations o ON o.organization_id=ph.organization_id AND o.id=ph.required_operation_id WHERE o.organization_id=:org AND o.project_id=:project AND r.is_mandatory",org=org,project=project)
         physical = self.rows("SELECT r.* FROM production.operation_physical_requirements r JOIN production.required_operation_phases ph ON ph.organization_id=r.organization_id AND ph.id=r.required_operation_phase_id JOIN production.required_operations o ON o.organization_id=ph.organization_id AND o.id=ph.required_operation_id WHERE o.organization_id=:org AND o.project_id=:project AND r.is_mandatory",org=org,project=project)
         edges = self.rows("SELECT e.*,a.code AS predecessor_code FROM production.operation_precedences e JOIN production.required_operations a ON a.organization_id=e.organization_id AND a.id=e.predecessor_operation_id WHERE a.organization_id=:org AND a.project_id=:project AND e.active",org=org,project=project)
         routes = self.rows("SELECT a.project_lot_id,a.route_version_id FROM production.lot_route_assignments a JOIN core.project_lots l ON l.organization_id=a.organization_id AND l.id=a.project_lot_id WHERE l.organization_id=:org AND l.project_id=:project AND a.is_active",org=org,project=project)
+        catalog={r['id']:r for r in self.rows('SELECT id,code,name,display_order FROM production.operation_definitions WHERE organization_id=:org',org=org)}
         for op in ops:
+            stage=catalog[op['operation_definition_id']]
+            op.update(stage_code=stage['code'],stage_name=stage['name'],stage_order=stage['display_order'])
             op['predecessor_codes'] = [e['predecessor_code'] for e in edges if e['successor_operation_id']==op['id']]
             op['phases'] = []
             for ph in phases:
@@ -58,6 +61,11 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
             while remaining:
                 ready=next((o for o in remaining if not set(o['predecessor_codes']) & {r['code'] for r in remaining}),remaining[0])
                 remaining.remove(ready);ordered.append({k:v for k,v in ready.items() if k!='project_lot_id'})
+            ordered.sort(key=lambda o:(o['stage_order'],o['stage_code'],o['settings'].get('editor_position',1000),o['code']))
+            counters={}
+            for op in ordered:
+                stage=op['operation_definition_id'];counters[stage]=counters.get(stage,0)+1
+                op['operation_order']=counters[stage];op.pop('settings',None)
             lot['operations']=ordered
         revisions=[]
         for r in self.rows('SELECT id,revision_no,created_at,canonical_snapshot FROM production.product_definition_revisions WHERE organization_id=:org AND plant_id=:plant ORDER BY revision_no DESC',org=org,plant=plant):
@@ -70,7 +78,7 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
     def validate_lots(self,org,plant,lots):
         errors=[]
         options=self.editor_options(org,plant)
-        active={k:{str(r['id']) for r in v} for k,v in options.items()}
+        active={k:{str(r['id']) for r in v if r.get('status','active')=='active'} for k,v in options.items()}
         if not lots: errors.append('Agregá al menos un lote productivo.')
         seen_lots=set()
         for l in lots:
@@ -88,7 +96,6 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
                 for pred in o['predecessor_codes']:
                     edges.append((pred,o['code']))
                     if pred not in codes or pred==o['code']: errors.append(label+'Precedencia fuera del lote o sobre sí misma.')
-                    elif codes.index(pred)>=i: errors.append(label+'El orden debe respetar las precedencias.')
                 if not o['phases']: errors.append(label+'Agregá al menos una fase con duración.')
                 if len({p['code'] for p in o['phases']})!=len(o['phases']): errors.append(label+'Códigos de fase repetidos.')
                 for ph in o['phases']:
@@ -157,6 +164,16 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
         current=self.conn.scalar(text('SELECT d.canonical_snapshot FROM core.plants p JOIN production.product_definition_revisions d ON d.organization_id=p.organization_id AND d.id=p.current_product_definition_revision_id WHERE p.organization_id=:org AND p.id=:plant'),{'org':org,'plant':plant}) or {}
         code=self.project(org,plant,self._editor_project)['code']
         # Other projects retain their frozen demand while this project's normalized draft is frozen.
+        catalog={r['code']:r for r in self.rows('SELECT code,name,display_order FROM production.operation_definitions WHERE organization_id=:org',org=org)}
+        target=next(p for p in snapshot['projects'] if p['code']==code)
+        for lot in target['lots']:
+            counters={}
+            ordered=sorted(lot['operations'],key=lambda o:(catalog[o['operation_definition_code']]['display_order'],o['operation_definition_code'],o['settings'].get('editor_position',1000),o['code']))
+            for op in ordered:
+                stage=catalog[op['operation_definition_code']]
+                counters[stage['code']]=counters.get(stage['code'],0)+1
+                op.update(stage_name=stage['name'],stage_order=stage['display_order'],operation_order=counters[stage['code']])
+            lot['operations']=ordered
         previous={p['code']:p for p in current.get('projects',[])}
         merged={**previous,code:next(p for p in snapshot['projects'] if p['code']==code)}
         snapshot['projects']=[merged[c] for c in sorted(merged)]
@@ -201,6 +218,7 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
                     if oid not in old_ops or old_ops[oid]['project_lot_id']!=lid or old_ops[oid]['code']!=o['code']: raise EntityNotFound()
                     self.conn.execute(text("UPDATE production.required_operations SET name=:name,operation_definition_id=:operation_definition_id,operation_kind=CAST(:operation_kind AS production.operation_kind),status='draft',row_version=row_version+1,updated_at=now() WHERE organization_id=:org AND id=:id"),o|{'org':org,'id':oid})
                 else: oid=self.create_required_operation(CreateRequiredOperation(org,project,o['operation_definition_id'],o['code'],o['name'],actor,command_id(f'op{li}:{oi}'),project_lot_id=lid,operation_kind=o['operation_kind'])).entity_id
+                self.conn.execute(text("UPDATE production.required_operations SET settings=settings||jsonb_build_object('editor_position',CAST(:position AS integer)) WHERE organization_id=:org AND id=:id"),{'position':oi+1,'org':org,'id':oid})
                 kept_ops.append(oid);op_ids[o['code']]=oid
                 for pi,ph in enumerate(o['phases'],1):
                     pid=ph.get('id')
@@ -219,12 +237,16 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
                         PhysicalRequirement(**req).validate()
                         rid=existing[ri]['id'] if ri<len(existing) else uuid4()
                         self.conn.execute(text('INSERT INTO production.operation_physical_requirements(id,organization_id,required_operation_phase_id,physical_resource_type_id,physical_resource_group_id,work_center_id,quantity,capacity_units,usage_mode,is_mandatory) VALUES (:id,:org,:phase,:physical_resource_type_id,:physical_resource_group_id,:work_center_id,:quantity,:capacity_units,:usage_mode,:is_mandatory) ON CONFLICT(id) DO UPDATE SET physical_resource_type_id=EXCLUDED.physical_resource_type_id,physical_resource_group_id=EXCLUDED.physical_resource_group_id,work_center_id=EXCLUDED.work_center_id,quantity=EXCLUDED.quantity,capacity_units=EXCLUDED.capacity_units,usage_mode=EXCLUDED.usage_mode,is_mandatory=EXCLUDED.is_mandatory'),req|{'id':rid,'org':org,'phase':pid})
-            self.conn.execute(text('UPDATE production.operation_precedences SET active=false WHERE organization_id=:org AND successor_operation_id=ANY(:ids)'),{'org':org,'ids':list(op_ids.values())})
             for o in l['operations']:
-                for pred in o['predecessor_codes']:
-                    self.conn.execute(text("INSERT INTO production.operation_precedences(organization_id,predecessor_operation_id,successor_operation_id,source) VALUES (:org,:pred,:succ,'manual')"),{'org':org,'pred':op_ids[pred],'succ':op_ids[o['code']]})
+                successor=op_ids[o['code']]
+                predecessors=[op_ids[pred] for pred in o['predecessor_codes']]
+                self.conn.execute(text('UPDATE production.operation_precedences SET active=false WHERE organization_id=:org AND successor_operation_id=:succ AND active AND NOT (predecessor_operation_id=ANY(:ids))'),{'org':org,'succ':successor,'ids':predecessors})
+                for predecessor in predecessors:
+                    self.conn.execute(text("INSERT INTO production.operation_precedences(organization_id,predecessor_operation_id,successor_operation_id,source) SELECT :org,:pred,:succ,'manual' WHERE NOT EXISTS(SELECT 1 FROM production.operation_precedences WHERE organization_id=:org AND predecessor_operation_id=:pred AND successor_operation_id=:succ AND active)"),{'org':org,'pred':predecessor,'succ':successor})
         for table,old,kept in [('core.project_lots',old_lots,kept_lots),('production.required_operations',old_ops,kept_ops),('production.required_operation_phases',old_phases,kept_phases)]:
             removed=list(set(old)-set(kept))
+            if removed and table=='production.required_operations':
+                self.conn.execute(text('UPDATE production.operation_precedences SET active=false WHERE organization_id=:org AND (predecessor_operation_id=ANY(:ids) OR successor_operation_id=ANY(:ids))'),{'org':org,'ids':removed})
             if removed:self.conn.execute(text(f"UPDATE {table} SET status='archived',row_version=row_version+1,updated_at=now() WHERE organization_id=:org AND id=ANY(:ids)"),{'org':org,'ids':removed})
 
     def manual_route(self,org,actor,lot_id,lot):

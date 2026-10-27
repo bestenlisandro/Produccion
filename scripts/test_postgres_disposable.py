@@ -54,7 +54,7 @@ def main() -> int:
                 AND table_schema IN ('core','capacity','production','planning',
                 'execution','portal','integration','audit')""").fetchone()
             assert counts == (8, 87), counts
-            print("M0-M11 applied: 8 schemas / 87 tables", flush=True)
+            print("M0-M12 applied: 8 schemas / 87 tables", flush=True)
             for verification in ('verify_schema.sql','temporal_scenarios.sql'):
                 source=(root / 'db/verify' / verification).read_text(encoding='utf-8')
                 source='\n'.join(line for line in source.splitlines() if not line.startswith('\\set '))

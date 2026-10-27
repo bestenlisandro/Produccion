@@ -892,6 +892,57 @@ export interface paths {
         patch: operations["update_plant_master_data_plant_patch"];
         trace?: never;
     };
+    "/master-data/stages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Stage */
+        post: operations["create_stage_master_data_stages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/master-data/stages/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Stage */
+        patch: operations["update_stage_master_data_stages__entity_id__patch"];
+        trace?: never;
+    };
+    "/master-data/stages/{entity_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stage Status */
+        post: operations["stage_status_master_data_stages__entity_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/project-intake/options": {
         parameters: {
             query?: never;
@@ -1516,7 +1567,7 @@ export interface components {
              */
             status: "empty" | "draft" | "frozen";
             /** Lots */
-            lots: components["schemas"]["EditorLot"][];
+            lots: components["schemas"]["EditorLotView"][];
             /** Errors */
             errors: string[];
             /** Revisions */
@@ -1546,6 +1597,25 @@ export interface components {
             /** Operations */
             operations?: components["schemas"]["EditorOperation"][];
         };
+        /** EditorLotView */
+        EditorLotView: {
+            /** Id */
+            id?: string | null;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /** Quantity */
+            quantity?: number | null;
+            /** Unit */
+            unit?: string | null;
+            /** Route Version Id */
+            route_version_id?: string | null;
+            /** Operations */
+            operations: components["schemas"]["EditorOperationView"][];
+        };
         /** EditorOperation */
         EditorOperation: {
             /** Id */
@@ -1570,6 +1640,38 @@ export interface components {
             /** Phases */
             phases?: components["schemas"]["EditorPhase"][];
         };
+        /** EditorOperationView */
+        EditorOperationView: {
+            /** Id */
+            id?: string | null;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /**
+             * Operation Definition Id
+             * Format: uuid
+             */
+            operation_definition_id: string;
+            /**
+             * Operation Kind
+             * @default production
+             * @enum {string}
+             */
+            operation_kind: "production" | "installation";
+            /** Predecessor Codes */
+            predecessor_codes?: string[];
+            /** Phases */
+            phases?: components["schemas"]["EditorPhase"][];
+            /** Stage Code */
+            stage_code?: string | null;
+            /** Stage Name */
+            stage_name?: string | null;
+            /** Stage Order */
+            stage_order?: number | null;
+            /** Operation Order */
+            operation_order?: number | null;
+        };
         /** EditorOption */
         EditorOption: {
             /**
@@ -1585,7 +1687,7 @@ export interface components {
         /** EditorOptions */
         EditorOptions: {
             /** Operations */
-            operations: components["schemas"]["EditorOption"][];
+            operations: components["schemas"]["EditorStageOption"][];
             /** Skills */
             skills: components["schemas"]["EditorOption"][];
             /** Centers */
@@ -1676,6 +1778,22 @@ export interface components {
             expected_row_version: number;
             /** Lots */
             lots?: components["schemas"]["EditorLot"][];
+        };
+        /** EditorStageOption */
+        EditorStageOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Display Order */
+            display_order: number;
+            /** Status */
+            status: string;
         };
         /** FinishOperationRequest */
         FinishOperationRequest: {
@@ -2519,6 +2637,10 @@ export interface components {
             plant: {
                 [key: string]: unknown;
             };
+            /** Stages */
+            stages?: {
+                [key: string]: unknown;
+            }[];
             /** Dev Only */
             dev_only: boolean;
         };
@@ -3329,6 +3451,26 @@ export interface components {
             description?: string | null;
             /** Category */
             category?: string | null;
+            /** Expected Row Version */
+            expected_row_version: number;
+        };
+        /** StageInput */
+        StageInput: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Display Order */
+            display_order: number;
+        };
+        /** StageUpdate */
+        StageUpdate: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Display Order */
+            display_order: number;
             /** Expected Row Version */
             expected_row_version: number;
         };
@@ -6351,6 +6493,124 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PlantUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_stage_master_data_stages_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StageInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_stage_master_data_stages__entity_id__patch: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StageUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MasterMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stage_status_master_data_stages__entity_id__status_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+                "Idempotency-Key": string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusInput"];
             };
         };
         responses: {

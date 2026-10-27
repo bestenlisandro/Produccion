@@ -173,3 +173,17 @@ test('ventanas de distintas vigencias no se mezclan y el límite final es exclus
   expect(windowsAt(records,ids.calendar,'2026-10-21').map(r=>r.id)).toEqual(['current'])
   expect(windowsAt(records,ids.calendar,'2026-11-01').map(r=>r.id)).toEqual(['future'])
 })
+
+
+test('catálogo de etapas muestra orden estable y permite editar sin borrar',async()=>{
+ const data={...snapshot,stages:[{id:'stage-cut',code:'CORTE_ESCUADRADORA',name:'Corte',display_order:2,status:'active',row_version:3},{id:'stage-assembly',code:'ARMADO',name:'Armado',display_order:6,status:'active',row_version:1}]}
+ let body:any,key:string|null=null
+ server.use(http.get('/api/master-data/snapshot',()=>HttpResponse.json(data)),http.patch('/api/master-data/stages/:id',async({request})=>{body=await request.json();key=request.headers.get('Idempotency-Key');return HttpResponse.json({entity:data.stages[0],current_usage_count:0,plan_requires_reconciliation:false,idempotent_replay:false})}))
+ renderPage();await screen.findByText('Operador Uno');await userEvent.click(screen.getByRole('button',{name:'Etapas productivas'}))
+ expect(screen.getByRole('heading',{name:'2. Corte'})).toBeInTheDocument();expect(screen.getByRole('heading',{name:'6. Armado'})).toBeInTheDocument()
+ await userEvent.click(screen.getAllByRole('button',{name:'EDITAR'})[0])
+ expect(screen.getByLabelText('Código')).toHaveAttribute('readonly')
+ await userEvent.clear(screen.getByLabelText('Nombre'));await userEvent.type(screen.getByLabelText('Nombre'),'Corte técnico');await userEvent.click(screen.getByRole('button',{name:'GUARDAR'}))
+ await waitFor(()=>expect(body).toMatchObject({code:'CORTE_ESCUADRADORA',name:'Corte técnico',display_order:2,expected_row_version:3}));expect(key).toBeTruthy()
+ expect(screen.queryByRole('button',{name:/ELIMINAR/})).not.toBeInTheDocument()
+})

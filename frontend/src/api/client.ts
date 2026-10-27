@@ -16,7 +16,7 @@ type SnapshotContract = components['schemas']['MasterDataSnapshotResponse']
 // The HTTP schema exposes open records. This adapter adds the database identity
 // used by editors without duplicating the generated collection contract.
 export type MasterSnapshot = {
-  [K in keyof SnapshotContract]: SnapshotContract[K] extends unknown[] ? MasterRecord[]
+  [K in keyof SnapshotContract]: NonNullable<SnapshotContract[K]> extends unknown[] ? MasterRecord[]
     : K extends 'plant' ? MasterRecord : SnapshotContract[K]
 }
 export type MasterMutation = components['schemas']['MasterMutationResponse']

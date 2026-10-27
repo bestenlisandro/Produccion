@@ -208,3 +208,23 @@ def update_plant(body: PlantUpdate, context=Depends(get_request_context),
     return _execute(container, context, key, "update", "plant",
                     body.model_dump(exclude={"expected_row_version"}), plant,
                     body.expected_row_version)
+
+
+@router.post("/stages", response_model=MasterMutationResponse, status_code=201)
+def create_stage(body: StageInput, context=Depends(get_request_context),
+                 key=Depends(get_idempotency_key), container=Depends(get_container)):
+    return _execute(container, context, key, "create", "stage", body.model_dump())
+
+
+@router.patch("/stages/{entity_id}", response_model=MasterMutationResponse)
+def update_stage(entity_id: UUID, body: StageUpdate, context=Depends(get_request_context),
+                 key=Depends(get_idempotency_key), container=Depends(get_container)):
+    return _execute(container, context, key, "update", "stage",
+                    body.model_dump(exclude={"expected_row_version"}), entity_id, body.expected_row_version)
+
+
+@router.post("/stages/{entity_id}/status", response_model=MasterMutationResponse)
+def stage_status(entity_id: UUID, body: StatusInput, context=Depends(get_request_context),
+                 key=Depends(get_idempotency_key), container=Depends(get_container)):
+    return _execute(container, context, key, "set_status", "stage",
+                    {"status":body.status}, entity_id, body.expected_row_version)

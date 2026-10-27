@@ -29,6 +29,7 @@ class MasterDataSnapshotResponse(MasterModel):
     calendar_windows: list[dict[str, Any]]
     calendar_exceptions: list[dict[str, Any]]
     plant: dict[str, Any]
+    stages: list[dict[str, Any]] = Field(default_factory=list)
     dev_only: bool
 
 
@@ -160,4 +161,15 @@ class PlantUpdate(MasterModel):
     timezone: str = Field(min_length=3, max_length=100)
     base_calendar_id: UUID
     communication_threshold_business_days: int = Field(ge=0, le=365)
+    expected_row_version: int = Field(ge=1)
+
+
+class StageInput(MasterModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    code: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=1, max_length=200)
+    display_order: int = Field(ge=1, le=32767)
+
+
+class StageUpdate(StageInput):
     expected_row_version: int = Field(ge=1)

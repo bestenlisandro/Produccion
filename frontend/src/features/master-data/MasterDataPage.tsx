@@ -3,11 +3,11 @@ import { useMutation,useQuery,useQueryClient } from '@tanstack/react-query'
 import { api,ApiError,type MasterRecord,type MasterSnapshot } from '../../api/client'
 import styles from './MasterDataPage.module.css'
 
-type Section='people'|'skills'|'centers'|'resources'|'calendars'|'plant'
+type Section='people'|'skills'|'centers'|'resources'|'calendars'|'plant'|'stages'
 type Commit={path:string;method:'POST'|'PATCH'|'PUT'|'DELETE';body?:unknown}
 type CommitAction=(command:Commit,onSuccess?:()=>void)=>void
 type Intent={command:Commit;key:string;onSuccess?:()=>void}
-const sections:[Section,string][]=[['people','Personas'],['skills','Habilidades'],['centers','Centros de trabajo'],['resources','Recursos'],['calendars','Calendarios'],['plant','Planta']]
+const sections:[Section,string][]=[['people','Personas'],['skills','Habilidades'],['centers','Centros de trabajo'],['resources','Recursos'],['calendars','Calendarios'],['plant','Planta'],['stages','Etapas productivas']]
 const value=(record:MasterRecord|undefined,key:string)=>String(record?.[key]??'')
 const numberValue=(record:MasterRecord|undefined,key:string)=>Number(record?.[key]??0)
 
@@ -55,6 +55,7 @@ export function MasterDataPage(){
     {section==='centers'&&<Centers data={data} showInactive={showInactive} commit={commit} busy={mutation.isPending||uncertain}/>}
     {section==='resources'&&<Resources data={data} showInactive={showInactive} commit={commit} busy={mutation.isPending||uncertain}/>}
     {section==='calendars'&&<Calendars data={data} showInactive={showInactive} commit={commit} busy={mutation.isPending||uncertain}/>}
+    {section==='stages'&&<Stages data={data} showInactive={showInactive} commit={commit} busy={mutation.isPending||uncertain}/>}
     {section==='plant'&&<Plant data={data} commit={commit} busy={mutation.isPending||uncertain}/>}
   </main>
 }
@@ -179,3 +180,10 @@ function Field({label,children}:{label:string;children:ReactElement<{id?:string}
 }
 function MasterForm({title,onSubmit,busy,onCancel,children}:{title:string;onSubmit:(e:FormEvent<HTMLFormElement>)=>void;busy:boolean;onCancel:()=>void;children:ReactNode}){return <form key={title} className={styles.form} onSubmit={onSubmit}><h2>{title}</h2><fieldset disabled={busy} style={{display:'contents'}}>{children}<div className="actions"><button disabled={busy}>GUARDAR</button><button className="secondary" type="button" disabled={busy} onClick={onCancel}>CANCELAR</button></div></fieldset></form>}
 function exceptionLabel(effect:string){return effect==='remove'?'No laborable':effect==='replace'?'Horario reemplazado':'Disponibilidad extraordinaria'}
+
+
+function Stages({data,showInactive,commit,busy}:{data:MasterSnapshot;showInactive:boolean;commit:CommitAction;busy:boolean}){
+ const [editing,setEditing]=useState<MasterRecord>()
+ const submit=(event:FormEvent<HTMLFormElement>)=>{event.preventDefault();const element=event.currentTarget,form=new FormData(element);const body={code:form.get('code'),name:form.get('name'),display_order:Number(form.get('order'))};commit({path:editing?`/stages/${editing.id}`:'/stages',method:editing?'PATCH':'POST',body:editing?{...body,expected_row_version:editing.row_version}:body},()=>{if(element.isConnected){element.reset();setEditing(undefined)}})}
+ return <Section title="Etapas productivas" intro="Clasificación estándar de operaciones. Los requerimientos se definen en las fases; editar el catálogo no modifica revisiones congeladas."><MasterForm key={editing?.id??'new'} title={editing?'Editar etapa':'Crear etapa'} onSubmit={submit} busy={busy} onCancel={()=>setEditing(undefined)}><Field label="Código"><input name="code" required readOnly={Boolean(editing)} defaultValue={value(editing,'code')}/></Field><Field label="Nombre"><input name="name" required defaultValue={value(editing,'name')}/></Field><Field label="Orden"><input name="order" type="number" min="1" max="32767" required defaultValue={value(editing,'display_order')||'10'}/></Field></MasterForm><div className={styles.cards}>{visible(data.stages??[],showInactive).sort((a,b)=>Number(a.display_order)-Number(b.display_order)||String(a.code).localeCompare(String(b.code))).map(stage=><article className={styles.card} key={stage.id}><header><h2>{value(stage,'display_order')}. {value(stage,'name')}</h2><span className="status">{value(stage,'status')}</span></header><p>{value(stage,'code')}</p><div className="actions"><button className="secondary" disabled={busy} onClick={()=>setEditing(stage)}>EDITAR</button><button disabled={busy} onClick={()=>statusAction('etapa',stage,'/stages',commit)}>{stage.status==='inactive'?'REACTIVAR':'DESACTIVAR'}</button></div></article>)}</div></Section>
+}

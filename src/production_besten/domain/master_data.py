@@ -16,7 +16,7 @@ class MasterDataConflict(DomainError):
 
 
 MasterEntity = Literal[
-    "person", "skill", "work_center", "resource", "calendar",
+    "person", "skill", "work_center", "resource", "calendar", "stage",
     "calendar_exception", "plant", "person_skill", "calendar_windows",
 ]
 

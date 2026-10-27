@@ -1,6 +1,6 @@
 from typing import Literal
 from uuid import UUID
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, model_validator
 from production_besten.api.schemas import ApiModel, LaborRequirementRequest, PhysicalRequirementRequest
 
 
@@ -25,6 +25,14 @@ class EditorPhase(EditorItem):
 
 
 class EditorOperation(EditorItem):
+    @model_validator(mode="before")
+    @classmethod
+    def ignore_presentation_metadata(cls, value):
+        # Read-only fields may be round-tripped by existing clients; the catalog is authoritative.
+        if isinstance(value, dict):
+            return {k:v for k,v in value.items() if k not in {"stage_code","stage_name","stage_order","operation_order"}}
+        return value
+
     id: UUID | None = None
     code: str = Field(min_length=1, max_length=80)
     name: str = Field(min_length=1, max_length=200)
@@ -64,12 +72,30 @@ class EditorRevision(ApiModel):
     snapshot: dict
 
 
+class EditorOperationView(EditorOperation):
+    # Override the input-only round-trip filter for response serialization.
+    @model_validator(mode="before")
+    @classmethod
+    def ignore_presentation_metadata(cls, value):
+        return value
+
+    # Audit replays recorded before M12 lack this additive presentation metadata.
+    stage_code: str | None = None
+    stage_name: str | None = None
+    stage_order: int | None = None
+    operation_order: int | None = None
+
+
+class EditorLotView(EditorLot):
+    operations: list[EditorOperationView]
+
+
 class EditorDefinition(ApiModel):
     project_id: UUID
     row_version: int
     draft_id: UUID | None
     status: Literal['empty', 'draft', 'frozen']
-    lots: list[EditorLot]
+    lots: list[EditorLotView]
     errors: list[str]
     revisions: list[EditorRevision]
     idempotent_replay: bool = False
@@ -81,8 +107,13 @@ class EditorOption(ApiModel):
     name: str
 
 
+class EditorStageOption(EditorOption):
+    display_order: int
+    status: str
+
+
 class EditorOptions(ApiModel):
-    operations: list[EditorOption]
+    operations: list[EditorStageOption]
     skills: list[EditorOption]
     centers: list[EditorOption]
     resource_types: list[EditorOption]

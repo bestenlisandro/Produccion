@@ -64,7 +64,7 @@ def test_save_multiple_lots_operations_phases_and_edit(editor):
     assert response.json()['lots'][0]['operations'][1]['phases'][0]['original_estimate_minutes']==90
 
 
-@pytest.mark.parametrize('variant',['self','cycle','outside','order','duplicate','skill','center','resource','definition'])
+@pytest.mark.parametrize('variant',['self','cycle','outside','duplicate','skill','center','resource','definition'])
 def test_graph_and_tenant_catalog_validation(editor,variant):
     _,api,path,lot=editor
     op=lot['operations'][0]

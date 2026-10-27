@@ -133,6 +133,7 @@ class PostgresMasterDataUnitOfWork:
             "resource_types": _rows(resource_types), "resources": _rows(resources),
             "calendars": _rows(calendars), "calendar_windows": _rows(intervals),
             "calendar_exceptions": _rows(exceptions), "plant": _plain(plant),
+            "stages": _rows(self.conn.execute(text("SELECT id,code,name,display_order,status,row_version FROM production.operation_definitions WHERE organization_id=:org ORDER BY display_order,code,id"), {"org":organization_id}).mappings().all()),
             "dev_only": True,
         }
 
@@ -199,6 +200,11 @@ class PostgresMasterDataUnitOfWork:
             """), {"id": entity_id, "org": org, "plant": plant, "code": p["code"],
                     "name": p["display_name"], "center": p.get("default_work_center_id"),
                     "calendar": p["base_calendar_id"]}).mappings().one()
+        if command.entity_type == "stage":
+            return self.conn.execute(text("""
+                INSERT INTO production.operation_definitions(id,organization_id,code,name,category,display_order)
+                VALUES (:id,:org,:code,:name,'production_stage',:display_order) RETURNING *
+            """), p|{"id":entity_id,"org":org}).mappings().one()
         if command.entity_type == "skill":
             return self.conn.execute(text("""
                 INSERT INTO capacity.skills(id,organization_id,code,name,description,category)
@@ -264,7 +270,7 @@ class PostgresMasterDataUnitOfWork:
                 f"expected row version {version}, current is {before['row_version']}"
             )
         if command.action == "set_status":
-            if command.entity_type not in {"person", "skill", "work_center", "resource", "calendar"}:
+            if command.entity_type not in {"person", "skill", "work_center", "resource", "calendar", "stage"}:
                 raise InvalidMasterData("this entity cannot be activated or deactivated")
             table = _table(command.entity_type)
             row = self.conn.execute(text(f"""
@@ -286,6 +292,14 @@ class PostgresMasterDataUnitOfWork:
             """), {"code": p["code"], "name": p["display_name"],
                     "center": p.get("default_work_center_id"), "calendar": p["base_calendar_id"],
                     "org": org, "plant": plant, "id": entity_id, "version": version}).mappings().one_or_none()
+        elif command.entity_type == "stage":
+            if p['code'] != before['code']:
+                raise InvalidMasterData('El código de etapa es estable; creá otra etapa si necesitás otra clasificación.')
+            row = self.conn.execute(text("""
+                UPDATE production.operation_definitions SET name=:name,display_order=:display_order,
+                    updated_at=now(),row_version=row_version+1
+                WHERE organization_id=:org AND id=:id AND row_version=:version RETURNING *
+            """), p|{"org":org,"id":entity_id,"version":version}).mappings().one_or_none()
         elif command.entity_type == "skill":
             row = self.conn.execute(text("""
                 UPDATE capacity.skills SET code=:code,name=:name,description=:description,
@@ -688,7 +702,7 @@ def _table(entity_type: str) -> str:
     tables = {"person": "capacity.employees", "skill": "capacity.skills",
               "work_center": "capacity.work_centers", "resource": "capacity.physical_resources",
               "calendar": "capacity.calendars", "calendar_exception": "capacity.calendar_exceptions",
-              "plant": "core.plants"}
+              "plant": "core.plants", "stage":"production.operation_definitions"}
     try:
         return tables[entity_type]
     except KeyError as exc:

@@ -20,7 +20,7 @@ test('crear múltiples lotes',async()=>{await ready();await click('AGREGAR LOTE'
 test('editar nombre de lote se guarda',async()=>{await ready();await userEvent.clear(screen.getByLabelText('Nombre del lote'));await userEvent.type(screen.getByLabelText('Nombre del lote'),'Armario');await click('GUARDAR BORRADOR');await waitFor(()=>expect(calls[0].body.lots[0].name).toBe('Armario'))})
 test('cantidad y unidad',async()=>{await ready();await userEvent.clear(screen.getByLabelText('Cantidad'));await userEvent.type(screen.getByLabelText('Cantidad'),'4');await click('GUARDAR BORRADOR');await waitFor(()=>expect(calls[0].body.lots[0].quantity).toBe(4))})
 test('ruta publicada usa maestros',async()=>{await ready();expect(screen.getByRole('option',{name:'Ruta de muebles'})).toBeInTheDocument();expect(screen.getByLabelText('Ruta publicada')).toHaveValue(editorIds.route)})
-test('agregar operación no inventa nombres',async()=>{await ready();await click('AGREGAR OPERACIÓN');expect(screen.getAllByLabelText('Tipo de operación')).toHaveLength(2)})
+test('agregar operación no inventa nombres',async()=>{await ready();await click('AGREGAR OPERACIÓN');expect(screen.getAllByLabelText('Nombre de operación')[1]).toHaveValue('');expect(screen.queryByLabelText('Tipo de operación')).not.toBeInTheDocument()})
 test('editar operación',async()=>{await ready();await userEvent.clear(screen.getByLabelText('Nombre de operación'));await userEvent.type(screen.getByLabelText('Nombre de operación'),'Corte especial');await click('GUARDAR BORRADOR');await waitFor(()=>expect(calls[0].body.lots[0].operations[0].name).toBe('Corte especial'))})
 test('duración canónica en minutos',async()=>{await ready();await userEvent.clear(screen.getByLabelText('Duración estimada (minutos)'));await userEvent.type(screen.getByLabelText('Duración estimada (minutos)'),'75');await click('GUARDAR BORRADOR');await waitFor(()=>expect(calls[0].body.lots[0].operations[0].phases[0].original_estimate_minutes).toBe(75))})
 test('centro requerido activo',async()=>{await ready();await click('AGREGAR RECURSO');expect(screen.getByLabelText('Centro de trabajo')).toHaveValue(editorIds.center)})
@@ -41,7 +41,7 @@ test('recurso físico se selecciona por tipo',async()=>{await ready();await clic
 test('agregar múltiples fases',async()=>{await ready();await click('AGREGAR FASE');expect(screen.getAllByLabelText('Nombre de fase')).toHaveLength(2)})
 test('editar nombre de fase',async()=>{await ready();await userEvent.clear(screen.getByLabelText('Nombre de fase'));await userEvent.type(screen.getByLabelText('Nombre de fase'),'Terminación');expect(screen.getByLabelText('Nombre de fase')).toHaveValue('Terminación')})
 test('reordenar fases',async()=>{await ready();await click('AGREGAR FASE');await userEvent.type(screen.getAllByLabelText('Nombre de fase')[1],' segunda');await userEvent.click(screen.getAllByRole('button',{name:'SUBIR FASE'})[1]);expect(screen.getAllByLabelText('Nombre de fase')[0]).toHaveValue('Trabajo segunda')})
-test('reordenar operaciones conserva secuencia',async()=>{await ready();await click('AGREGAR OPERACIÓN');await userEvent.type(screen.getAllByLabelText('Nombre de operación')[1],' segunda');await userEvent.click(screen.getAllByRole('button',{name:'SUBIR OPERACIÓN'})[1]);await click('GUARDAR BORRADOR');await waitFor(()=>expect(calls[0].body.lots[0].operations[0].name).toBe('Corte segunda'));expect(calls[0].body.lots[0].operations[1].predecessor_codes).toEqual([calls[0].body.lots[0].operations[0].code])})
+test('reordenar operaciones conserva independencia',async()=>{await ready();await click('AGREGAR OPERACIÓN');await userEvent.type(screen.getAllByLabelText('Nombre de operación')[1],' segunda');await userEvent.click(screen.getAllByRole('button',{name:'SUBIR OPERACIÓN'})[1]);await click('GUARDAR BORRADOR');await waitFor(()=>expect(calls[0].body.lots[0].operations[0].name).toBe(' segunda'));expect(calls[0].body.lots[0].operations[1].predecessor_codes).toEqual([])})
 test('eliminar operación de borrador',async()=>{await ready();await click('ELIMINAR OPERACIÓN');expect(screen.queryByLabelText('Nombre de operación')).not.toBeInTheDocument()})
 test('eliminar fase de borrador',async()=>{await ready();await click('ELIMINAR FASE');expect(screen.queryByLabelText('Nombre de fase')).not.toBeInTheDocument()})
 test('validar lista errores accionables',async()=>{data.errors=['Agregá al menos una fase con duración.'];await ready();expect(screen.getByRole('region',{name:'Errores de validación'})).toHaveTextContent('Agregá al menos una fase');expect(screen.getByRole('button',{name:'CONGELAR DEFINICIÓN'})).toBeDisabled();await click('VALIDAR');await waitFor(()=>expect(calls[0].action).toBe('validate'))})
@@ -52,3 +52,39 @@ test('409 visible conserva input y ofrece actualización',async()=>{server.use(h
 test('retry incierto conserva key y payload',async()=>{let attempts=0;const keys:string[]=[];server.use(http.put('/api/projects/:id/product-definition',async({request})=>{keys.push(request.headers.get('Idempotency-Key')!);return ++attempts===1?HttpResponse.json({error:{message:'Error temporal'}},{status:500}):HttpResponse.json(data)}));await ready();await click('GUARDAR BORRADOR');await userEvent.click(await screen.findByRole('button',{name:'REINTENTAR GUARDADO'}));await waitFor(()=>expect(keys).toHaveLength(2));expect(keys[0]).toBe(keys[1])})
 test('error de carga permite retry',async()=>{let count=0;server.use(http.get('/api/projects/:id/product-definition',()=>++count===1?HttpResponse.json({},{status:500}):HttpResponse.json(data)));show();await userEvent.click(await screen.findByRole('button',{name:'REINTENTAR'}));await screen.findByRole('heading',{name:'Definición productiva'})})
 test('cambios sin guardar impiden freeze',async()=>{await ready();await click('AGREGAR FASE');expect(screen.getByRole('button',{name:'CONGELAR DEFINICIÓN'})).toBeDisabled();expect(screen.getByRole('button',{name:'VALIDAR'})).toBeDisabled()})
+
+
+test('etapa fija y nombre libre; renumeración conserva IDs, fases y paralelismo',async()=>{
+ const original=data.lots[0].operations[0];original.id='operation-funds';original.name='Corte de fondos'
+ const second=structuredClone(original);second.id='operation-drawers';second.code='DRAWERS';second.name='Corte de cajones';data.lots[0].operations.push(second)
+ const phase=structuredClone(original.phases)
+ await ready()
+ expect(screen.getByRole('heading',{name:'2. Corte'})).toBeInTheDocument()
+ expect(screen.getByText('2.1 Corte de fondos')).toBeInTheDocument();expect(screen.getByText('2.2 Corte de cajones')).toBeInTheDocument()
+ await userEvent.clear(screen.getAllByLabelText('Nombre de operación')[0]);await userEvent.type(screen.getAllByLabelText('Nombre de operación')[0],'Corte de fondos y laterales')
+ expect(screen.getByRole('heading',{name:'2. Corte'})).toBeInTheDocument()
+ await userEvent.click(screen.getAllByRole('button',{name:'SUBIR OPERACIÓN'})[1])
+ expect(screen.getByText('2.1 Corte de cajones')).toBeInTheDocument();expect(screen.getByText('2.2 Corte de fondos y laterales')).toBeInTheDocument()
+ await userEvent.click(screen.getAllByRole('button',{name:'ELIMINAR OPERACIÓN'})[0])
+ expect(screen.getByText('2.1 Corte de fondos y laterales')).toBeInTheDocument()
+ await click('GUARDAR BORRADOR');await waitFor(()=>expect(calls).toHaveLength(1))
+ const op=calls[0].body.lots[0].operations[0]
+ expect(op.id).toBe('operation-funds');expect(op.name).toBe('Corte de fondos y laterales');expect(op.predecessor_codes).toEqual([]);expect(op.phases).toEqual(phase)
+})
+
+test('Armado conserva número 6 y cambiar etapa es explícito',async()=>{
+ const options={...editorOptions,operations:[...editorOptions.operations,{id:'assembly-stage',code:'ARMADO',name:'Armado',display_order:6,status:'active'}]}
+ server.use(http.get('/api/product-definition/options',()=>HttpResponse.json(options)))
+ await ready();expect(screen.getByRole('heading',{name:'6. Armado'})).toBeInTheDocument()
+ expect(screen.queryByLabelText('Tipo de operación')).not.toBeInTheDocument()
+ await click('CAMBIAR ETAPA');await userEvent.selectOptions(screen.getByLabelText('Etapa de destino'),'assembly-stage')
+ expect(screen.getByText('6.1 Corte')).toBeInTheDocument();expect(screen.queryByText('2.1 Corte')).not.toBeInTheDocument()
+ await click('GUARDAR BORRADOR');await waitFor(()=>expect(calls).toHaveLength(1));expect(calls[0].body.lots[0].operations[0].operation_definition_id).toBe('assembly-stage')
+})
+
+test('precedencias se eligen sin depender de la numeración',async()=>{
+ const second=structuredClone(data.lots[0].operations[0]);second.code='NEXT';second.name='Corte siguiente';data.lots[0].operations.push(second)
+ await ready();await userEvent.selectOptions(screen.getAllByLabelText('Operaciones precedentes')[1],'CUT')
+ await userEvent.click(screen.getAllByRole('button',{name:'SUBIR OPERACIÓN'})[1]);await click('GUARDAR BORRADOR')
+ await waitFor(()=>expect(calls).toHaveLength(1));expect(calls[0].body.lots[0].operations[0].predecessor_codes).toEqual(['CUT'])
+})
