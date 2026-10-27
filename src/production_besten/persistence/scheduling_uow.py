@@ -573,7 +573,7 @@ class PostgresSchedulingUnitOfWork:
                    sol.solution_sha256,
                    sol.input_product_definition_revision_id AS solution_definition_revision_id,
                    sol.base_state_revision_id AS solution_state_revision_id,
-                   sol.comparison,sol.algorithm_version
+                   sol.comparison,sol.algorithm_version,sol.diagnostics
               FROM planning.scenarios s
               LEFT JOIN LATERAL (
                   SELECT value.* FROM planning.schedule_solutions value
@@ -593,12 +593,16 @@ class PostgresSchedulingUnitOfWork:
             raise SchedulingBaseStale("stale scenario cannot be promoted")
         if scenario["status"] == "confirmed":
             raise ReplanConflict("scenario was already promoted by another command")
-        if scenario["scenario_kind"] != "replan" or scenario["status"] != "ready":
-            raise ReplanConflict("only a ready replan scenario can be promoted")
+        if scenario["scenario_kind"] not in {"replan","initial"} or scenario["status"] != "ready":
+            raise ReplanConflict("only a ready replan or initial scenario can be promoted")
         if (scenario["solution_id"] is None
                 or scenario["solution_status"] != "ready"
                 or scenario["solution_sha256"] is None):
             raise ReplanConflict("scenario has no valid ready solution")
+        if (scenario["diagnostics"] or {}).get("complete") is False:
+            raise ReplanConflict("incomplete scenario cannot be promoted; inspect blocked operations")
+        if scenario["scenario_kind"] == "initial" and plant["current_plan_version_id"] is not None:
+            raise SchedulingBaseStale("initial scenario requires a plant without a current plan")
         if scenario["base_plan_version_id"] != plant["current_plan_version_id"]:
             raise SchedulingBaseStale("scenario base plan is no longer current")
         if scenario["base_state_revision_id"] != head["current_revision_id"]:
@@ -624,9 +628,11 @@ class PostgresSchedulingUnitOfWork:
              WHERE organization_id=:org AND plant_id=:plant AND id=:plan FOR UPDATE
         """), {"org": command.organization_id, "plant": command.plant_id,
                  "plan": plant["current_plan_version_id"]}).mappings().one_or_none()
-        if current is None or current["status"] != "published":
+        if scenario["scenario_kind"] == "initial" and current is None:
+            current={"id":None}
+        elif current is None or current["status"] != "published":
             raise ReplanConflict("current published plan is missing")
-        if current["valid_from"] >= now:
+        if current["id"] is not None and current["valid_from"] >= now:
             raise ReplanConflict("promotion timestamp must follow current plan start")
 
         next_version_no = int(self.conn.scalar(text("""
@@ -637,12 +643,13 @@ class PostgresSchedulingUnitOfWork:
         communication_recommended = bool(
             (scenario["comparison"] or {}).get("customer_date_alerts", 0)
         )
-        self.conn.execute(text("""
-            UPDATE planning.plan_versions
-               SET status='superseded',valid_during=tstzrange(lower(valid_during),:at,'[)')
-             WHERE organization_id=:org AND id=:plan
-        """), {"at": now, "org": command.organization_id,
-                 "plan": current["id"]})
+        if current["id"] is not None:
+            self.conn.execute(text("""
+                UPDATE planning.plan_versions
+                   SET status='superseded',valid_during=tstzrange(lower(valid_during),:at,'[)')
+                 WHERE organization_id=:org AND id=:plan
+            """), {"at": now, "org": command.organization_id,
+                     "plan": current["id"]})
         if self._failpoint == "after_close_previous":
             raise RuntimeError("injected failure after closing previous plan")
 
@@ -685,7 +692,7 @@ class PostgresSchedulingUnitOfWork:
 
         promotion = {
             "promoted_plan_version_id": str(new_plan_id),
-            "previous_plan_version_id": str(current["id"]),
+            "previous_plan_version_id": str(current["id"]) if current["id"] else None,
             "accept_command_id": str(command.command_id),
             "promoted_at": now,
         }
@@ -701,7 +708,7 @@ class PostgresSchedulingUnitOfWork:
             UPDATE planning.scenarios
                SET status='stale',updated_at=:at,row_version=row_version+1
              WHERE organization_id=:org AND plant_id=:plant
-               AND base_plan_version_id=:previous AND id<>:scenario
+               AND base_plan_version_id IS NOT DISTINCT FROM :previous AND id<>:scenario
                AND status IN ('draft','calculating','ready')
         """), {"at": now, "org": command.organization_id,
                  "plant": command.plant_id, "previous": current["id"],

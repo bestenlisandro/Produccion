@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from uuid import UUID
+from datetime import datetime
+from typing import Callable
 
 from fastapi import Header, Request
 from sqlalchemy import Engine
@@ -15,6 +17,7 @@ class ApiContainer:
     engine: Engine
     context_provider: DevRequestContextProvider
     failpoints: dict[str, str] = field(default_factory=dict)
+    clock: Callable[[], datetime] | None = None
 
     @property
     def queries(self) -> PostgresApiQueries:

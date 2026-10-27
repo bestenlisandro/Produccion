@@ -9,7 +9,7 @@ router=APIRouter(tags=['production-readiness'])
 
 
 def service(container):
-    return ProductionReleaseService(lambda:PostgresProductionReleaseUnitOfWork(container.engine,failpoint=container.failpoints.get('production_release')))
+    return ProductionReleaseService(lambda:PostgresProductionReleaseUnitOfWork(container.engine,failpoint=container.failpoints.get('production_release'),clock=container.clock))
 
 
 @router.get('/projects/production-readiness',response_model=list[ProductionReadiness])

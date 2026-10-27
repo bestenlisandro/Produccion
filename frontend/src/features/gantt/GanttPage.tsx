@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router'
+import { Link,useSearchParams } from 'react-router'
 import moment from 'moment-timezone'
 import {
   ApiError, api, type GanttGrouping, type GanttOperation,
@@ -27,7 +27,9 @@ export function GanttPage() {
   const [anchorChanged, setAnchorChanged] = useState(false)
   const [view, setView] = useState<GanttView>('week')
   const [groupBy, setGroupBy] = useState<GanttGrouping>('center')
-  const [scenarioId, setScenarioId] = useState('')
+  const [searchParams,setSearchParams]=useSearchParams()
+  const scenarioId=searchParams.get('scenario_id')??''
+  const setScenarioId=useCallback((id:string)=>{setSearchParams(id?{scenario_id:id}:{},{replace:true})},[setSearchParams])
   const [selected, setSelected] = useState<GanttOperation>()
   const [message, setMessage] = useState('')
   const [adjustmentMode, setAdjustmentMode] = useState(false)
@@ -45,9 +47,11 @@ export function GanttPage() {
     placeholderData: previous => previous,
   })
   useEffect(() => {
-    if (!query.data || query.data.timezone === timezone) return
-    setTimezone(query.data.timezone)
-    if (!anchorChanged) setAnchor(localDate(query.data.timezone))
+    if (!query.data) return
+    if(query.data.timezone!==timezone)setTimezone(query.data.timezone)
+    const first=query.data.scenario?.scenario_kind==='initial'?query.data.operations.filter(o=>o.planned_start).map(o=>o.planned_start!).sort()[0]:undefined
+    if (!anchorChanged&&first)setAnchor(moment.tz(first,query.data.timezone).format('YYYY-MM-DD'))
+    else if(!anchorChanged&&query.data.timezone!==timezone)setAnchor(localDate(query.data.timezone))
   }, [query.data, timezone, anchorChanged])
   const selectOperation = useCallback((operation: GanttOperation) => setSelected(operation), [])
   const refreshCurrent = async () => {
@@ -85,7 +89,7 @@ export function GanttPage() {
       ).toISOString()
       if (value.kind === 'resize') {
         return api.resizeActivity(value.operation.operation_id, {
-          base_plan_version_id: query.data!.plan_version_id,
+          base_plan_version_id: query.data!.plan_version_id!,
           requested_duration_minutes: value.requestedDurationMinutes,
           cutoff_at: cutoff, horizon_end: horizon,
           phase_id: value.operation.phase_id,
@@ -93,7 +97,7 @@ export function GanttPage() {
         }, value.commandId)
       }
       return api.moveActivity(value.operation.operation_id, {
-        base_plan_version_id: query.data!.plan_version_id,
+        base_plan_version_id: query.data!.plan_version_id!,
         requested_start: value.requestedStart,
         cutoff_at: cutoff, horizon_end: horizon,
         phase_id: value.operation.phase_id,
@@ -129,6 +133,7 @@ export function GanttPage() {
     return <ErrorState retry={() => void query.refetch()} />
   }
   const data = query.data
+  const initial=data.scenario?.scenario_kind==='initial'
   const changeAnchor = (value: string) => { setAnchorChanged(true); setAnchor(value) }
   const outside = (data.scenario?.operations ?? []).filter(
     item => item.difference === 'OUT_OF_HORIZON',
@@ -137,14 +142,14 @@ export function GanttPage() {
   return <main className={styles.page}>
     <header className={styles.heading}>
       <div><p className="eyebrow">PLANIFICACIÓN</p><h1>Gantt operativo</h1>
-        <p>Plan vigente V{data.plan_version_number} · {data.timezone} · {adjustmentMode ? 'Modo ajuste DEV/interno' : 'Sólo lectura'}</p></div>
+        <p>{initial?'Simulación inicial':data.plan_version_id?`Plan vigente V${data.plan_version_number}`:'Todavía no existe un plan vigente.'} · {data.timezone} · {adjustmentMode ? 'Modo ajuste DEV/interno' : 'Sólo lectura'}</p></div>
       <Link to="/">TABLERO DIARIO</Link>
     </header>
 
     <section className={styles.toolbar} aria-label="Controles del Gantt">
       <fieldset><legend>Interacción</legend>
         <button aria-pressed={!adjustmentMode} className={!adjustmentMode ? '' : 'secondary'} onClick={() => { setAdjustmentMode(false); setIntent(undefined) }}>MODO CONSULTA</button>
-        <button aria-pressed={adjustmentMode} className={adjustmentMode ? '' : 'secondary'} onClick={() => setAdjustmentMode(true)}>MODO AJUSTE</button>
+        <button disabled={!data.plan_version_id||initial} aria-pressed={adjustmentMode} className={adjustmentMode ? '' : 'secondary'} onClick={() => setAdjustmentMode(true)}>MODO AJUSTE</button>
       </fieldset>
       <div className={styles.navigation}>
         <button className="secondary" onClick={() => changeAnchor(localDate(data.timezone))}>HOY</button>
@@ -161,7 +166,7 @@ export function GanttPage() {
       ] as const).map(([value, label]) => <button key={value} className={view === value ? '' : 'secondary'} aria-pressed={view === value} onClick={() => setView(value)}>{label}</button>)}</fieldset>
       <label>Comparar con<select value={scenarioId} onChange={event => { setScenarioId(event.target.value); setMessage('') }}>
         <option value="">Ninguno</option>
-        {data.available_scenarios.map(scenario => <option key={scenario.id} value={scenario.id}>{scenario.name}{scenario.stale ? ' · obsoleta' : ''}</option>)}
+        {data.available_scenarios.map(scenario => <option key={scenario.id} value={scenario.id}>{scenario.name} · {new Date(scenario.created_at).toLocaleString()} · {scenario.id.slice(0,8)}{scenario.stale ? ' · obsoleta' : ''}</option>)}
       </select></label>
     </section>
     {adjustmentMode && <p className={styles.devNotice}>Modo ajuste DEV/interno: permite simular, no constituye autorización de seguridad. Arrastrá una operación futura o usá PROPONER HORARIO.</p>}
@@ -208,11 +213,21 @@ export function GanttPage() {
       </dl>}
       <ul>{(data.scenario.operations ?? []).map(item => <li key={item.operation_id}>{differenceLabel(item.difference)}{item.delta_minutes ? ` · ${Math.abs(item.delta_minutes)} min` : ''}</li>)}</ul>
       {!data.scenario.stale && data.scenario.status === 'ready' && <div className="actions">
-        <button disabled={accept.isPending || reject.isPending} onClick={() => accept.mutate()}>CONFIRMAR NUEVO PLAN</button>
-        <button className="secondary" disabled={accept.isPending || reject.isPending} onClick={() => reject.mutate()}>CANCELAR PROPUESTA</button>
+        <button disabled={data.scenario.complete===false || accept.isPending || reject.isPending} onClick={() => accept.mutate()}>CONFIRMAR NUEVO PLAN</button>
+        {initial?<button className="secondary" disabled={accept.isPending} onClick={()=>void refreshCurrent()}>VOLVER SIN ACEPTAR</button>:<button className="secondary" disabled={accept.isPending || reject.isPending} onClick={() => reject.mutate()}>CANCELAR PROPUESTA</button>}
       </div>}
     </section>}
     {message && <p className={message.includes('No se pudo') || message.includes('obsoleta') ? 'warning' : 'success'} aria-live="polite">{message}</p>}
+
+    {initial && <section aria-label="Detalle de simulación inicial">
+      <h2>Operaciones de la simulación</h2>
+      <p>Sin aceptación automática. Revisá secuencia, fechas, personas y recursos antes de confirmar.</p>
+      {data.scenario?.complete===false?<p className="warning">Simulación incompleta: no tiene fecha final estimada y no puede aceptarse. Revisá los bloqueos.</p>:<p>Fecha final estimada: {data.operations.filter(o=>o.planned_finish).map(o=>o.planned_finish!).sort().at(-1)?plantDateTime(data.operations.filter(o=>o.planned_finish).map(o=>o.planned_finish!).sort().at(-1)!,data.timezone):'Sin fecha'}</p>}
+      <div style={{overflowX:'auto'}}><table><thead><tr><th>Operación</th><th>Precedencia</th><th>Inicio / fin</th><th>Duración</th><th>Personas</th><th>Centro / recurso</th><th>Estado</th></tr></thead><tbody>
+        {data.operations.map(op=><tr key={op.operation_id}><td>{op.operation_name}</td><td>{op.predecessors?.map(p=>p.name).join(', ')||'Sin precedente'}</td><td>{op.planned_start?plantDateTime(op.planned_start,data.timezone):'Sin inicio'} / {op.planned_finish?plantDateTime(op.planned_finish,data.timezone):'Sin fin'}</td><td>{op.duration_minutes??'—'} min</td><td>{(op.people??[]).map(p=>p.name).join(', ')||'Sin asignar'}</td><td>{[...(op.centers??[]),...(op.resources??[])].map(r=>r.name).join(', ')||'Sin asignar'}</td><td>{op.operational_status} {op.blocker_code&&blockerMessage(op.blocker_code)}</td></tr>)}
+      </tbody></table></div>
+    </section>}
+    {!data.plan_version_id&&!data.scenario&&<p className="state">Todavía no existe un plan vigente. Elegí una simulación en Comparar con para revisarla.</p>}
 
     {data.operations.length === 0
       ? <div className="state">No hay operaciones para este rango.</div>

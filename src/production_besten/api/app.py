@@ -1,4 +1,6 @@
 from __future__ import annotations
+from datetime import datetime
+from typing import Callable
 
 from fastapi import FastAPI
 from sqlalchemy import Engine
@@ -16,7 +18,8 @@ from production_besten.persistence.database import create_database_engine
 
 
 def create_app(*, engine: Engine | None = None, enable_dev_context: bool | None = None,
-               failpoints: dict[str, str] | None = None) -> FastAPI:
+               failpoints: dict[str, str] | None = None,
+               clock: Callable[[], datetime] | None = None) -> FastAPI:
     if engine is None:
         settings = Settings()
         engine = create_database_engine(settings.sqlalchemy_database_url())
@@ -27,7 +30,7 @@ def create_app(*, engine: Engine | None = None, enable_dev_context: bool | None 
         enabled = enable_dev_context
     app = FastAPI(title="Producción Besten API", version="1.0.0",
                   description="API interna mínima sobre servicios de dominio validados.")
-    app.state.container = ApiContainer(engine, DevRequestContextProvider(enabled=enabled), failpoints or {})
+    app.state.container = ApiContainer(engine, DevRequestContextProvider(enabled=enabled), failpoints or {}, clock)
     install_error_handlers(app)
     from production_besten.api.installation_routes import router as installation_router
     app.include_router(installation_router)

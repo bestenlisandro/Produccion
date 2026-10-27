@@ -27,6 +27,7 @@ export const ganttFixture: GanttData = {
 }
 
 export const ganttScenarioFixture: GanttData = {...ganttFixture, scenario:{
+  scenario_kind:'replan',complete:true,
   id:'13131313-1313-4131-8131-131313131313',code:'R-1',name:'Simulación R-1',status:'ready',stale:false,
   row_version:1,promotion_lock_version:2,changed_operations:1,affected_projects:1,customer_date_alerts:1,
   communication_recommended:true,project_finish_changes:[{project:'P-1'}],operations:[{

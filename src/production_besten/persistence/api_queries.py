@@ -332,13 +332,14 @@ class PostgresApiQueries:
         with self.engine.connect() as conn:
             metadata = conn.execute(text("""
                 SELECT pv.id AS plan_version_id,pv.version_no AS plan_version_number,
-                       pv.planning_state_revision_id,pv.schedule_solution_id,
+                       COALESCE(pv.planning_state_revision_id,h.current_revision_id) AS planning_state_revision_id,pv.schedule_solution_id,
                        p.timezone,p.base_calendar_id,p.promotion_lock_version,
                        c.timezone AS calendar_timezone
                   FROM core.plants p
-                  JOIN planning.plan_versions pv
+                  LEFT JOIN planning.plan_versions pv
                     ON pv.organization_id=p.organization_id
                    AND pv.id=p.current_plan_version_id
+                  JOIN planning.planning_state_heads h ON h.organization_id=p.organization_id AND h.plant_id=p.id
                   JOIN capacity.calendars c
                     ON c.organization_id=p.organization_id
                    AND c.id=p.base_calendar_id
@@ -352,11 +353,48 @@ class PostgresApiQueries:
             except (KeyError, ValueError) as exc:
                 raise InvalidSchedulingInput("plant or calendar timezone is not a valid IANA timezone") from exc
 
+            selected_scenario = None
+            if scenario_id is not None:
+                selected_scenario = conn.execute(text("""
+                    SELECT s.id,s.code,s.name,s.status,s.row_version,
+                           p.promotion_lock_version,sol.comparison,s.scenario_kind,sol.id AS solution_id,
+                           COALESCE((sol.diagnostics->>'complete')::boolean,false) AS complete,
+                           (s.status='stale'
+                            OR s.base_state_revision_id<>h.current_revision_id
+                            OR s.base_product_definition_revision_id<>p.current_product_definition_revision_id
+                            OR s.base_plan_version_id IS DISTINCT FROM p.current_plan_version_id) AS stale
+                      FROM planning.scenarios s
+                      JOIN core.plants p
+                        ON p.organization_id=s.organization_id AND p.id=s.plant_id
+                      JOIN planning.planning_state_heads h
+                        ON h.organization_id=s.organization_id AND h.plant_id=s.plant_id
+                      JOIN LATERAL (
+                        SELECT value.id,value.comparison,value.diagnostics
+                          FROM planning.schedule_solutions value
+                         WHERE value.organization_id=s.organization_id
+                           AND value.scenario_id=s.id
+                         ORDER BY value.run_no DESC LIMIT 1
+                      ) sol ON true
+                     WHERE s.organization_id=:org AND s.plant_id=:plant
+                       AND s.id=:scenario AND s.scenario_kind IN ('initial','replan')
+                """), {
+                    "org": org, "plant": plant, "scenario": scenario_id,
+                }).mappings().one_or_none()
+                if selected_scenario is None:
+                    raise EntityNotFound("scenario not found")
+
+            metadata=dict(metadata)
+            if selected_scenario and selected_scenario['scenario_kind']=='initial':
+                metadata['schedule_solution_id']=selected_scenario['solution_id']
+            elif metadata['plan_version_id'] is None and selected_scenario:
+                raise EntityNotFound('current plan not found')
+
             operation_rows = conn.execute(text("""
                 WITH first_phase AS (
                     SELECT DISTINCT ON (ppr.operation_plan_result_id)
                            ppr.operation_plan_result_id,ph.id AS phase_id,
                            ph.name AS phase_name,
+                           sum(ppr.planned_work_minutes+ppr.remaining_work_minutes) OVER (PARTITION BY ppr.operation_plan_result_id)::int AS duration_minutes,
                            ppr.explanation->'why_not_earlier'->>0 AS blocker_code
                       FROM planning.phase_plan_results ppr
                       JOIN production.required_operation_phases ph
@@ -450,7 +488,8 @@ class PostgresApiQueries:
                        project.code AS project_code,project.name AS project_name,
                        lot.code AS lot_code,lot.name AS lot_name,
                        ro.code AS operation_code,ro.name AS operation_name,
-                       fp.phase_id,fp.phase_name,
+                       fp.phase_id,fp.phase_name,fp.duration_minutes,
+                       COALESCE((SELECT jsonb_agg(jsonb_build_object('id',pre.id,'name',pre.name) ORDER BY pre.code) FROM production.operation_precedences edge JOIN production.required_operations pre ON pre.organization_id=edge.organization_id AND pre.id=edge.predecessor_operation_id WHERE edge.organization_id=ro.organization_id AND edge.successor_operation_id=ro.id AND edge.active),'[]'::jsonb) AS predecessors,
                        opr.planned_start_at AS planned_start,
                        opr.planned_end_at AS planned_finish,
                        COALESCE(pe.values,'[]'::jsonb) AS people,
@@ -506,11 +545,13 @@ class PostgresApiQueries:
                    AND project.plant_id=:plant
                    AND ((opr.planned_start_at < :range_to
                          AND opr.planned_end_at > :range_from)
-                        OR opr.result_status='blocked')
+                        OR opr.result_status IN ('blocked','out_of_horizon')
+                        OR :initial_view)
                  ORDER BY opr.planned_start_at NULLS LAST,priority.rank,ro.id
             """), {
                 "org": org, "plant": plant,
                 "solution": metadata["schedule_solution_id"],
+                "initial_view": bool(selected_scenario and selected_scenario['scenario_kind']=='initial'),
                 "range_from": range_from, "range_to": range_to,
             }).mappings().all()
 
@@ -565,48 +606,31 @@ class PostgresApiQueries:
                        (s.status='stale'
                         OR s.base_state_revision_id<>h.current_revision_id
                         OR s.base_product_definition_revision_id<>p.current_product_definition_revision_id
-                        OR s.base_plan_version_id<>p.current_plan_version_id) AS stale
+                        OR s.base_plan_version_id IS DISTINCT FROM p.current_plan_version_id) AS stale
                   FROM planning.scenarios s
                   JOIN core.plants p
                     ON p.organization_id=s.organization_id AND p.id=s.plant_id
                   JOIN planning.planning_state_heads h
                     ON h.organization_id=s.organization_id AND h.plant_id=s.plant_id
                  WHERE s.organization_id=:org AND s.plant_id=:plant
-                   AND s.scenario_kind='replan'
+                   AND s.scenario_kind IN ('initial','replan')
+                   AND (s.scenario_kind='replan' OR p.current_plan_version_id IS NULL)
                    AND s.status IN ('ready','stale')
                  ORDER BY s.created_at DESC,s.id DESC LIMIT 50
             """), {"org": org, "plant": plant}).mappings().all()
 
-            selected_scenario = None
-            if scenario_id is not None:
-                selected_scenario = conn.execute(text("""
-                    SELECT s.id,s.code,s.name,s.status,s.row_version,
-                           p.promotion_lock_version,sol.comparison,
-                           (s.status='stale'
-                            OR s.base_state_revision_id<>h.current_revision_id
-                            OR s.base_product_definition_revision_id<>p.current_product_definition_revision_id
-                            OR s.base_plan_version_id<>p.current_plan_version_id) AS stale
-                      FROM planning.scenarios s
-                      JOIN core.plants p
-                        ON p.organization_id=s.organization_id AND p.id=s.plant_id
-                      JOIN planning.planning_state_heads h
-                        ON h.organization_id=s.organization_id AND h.plant_id=s.plant_id
-                      JOIN LATERAL (
-                        SELECT value.comparison
-                          FROM planning.schedule_solutions value
-                         WHERE value.organization_id=s.organization_id
-                           AND value.scenario_id=s.id
-                         ORDER BY value.run_no DESC LIMIT 1
-                      ) sol ON true
-                     WHERE s.organization_id=:org AND s.plant_id=:plant
-                       AND s.id=:scenario AND s.scenario_kind='replan'
-                """), {
-                    "org": org, "plant": plant, "scenario": scenario_id,
-                }).mappings().one_or_none()
-                if selected_scenario is None:
-                    raise EntityNotFound("replan scenario not found")
+            if metadata['plan_version_id'] is None and scenario_id is None and not scenario_options:
+                raise EntityNotFound('current plan not found')
 
         operations = [dict(row) for row in operation_rows]
+        if selected_scenario and selected_scenario['scenario_kind']=='initial':
+            pending=operations[:]
+            operations=[]
+            while pending:
+                pending_ids={o['operation_id'] for o in pending}
+                ready=next((o for o in pending if not {UUID(str(p['id'])) for p in o['predecessors']} & pending_ids),pending[0])
+                pending.remove(ready)
+                operations.append(ready)
         groups = _gantt_groups(operations, group_by)
         for operation in operations:
             operation["group_ids"] = _gantt_group_ids(operation, group_by)
@@ -615,6 +639,9 @@ class PostgresApiQueries:
             for row in occupation_rows
         ]
         scenario = _gantt_scenario(selected_scenario) if selected_scenario else None
+        if scenario and scenario['scenario_kind']=='initial':
+            scenario['affected_projects']=len({o['project_id'] for o in operations})
+            scenario['changed_operations']=len(operations)
         return {
             "plan_version_id": metadata["plan_version_id"],
             "plan_version_number": metadata["plan_version_number"],

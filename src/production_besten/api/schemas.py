@@ -281,7 +281,7 @@ class AcceptReplanRequest(ApiModel):
 class AcceptReplanResponse(ApiModel):
     scenario_id: UUID
     schedule_solution_id: UUID
-    previous_plan_version_id: UUID
+    previous_plan_version_id: UUID | None
     plan_version_id: UUID
     plan_version_number: int
     promotion_lock_version: int
@@ -455,6 +455,8 @@ class GanttOperationResponse(ApiModel):
     lot_name: str | None
     operation_code: str
     operation_name: str
+    duration_minutes: int | None = None
+    predecessors: list[TimelineEntity] = Field(default_factory=list)
     phase_id: UUID | None
     phase_name: str | None
     planned_start: datetime | None
@@ -516,6 +518,9 @@ class GanttScenarioResponse(ApiModel):
     code: str
     name: str
     status: str
+    scenario_kind: str = 'replan'
+    solution_id: UUID | None = None
+    complete: bool = True
     stale: bool
     row_version: int
     promotion_lock_version: int
@@ -529,8 +534,8 @@ class GanttScenarioResponse(ApiModel):
 
 
 class GanttResponse(ApiModel):
-    plan_version_id: UUID
-    plan_version_number: int
+    plan_version_id: UUID | None
+    plan_version_number: int | None
     planning_state_revision_id: UUID
     timezone: str
     range_from: datetime

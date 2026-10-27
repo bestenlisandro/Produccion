@@ -25,7 +25,7 @@ def intake(engine,seeded_case):
         conn.execute(text("UPDATE core.project_priorities SET code='NORMAL',name='Normal',rank=3 WHERE id=:id"),{"id":row.priority_id})
         high=uuid4()
         conn.execute(text("INSERT INTO core.project_priorities(id,organization_id,code,name,rank) VALUES (:id,:org,'HIGH','Alta',2)"),{"id":high,"org":case.organization_id})
-    client=TestClient(create_app(engine=engine,enable_dev_context=True))
+    client=TestClient(create_app(engine=engine,enable_dev_context=True,clock=lambda:HORIZON_START))
     client.headers.update({"X-Dev-Organization-Id":str(case.organization_id),"X-Dev-Plant-Id":str(case.plant_id),"X-Dev-User-Id":str(case.actor_id)})
     return case,client,{"code":"P-NEW","name":"Proyecto nuevo","customer_id":str(row.customer_id),"priority_id":str(row.priority_id),"committed_date":"2026-12-10"},high
 

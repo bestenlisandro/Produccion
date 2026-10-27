@@ -1086,11 +1086,8 @@ export interface components {
              * Format: uuid
              */
             schedule_solution_id: string;
-            /**
-             * Previous Plan Version Id
-             * Format: uuid
-             */
-            previous_plan_version_id: string;
+            /** Previous Plan Version Id */
+            previous_plan_version_id: string | null;
             /**
              * Plan Version Id
              * Format: uuid
@@ -1843,6 +1840,10 @@ export interface components {
             operation_code: string;
             /** Operation Name */
             operation_name: string;
+            /** Duration Minutes */
+            duration_minutes?: number | null;
+            /** Predecessors */
+            predecessors?: components["schemas"]["TimelineEntity"][];
             /** Phase Id */
             phase_id: string | null;
             /** Phase Name */
@@ -1895,13 +1896,10 @@ export interface components {
         };
         /** GanttResponse */
         GanttResponse: {
-            /**
-             * Plan Version Id
-             * Format: uuid
-             */
-            plan_version_id: string;
+            /** Plan Version Id */
+            plan_version_id: string | null;
             /** Plan Version Number */
-            plan_version_number: number;
+            plan_version_number: number | null;
             /**
              * Planning State Revision Id
              * Format: uuid
@@ -1994,6 +1992,18 @@ export interface components {
             name: string;
             /** Status */
             status: string;
+            /**
+             * Scenario Kind
+             * @default replan
+             */
+            scenario_kind: string;
+            /** Solution Id */
+            solution_id?: string | null;
+            /**
+             * Complete
+             * @default true
+             */
+            complete: boolean;
             /** Stale */
             stale: boolean;
             /** Row Version */
@@ -2798,6 +2808,8 @@ export interface components {
              * Format: uuid
              */
             project_id: string;
+            /** Timezone */
+            timezone: string;
             /** Row Version */
             row_version: number;
             /** Evaluation Token */
@@ -2883,12 +2895,12 @@ export interface components {
             reason: string;
             /**
              * Horizon Start
-             * Format: date-time
+             * @description Fecha local de la planta; un timestamp explícito debe incluir timezone.
              */
             horizon_start: string;
             /**
              * Horizon End
-             * Format: date-time
+             * @description Fin exclusivo: comienzo de la fecha local seleccionada, o timestamp con timezone.
              */
             horizon_end: string;
         };
@@ -3373,6 +3385,16 @@ export interface components {
             status: "active" | "inactive";
             /** Expected Row Version */
             expected_row_version: number;
+        };
+        /** TimelineEntity */
+        TimelineEntity: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
         };
         /** UpdateRemainingEstimateRequest */
         UpdateRemainingEstimateRequest: {

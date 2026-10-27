@@ -180,7 +180,7 @@ class AcceptReplan:
 class AcceptReplanResult:
     scenario_id: UUID
     schedule_solution_id: UUID
-    previous_plan_version_id: UUID
+    previous_plan_version_id: UUID | None
     plan_version_id: UUID
     plan_version_no: int
     promotion_lock_version: int

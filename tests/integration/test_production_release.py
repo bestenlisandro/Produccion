@@ -145,7 +145,7 @@ def test_cross_plant_scope(editor,endpoint):
 
 def test_release_rollback(engine,editor):
     case,api,path,_=frozen(editor)
-    broken=TestClient(create_app(engine=engine,failpoints={'production_release':'after_release'}),raise_server_exceptions=False);broken.headers.update(api.headers)
+    broken=TestClient(create_app(engine=engine,failpoints={'production_release':'after_release'},clock=lambda:HORIZON_START),raise_server_exceptions=False);broken.headers.update(api.headers)
     assert command(broken,path,'release').status_code==500
     assert not readiness(api,path)['released']
     with engine.connect() as conn:assert conn.scalar(text("SELECT count(*) FROM planning.effective_events WHERE organization_id=:org AND source_system='production_release'"),{'org':case.organization_id})==0

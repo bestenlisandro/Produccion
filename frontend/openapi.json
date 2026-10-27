@@ -6497,8 +6497,15 @@
             "title": "Schedule Solution Id"
           },
           "previous_plan_version_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Previous Plan Version Id"
           },
           "plan_version_id": {
@@ -8558,6 +8565,24 @@
             "type": "string",
             "title": "Operation Name"
           },
+          "duration_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Minutes"
+          },
+          "predecessors": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineEntity"
+            },
+            "type": "array",
+            "title": "Predecessors"
+          },
           "phase_id": {
             "anyOf": [
               {
@@ -8743,12 +8768,26 @@
       "GanttResponse": {
         "properties": {
           "plan_version_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Plan Version Id"
           },
           "plan_version_number": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Plan Version Number"
           },
           "planning_state_revision_id": {
@@ -8974,6 +9013,28 @@
           "status": {
             "type": "string",
             "title": "Status"
+          },
+          "scenario_kind": {
+            "type": "string",
+            "title": "Scenario Kind",
+            "default": "replan"
+          },
+          "solution_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Solution Id"
+          },
+          "complete": {
+            "type": "boolean",
+            "title": "Complete",
+            "default": true
           },
           "stale": {
             "type": "boolean",
@@ -11313,6 +11374,10 @@
             "format": "uuid",
             "title": "Project Id"
           },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
           "row_version": {
             "type": "integer",
             "title": "Row Version"
@@ -11406,6 +11471,7 @@
         "type": "object",
         "required": [
           "project_id",
+          "timezone",
           "row_version",
           "evaluation_token",
           "evaluated_at",
@@ -11518,14 +11584,32 @@
             "title": "Reason"
           },
           "horizon_start": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Horizon Start"
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ],
+            "title": "Horizon Start",
+            "description": "Fecha local de la planta; un timestamp explícito debe incluir timezone."
           },
           "horizon_end": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Horizon End"
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ],
+            "title": "Horizon End",
+            "description": "Fin exclusivo: comienzo de la fecha local seleccionada, o timestamp con timezone."
           }
         },
         "additionalProperties": false,
@@ -12723,6 +12807,26 @@
           "expected_row_version"
         ],
         "title": "StatusInput"
+      },
+      "TimelineEntity": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "TimelineEntity"
       },
       "UpdateRemainingEstimateRequest": {
         "properties": {

@@ -26,6 +26,10 @@ def release_events(conn,org,plant):
 
 
 class PostgresProductionReleaseUnitOfWork(PostgresProductDefinitionUnitOfWork):
+    def __init__(self,engine,*,failpoint=None,clock=None):
+        super().__init__(engine,failpoint=failpoint)
+        self._clock=clock or (lambda:datetime.now(timezone.utc))
+
     def rows(self,sql,**params):return [dict(r) for r in self.conn.execute(text(sql),params).mappings()]
 
     def readiness(self,org,plant):
@@ -114,7 +118,7 @@ class PostgresProductionReleaseUnitOfWork(PostgresProductDefinitionUnitOfWork):
             token_data={'project_version':p['row_version'],'definition_id':str(pl['current_product_definition_revision_id']),'head':str(pl['current_revision_id']),'event':str(event['id']) if event else None,'items':items,'definition_digest':digest}
             token=hashlib.sha256(json.dumps(token_data,sort_keys=True,default=str).encode()).hexdigest()
             history=[{'event':e['event_type_code'],'at':e['occurred_at'].isoformat(),'actor':str(e['created_by']),'definition_revision_no':e['payload'].get('definition_revision_no')} for e in events if e['entity_id']==p['id']]
-            result[p['id']]={'project_id':p['id'],'row_version':p['row_version'],'evaluation_token':token,'evaluated_at':now.isoformat(),'state':state,'ready':ready,'released':released,'eligible':eligible,'definition_revision_id':pl['current_product_definition_revision_id'] if valid else None,'definition_revision_no':pl['revision_no'] if valid else None,'released_at':event['occurred_at'].isoformat() if released else None,'items':items,'history':history,'idempotent_replay':False}
+            result[p['id']]={'project_id':p['id'],'timezone':pl['timezone'],'row_version':p['row_version'],'evaluation_token':token,'evaluated_at':now.isoformat(),'state':state,'ready':ready,'released':released,'eligible':eligible,'definition_revision_id':pl['current_product_definition_revision_id'] if valid else None,'definition_revision_no':pl['revision_no'] if valid else None,'released_at':event['occurred_at'].isoformat() if released else None,'items':items,'history':history,'idempotent_replay':False}
         return result
 
     def release_project(self,org,plant,actor,key,project,action,body):
@@ -139,7 +143,9 @@ class PostgresProductionReleaseUnitOfWork(PostgresProductDefinitionUnitOfWork):
             scheduler=PostgresSchedulingUnitOfWork(self._engine)
             scheduler._connection=self.conn
             state=self.conn.scalar(text('SELECT current_revision_id FROM planning.planning_state_heads WHERE organization_id=:org AND plant_id=:plant'),{'org':org,'plant':plant})
-            command=GenerateSchedule(org,plant,actor,'RELEASE-'+key.hex,body['reason'],body['horizon_start'],body['horizon_end'],before['definition_revision_id'],state,(project,))
+            from production_besten.domain.scheduling.horizon import local_scheduling_horizon
+            start,end=local_scheduling_horizon(body['horizon_start'],body['horizon_end'],before['timezone'],self._clock())
+            command=GenerateSchedule(org,plant,actor,'RELEASE-'+key.hex,body['reason'],start,end,before['definition_revision_id'],state,(project,))
             result=asdict(scheduler.generate_schedule(command))|{'idempotent_replay':False}
             self.conn.execute(text("INSERT INTO audit.audit_entries(organization_id,actor_user_id,action_code,entity_type,entity_id,request_id,transaction_key,after_data,metadata) VALUES (:org,:actor,'PROJECT_PRODUCTION_SIMULATED','project',:project,:key,:key,CAST(:after AS jsonb),CAST(:metadata AS jsonb))"),{'org':org,'actor':actor,'project':project,'key':key,'after':json.dumps(result,default=str),'metadata':json.dumps({'release_hash':intent})})
             if self._failpoint=='after_release':raise RuntimeError('simulation rollback probe')
