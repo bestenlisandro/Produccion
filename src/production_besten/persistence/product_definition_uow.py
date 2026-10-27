@@ -260,7 +260,7 @@ class PostgresProductDefinitionUnitOfWork:
         self._require_actor(command.organization_id, command.actor_id)
         reference = _external("CREATE_REQUIRED_OPERATION_PHASE", command.command_id)
         replay = self._mutation_replay(command.organization_id, command.source_system, reference, "required_operation_phase",
-                                       {"required_operation_id": str(command.required_operation_id), "code": command.code.strip()})
+                                       {"required_operation_id": str(command.required_operation_id), "code": command.code.strip(),"required_people":command.required_people})
         if replay:
             return replay
         if command.route_step_phase_template_id is not None:
@@ -273,14 +273,14 @@ class PostgresProductDefinitionUnitOfWork:
         self.conn.execute(text("""
             INSERT INTO production.required_operation_phases
               (id,organization_id,required_operation_id,route_step_phase_template_id,sequence_no,
-               code,name,estimate_kind,original_estimate_minutes,split_policy,status,earliest_start_at)
+               code,name,estimate_kind,original_estimate_minutes,split_policy,status,earliest_start_at,required_people)
             VALUES (:id,:org,:operation,:template,:sequence,:code,:name,:estimate_kind,
-                    :minutes,:split,:status,:earliest)
+                    :minutes,:split,:status,:earliest,:people)
         """), {"id": entity_id, "org": command.organization_id, "operation": command.required_operation_id,
                 "template": command.route_step_phase_template_id, "sequence": command.sequence_no,
                 "code": command.code.strip(), "name": command.name.strip(),
                 "estimate_kind": command.estimate_kind, "minutes": command.original_estimate_minutes,
-                "split": command.split_policy, "status": command.status, "earliest": command.earliest_start_at})
+                "split": command.split_policy, "status": command.status, "earliest": command.earliest_start_at,"people":command.required_people})
         for req in command.labor_requirements:
             self._require_owned("capacity.skills", command.organization_id, req.skill_id, "skill")
             self.conn.execute(text("""
@@ -323,7 +323,7 @@ class PostgresProductDefinitionUnitOfWork:
         state_id, state_no = self._advance_state(command.organization_id, operation["plant_id"], command.actor_id,
             "required operation phase created", "REQUIRED_OPERATION_PHASE_CREATED", "required_operation_phase",
             entity_id, {"required_operation_id": str(command.required_operation_id), "code": command.code.strip(),
-                        "labor_requirements": len(command.labor_requirements),
+                        "required_people":command.required_people, "labor_requirements": len(command.labor_requirements),
                         "physical_requirements": len(command.physical_requirements), "gates": len(command.gates)},
             command.source_system, reference)
         return DefinitionMutationResult(entity_id, state_id, state_no)
@@ -538,6 +538,7 @@ class PostgresProductDefinitionUnitOfWork:
                 gates = self._snapshot_gates(org, op["id"], ph["id"])
                 phase_values.append({"sequence_no": ph["sequence_no"], "code": ph["code"], "name": ph["name"],
                     "estimate_kind": ph["estimate_kind"], "original_estimate_minutes": ph["original_estimate_minutes"],
+                    **({"required_people":ph["required_people"]} if ph["required_people"] else {}),
                     "split_policy": ph["split_policy"], "status": ph["status"], "earliest_start_at": ph["earliest_start_at"],
                     "labor_requirements": [dict(x) for x in labor], "physical_requirements": [dict(x) for x in physical],
                     "gates": gates})
@@ -655,7 +656,7 @@ class PostgresProductDefinitionUnitOfWork:
             return None
         if event["entity_type"] != entity_type:
             raise ProductDefinitionConflict("idempotency key was used for another command target")
-        if any(event["payload"].get(key) != value for key, value in expected_payload.items()):
+        if any(event["payload"].get(key,0 if key=="required_people" else None) != value for key, value in expected_payload.items()):
             raise ProductDefinitionConflict("idempotency key was used with different command data")
         return DefinitionMutationResult(event["entity_id"], event["planning_state_revision_id"], event["state_no"], True)
 

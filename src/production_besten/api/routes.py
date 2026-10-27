@@ -141,7 +141,7 @@ def create_phase(operation_id: UUID, body: CreatePhaseRequest, command_id: UUID 
     return _mutation(CreateRequiredOperationPhaseService(_product_factory(container)).execute(CreateRequiredOperationPhase(
         context.organization_id, operation_id, body.sequence_no, body.code, body.name, body.estimate_kind,
         body.original_estimate_minutes, body.split_policy, context.user_id, command_id,
-        body.route_step_phase_template_id, body.status, body.earliest_start_at, labor, physical, gates, "api")))
+        body.route_step_phase_template_id, body.status, body.earliest_start_at, labor, physical, gates, "api", required_people=body.required_people)))
 
 
 @router.post("/projects/{project_id}/product-definition-revisions", response_model=ProductDefinitionRevisionResponse,

@@ -8,7 +8,8 @@ export function sortOperations(values: DailyOperation[]) {
 }
 
 export const blockerMessages: Record<string, string> = {
-  PERSON_UNAVAILABLE: 'No hay personal disponible con la habilidad requerida.',
+  PERSON_UNAVAILABLE: 'No hay personal disponible.',
+  REQUIRED_PEOPLE_UNAVAILABLE: 'No hay suficientes personas disponibles.',
   REQUIRED_SKILL_UNAVAILABLE: 'No hay personal disponible con la habilidad requerida.',
   PHYSICAL_RESOURCE_OCCUPIED: 'El recurso necesario está ocupado.',
   CUMULATIVE_CAPACITY_EXHAUSTED: 'El centro de trabajo no tiene capacidad disponible en ese horario.',

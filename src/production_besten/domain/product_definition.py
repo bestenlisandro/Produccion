@@ -194,10 +194,13 @@ class CreateRequiredOperationPhase:
     physical_requirements: tuple[PhysicalRequirement, ...] = ()
     gates: tuple[OperationGate, ...] = ()
     source_system: str = "backend"
+    required_people: int = 0
 
     def validate(self) -> None:
         _required(self.code, "code")
         _required(self.name, "name")
+        if not 0 <= self.required_people <= 32767:
+            raise InvalidProductDefinition("invalid required_people")
         if self.sequence_no <= 0 or self.original_estimate_minutes < 0:
             raise InvalidProductDefinition("invalid phase sequence or estimate")
         if self.split_policy not in {"non_splittable", "splittable", "continuous"}:

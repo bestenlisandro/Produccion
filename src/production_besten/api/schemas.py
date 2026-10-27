@@ -135,6 +135,7 @@ class GateRequest(ApiModel):
 
 
 class CreatePhaseRequest(ApiModel):
+    required_people: int = Field(default=0, ge=0, le=32767)
     sequence_no: int = Field(gt=0)
     code: str = Field(min_length=1)
     name: str = Field(min_length=1)

@@ -60,7 +60,7 @@ def installation_overview(conn, org, plant, project=None):
             if not (p['installation_locality'] or '').strip(): blockers.append('Falta localidad de obra.')
             if not preparation[p['id']]['eligible']: blockers.append('Falta liberación productiva vigente y preparación válida.')
             needs = [r for ph in frozen.get('phases', []) for r in ph['labor_requirements'] if r['is_mandatory']]
-            if not needs or any(not 1 <= r['min_people'] <= r['max_people'] <= 6 for r in needs): blockers.append('Se requiere un equipo válido de 1 a 6 personas.')
+            if any(not 1<=max(ph.get('required_people',0),max((r['min_people'] for r in ph['labor_requirements'] if r['is_mandatory']),default=0))<=6 for ph in frozen.get('phases',[])) or any(not 1 <= r['min_people'] <= r['max_people'] <= 6 for r in needs): blockers.append('Se requiere un equipo válido de 1 a 6 personas.')
             pred_keys = {(e.get('predecessor_lot_code'),e['predecessor_code']) for e in frozen.get('predecessors',[])}
             predecessors = [live[k] for k in pred_keys if k in live]
             predecessors_complete = len(predecessors) == len(pred_keys) and all(v['execution_status'] == 'completed' for v in predecessors)
@@ -81,7 +81,7 @@ def installation_overview(conn, org, plant, project=None):
                 'blockers': [] if finished else blockers + ([] if predecessors_complete else ['Producción precedente pendiente.']),
                 'planned_start': o['planned_start_at'], 'planned_finish': o['planned_end_at'], 'started_at': o['started_at'], 'completed_at': o['completed_at'],
                 'last_segment_end': o['last_segment_end'], 'duration_minutes': sum(ph['original_estimate_minutes'] for ph in frozen['phases']),
-                'required_people': max((r['min_people'] for r in needs), default=0),
+                'required_people': max((max(ph.get('required_people',0),max((r['min_people'] for r in ph['labor_requirements'] if r['is_mandatory']),default=0)) for ph in frozen.get('phases',[])),default=0),
                 'people': list({r['id']: {'id':r['id'],'name':r['name']} for r in people if any(ph['id']==r['required_operation_phase_id'] for ph in op_phases)}.values()),
                 'resources': list({r['id']: {'id':r['id'],'name':r['name']} for r in resources if any(ph['id']==r['required_operation_phase_id'] for ph in op_phases)}.values()),
                 'executed_minutes': o['executed_minutes'], 'remaining_minutes': 0 if finished else o['remaining_labor_minutes'],

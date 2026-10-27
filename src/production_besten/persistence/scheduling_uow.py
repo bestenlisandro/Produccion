@@ -900,7 +900,7 @@ class PostgresSchedulingUnitOfWork:
             row["sequence_no"], row["code"], row["original_estimate_minutes"], row["estimate_kind"],
             row["split_policy"], max(filter(None, (row["operation_earliest"], row["earliest_start_at"])), default=None),
             bool(row["settings"].get("scalable_labor", False)), tuple(labor_by[row["id"]]),
-            tuple(physical_by[row["id"]]), tuple(gates[row["id"]])) for row in phase_rows)
+            tuple(physical_by[row["id"]]), tuple(gates[row["id"]]),required_people=row["required_people"]) for row in phase_rows)
         remaining_revision_by_phase = {}
         if command.parameters.get("replan"):
             phases, remaining_revision_by_phase = self._apply_replanning_state(

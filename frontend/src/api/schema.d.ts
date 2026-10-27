@@ -1370,6 +1370,11 @@ export interface components {
         };
         /** CreatePhaseRequest */
         CreatePhaseRequest: {
+            /**
+             * Required People
+             * @default 0
+             */
+            required_people: number;
             /** Sequence No */
             sequence_no: number;
             /** Code */
@@ -1701,6 +1706,11 @@ export interface components {
         };
         /** EditorPhase */
         EditorPhase: {
+            /**
+             * Required People
+             * @default 0
+             */
+            required_people: number;
             /** Id */
             id?: string | null;
             /** Code */

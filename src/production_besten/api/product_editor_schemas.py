@@ -14,6 +14,7 @@ class EditorItem(ApiModel):
 
 
 class EditorPhase(EditorItem):
+    required_people: int = Field(default=0, ge=0, le=32767)
     id: UUID | None = None
     code: str = Field(min_length=1, max_length=80)
     name: str = Field(min_length=1, max_length=200)

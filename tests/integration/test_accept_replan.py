@@ -121,7 +121,7 @@ def test_accept_replan_postgresql_invariants(engine: Engine, promoted: PromotedC
         "segments_preserved": counts[0] > 0,
         "assignments_preserved": counts[1] > 0,
         "reservations_preserved": counts[2] > 0,
-        "scheduler_version_unchanged": algorithm == "v1-greedy-3",
+        "scheduler_version_unchanged": algorithm == "v1-greedy-4",
     }
     assert checks[invariant]
 

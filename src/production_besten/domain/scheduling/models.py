@@ -165,6 +165,7 @@ class PhaseData:
     gates: tuple[GateData, ...]
     manual_intent_priority: bool = False
     requested_resource_id: UUID | None = None
+    required_people: int = 0
 
 
 @dataclass(frozen=True)

@@ -3,7 +3,7 @@ import { blockerMessage,minutes,statusOrder } from './presentation'
 
 describe('mensajes de blockers',()=>{
   test.each([
-    ['PERSON_UNAVAILABLE','habilidad requerida'],
+    ['PERSON_UNAVAILABLE','personal disponible'],
     ['REQUIRED_SKILL_UNAVAILABLE','habilidad requerida'],
     ['PHYSICAL_RESOURCE_OCCUPIED','recurso necesario'],
     ['CUMULATIVE_CAPACITY_EXHAUSTED','capacidad disponible'],

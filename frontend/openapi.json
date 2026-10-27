@@ -7472,6 +7472,13 @@
       },
       "CreatePhaseRequest": {
         "properties": {
+          "required_people": {
+            "type": "integer",
+            "maximum": 32767.0,
+            "minimum": 0.0,
+            "title": "Required People",
+            "default": 0
+          },
           "sequence_no": {
             "type": "integer",
             "exclusiveMinimum": 0.0,
@@ -8509,6 +8516,13 @@
       },
       "EditorPhase": {
         "properties": {
+          "required_people": {
+            "type": "integer",
+            "maximum": 32767.0,
+            "minimum": 0.0,
+            "title": "Required People",
+            "default": 0
+          },
           "id": {
             "anyOf": [
               {

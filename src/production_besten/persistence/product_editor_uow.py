@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from copy import deepcopy
 from uuid import UUID, uuid4, uuid5
 import hashlib
 import json
@@ -49,7 +50,7 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
             op['phases'] = []
             for ph in phases:
                 if ph['required_operation_id']!=op['id']: continue
-                val = {k:ph[k] for k in ('id','code','name','estimate_kind','original_estimate_minutes','split_policy')}
+                val = {k:ph[k] for k in ('id','code','name','estimate_kind','original_estimate_minutes','split_policy','required_people')}
                 val['labor_requirements'] = [{k:r[k] for k in ('skill_id','min_people','max_people','work_minutes','productivity_curve','is_mandatory')} for r in labor if r['required_operation_phase_id']==ph['id']]
                 val['physical_requirements'] = [{k:r[k] for k in ('physical_resource_type_id','physical_resource_group_id','work_center_id','quantity','capacity_units','usage_mode','is_mandatory')} for r in physical if r['required_operation_phase_id']==ph['id']]
                 op['phases'].append(val)
@@ -102,8 +103,11 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
                     if ph['original_estimate_minutes']<=0: errors.append(label+'La duración debe ser mayor que cero minutos.')
                     if o.get('operation_kind')=='installation':
                         mandatory=[r for r in ph['labor_requirements'] if r['is_mandatory']]
-                        if not mandatory:errors.append(label+'La instalación requiere equipo humano.')
+                        if not mandatory and not 1<=ph.get('required_people',0)<=6:errors.append(label+'La instalación requiere equipo humano de 1 a 6 personas.')
+                        if ph.get('required_people',0)>6:errors.append(label+'Equipo de instalación incoherente: requiere entre 1 y 6 personas.')
                         if any(not 1<=r['min_people']<=r['max_people']<=6 for r in mandatory):errors.append(label+'Equipo de instalación incoherente: requiere entre 1 y 6 personas.')
+                    mandatory=[r for r in ph['labor_requirements'] if r['is_mandatory']]
+                    if mandatory and ph.get('required_people',0)>sum(r['max_people'] for r in mandatory):errors.append(label+'Cantidad de personas incoherente con los roles de habilidad.')
                     for req in ph['labor_requirements']:
                         if str(req['skill_id']) not in active['skills']: errors.append(label+'Habilidad inactiva o inexistente.')
                         if req['min_people']<1 or req['max_people']<req['min_people'] or req['work_minutes']<=0: errors.append(label+'Requisito humano incoherente.')
@@ -119,7 +123,7 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
         self.conn.execute(text('SELECT id FROM core.organizations WHERE id=:org FOR UPDATE'),{'org':org})
         self._lock_plant(org,plant);self._require_actor(org,actor)
         self.conn.execute(text('SELECT pg_advisory_xact_lock(hashtextextended(:key,0))'),{'key':str(key)})
-        digest=hashlib.sha256(json.dumps([str(org),str(plant),str(actor),str(project),action,body],default=str,sort_keys=True).encode()).hexdigest()
+        digest=hashlib.sha256(json.dumps([str(org),str(plant),str(actor),str(project),action,_legacy_people_intent(body)],default=str,sort_keys=True).encode()).hexdigest()
         replay=self.rows('SELECT metadata,after_data FROM audit.audit_entries WHERE organization_id=:org AND request_id=:key LIMIT 1',org=org,key=key)
         if replay:
             if replay[0]['metadata'].get('editor_hash')!=digest: raise IdempotencyConflict('La clave corresponde a otra intención o contexto.')
@@ -224,8 +228,8 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
                     pid=ph.get('id')
                     if pid:
                         if pid not in old_phases or old_phases[pid]['required_operation_id']!=oid or old_phases[pid]['code']!=ph['code']: raise EntityNotFound()
-                        self.conn.execute(text("UPDATE production.required_operation_phases SET name=:name,sequence_no=:seq,estimate_kind=:estimate_kind,original_estimate_minutes=:original_estimate_minutes,split_policy=:split_policy,status='draft',row_version=row_version+1,updated_at=now() WHERE organization_id=:org AND id=:id"),ph|{'org':org,'id':pid,'seq':pi})
-                    else: pid=self.create_required_operation_phase(CreateRequiredOperationPhase(org,oid,pi,ph['code'],ph['name'],ph['estimate_kind'],ph['original_estimate_minutes'],ph['split_policy'],actor,command_id(f'phase{li}:{oi}:{pi}'))).entity_id
+                        self.conn.execute(text("UPDATE production.required_operation_phases SET name=:name,sequence_no=:seq,estimate_kind=:estimate_kind,original_estimate_minutes=:original_estimate_minutes,split_policy=:split_policy,required_people=:required_people,status='draft',row_version=row_version+1,updated_at=now() WHERE organization_id=:org AND id=:id"),ph|{'org':org,'id':pid,'seq':pi})
+                    else: pid=self.create_required_operation_phase(CreateRequiredOperationPhase(org,oid,pi,ph['code'],ph['name'],ph['estimate_kind'],ph['original_estimate_minutes'],ph['split_policy'],actor,command_id(f'phase{li}:{oi}:{pi}'),required_people=ph.get('required_people',0))).entity_id
                     kept_phases.append(pid)
                     self.conn.execute(text('DELETE FROM production.operation_labor_requirements WHERE organization_id=:org AND required_operation_phase_id=:phase'),{'org':org,'phase':pid})
                     for req in ph['labor_requirements']:
@@ -267,9 +271,20 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
             step=uuid4();steps[op['code']]=step
             self.conn.execute(text('INSERT INTO production.route_steps(id,organization_id,route_version_id,operation_definition_id,code,name,sequence_hint) VALUES (:id,:org,:version,:definition,:code,:name,:seq)'),{'id':step,'org':org,'version':version,'definition':op['operation_definition_id'],'code':op['code'],'name':op['name'],'seq':i})
             for j,ph in enumerate(op['phases'],1):
-                self.conn.execute(text('INSERT INTO production.route_step_phase_templates(organization_id,route_step_id,sequence_no,code,name,estimate_kind,original_estimate_minutes,split_policy) VALUES (:org,:step,:seq,:code,:name,:kind,:minutes,:split)'),{'org':org,'step':step,'seq':j,'code':ph['code'],'name':ph['name'],'kind':ph['estimate_kind'],'minutes':ph['original_estimate_minutes'],'split':ph['split_policy']})
+                self.conn.execute(text('INSERT INTO production.route_step_phase_templates(organization_id,route_step_id,sequence_no,code,name,estimate_kind,original_estimate_minutes,split_policy,settings) VALUES (:org,:step,:seq,:code,:name,:kind,:minutes,:split,CAST(:settings AS jsonb))'),{'org':org,'step':step,'seq':j,'code':ph['code'],'name':ph['name'],'kind':ph['estimate_kind'],'minutes':ph['original_estimate_minutes'],'split':ph['split_policy'],'settings':json.dumps({'required_people':ph.get('required_people',0)})})
         for op in lot['operations']:
             for pred in op['predecessor_codes']:
                 self.conn.execute(text('INSERT INTO production.route_step_precedences(organization_id,route_version_id,predecessor_step_id,successor_step_id) VALUES (:org,:version,:pred,:succ)'),{'org':org,'version':version,'pred':steps[pred],'succ':steps[op['code']]})
         self.conn.execute(text("UPDATE production.route_versions SET status='published',published_at=now(),published_by=:actor WHERE organization_id=:org AND id=:id"),{'org':org,'id':version,'actor':actor})
         return version
+
+
+def _legacy_people_intent(value):
+    # Only normalize the additive phase field; nested user metadata is significant.
+    result=deepcopy(value)
+    for lot in result.get('lots',[]):
+        for operation in lot['operations']:
+            for phase in operation['phases']:
+                if phase.get('required_people')==0:
+                    phase.pop('required_people')
+    return result

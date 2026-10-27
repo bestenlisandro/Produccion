@@ -45,6 +45,7 @@ def frozen_editor_rows(conn, org, snapshot, projects, operations, phases, labor,
                 for ph in op['phases']:
                     original = phase_by[(row['id'], ph['code'])]
                     phase = {**original, **{k: ph[k] for k in ('sequence_no', 'code', 'name', 'estimate_kind', 'original_estimate_minutes', 'split_policy')}}
+                    phase['required_people']=ph.get('required_people',0)
                     phase.update(project_id=project_id, project_code=project['code'], project_lot_id=row['project_lot_id'], lot_code=row['lot_code'], lot_sequence=lot['sequence_no'] if lot else 32767, operation_code=op['code'], settings=op['settings'], operation_earliest=row['earliest_start_at'], earliest_start_at=instant(ph['earliest_start_at']))
                     phases.append(phase)
                     for req in ph['labor_requirements']:

@@ -13,7 +13,7 @@ from production_besten.domain.scheduling.models import (
 
 
 class GreedyFiniteCapacityScheduler:
-    version = "v1-greedy-3"
+    version = "v1-greedy-4"
 
     def __init__(self) -> None:
         self._calendar_cache: dict[object, list[TimeWindow]] = {}
@@ -226,7 +226,12 @@ class GreedyFiniteCapacityScheduler:
 
     def _teams(self, value, phase):
         if not phase.labor:
-            return [()], ""
+            if phase.required_people == 0:
+                return [()], ""  # Historical phases without human demand remain automatic.
+            candidates = sorted(value.employees, key=lambda employee: employee.code)
+            if len(candidates) < phase.required_people:
+                return [], "REQUIRED_PEOPLE_UNAVAILABLE"
+            return list(combinations((employee.id for employee in candidates), phase.required_people)), ""
         choices = []
         for need in phase.labor:
             candidates = [employee for employee in value.employees if need.skill_id in employee.skills]
@@ -240,10 +245,10 @@ class GreedyFiniteCapacityScheduler:
         teams = []
         for selected in product(*choices):
             flattened = tuple(item for group in selected for item in group)
-            if len(set(flattened)) == len(flattened):
+            if len(set(flattened)) == len(flattened) and len(flattened) >= phase.required_people:
                 teams.append(flattened)
         teams.sort(key=lambda ids: tuple(self._employee(value, x).code for x in ids))
-        return teams, ""
+        return teams, "REQUIRED_PEOPLE_UNAVAILABLE" if not teams and phase.required_people else ""
 
     def _resource_sets(self, value, phase):
         if not phase.physical:
@@ -546,7 +551,7 @@ class GreedyFiniteCapacityScheduler:
             return "CUMULATIVE_CAPACITY_EXHAUSTED"
         if phase.physical:
             return "PHYSICAL_RESOURCE_OCCUPIED"
-        if phase.labor:
+        if phase.labor or phase.required_people:
             return "PERSON_UNAVAILABLE"
         return "OUTSIDE_WORKING_CALENDAR"
 

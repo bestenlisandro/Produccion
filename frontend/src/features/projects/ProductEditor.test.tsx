@@ -88,3 +88,32 @@ test('precedencias se eligen sin depender de la numeración',async()=>{
  await userEvent.click(screen.getAllByRole('button',{name:'SUBIR OPERACIÓN'})[1]);await click('GUARDAR BORRADOR')
  await waitFor(()=>expect(calls).toHaveLength(1));expect(calls[0].body.lots[0].operations[0].predecessor_codes).toEqual(['CUT'])
 })
+
+
+test('fase nueva sin habilidad conserva personas al guardar, recargar y quitar la última skill',async()=>{
+ data.lots[0].operations[0].phases=[]
+ const first=show();await screen.findByRole('heading',{name:'Definición productiva'})
+ await click('AGREGAR FASE')
+ expect(screen.getByText(/Sin habilidad requerida/)).toBeInTheDocument()
+ expect(screen.getByLabelText('Personas necesarias')).toHaveValue(1)
+ await userEvent.clear(screen.getByLabelText('Personas necesarias'));await userEvent.type(screen.getByLabelText('Personas necesarias'),'2')
+ await click('GUARDAR BORRADOR');await waitFor(()=>expect(calls).toHaveLength(1))
+ expect(calls[0].body.lots[0].operations[0].phases[0]).toMatchObject({required_people:2,labor_requirements:[]})
+ first.unmount();await ready()
+ expect(screen.getByLabelText('Personas necesarias')).toHaveValue(2)
+ expect(screen.getByText(/Sin habilidad requerida/)).toBeInTheDocument()
+ await click('AGREGAR HABILIDAD');expect(screen.getByLabelText('Habilidad requerida')).toHaveValue(editorIds.skill)
+ expect(screen.queryByText(/Sin habilidad requerida/)).not.toBeInTheDocument()
+ await click('QUITAR HABILIDAD')
+ expect(screen.getByText(/Sin habilidad requerida/)).toBeInTheDocument();expect(screen.getByLabelText('Personas necesarias')).toHaveValue(2)
+ await click('GUARDAR BORRADOR');await waitFor(()=>expect(calls).toHaveLength(2))
+ expect(calls[1].body.lots[0].operations[0].phases[0]).toMatchObject({required_people:2,labor_requirements:[]})
+})
+
+test('quitar última skill de fase antigua conserva su demanda humana',async()=>{
+ data.lots[0].operations[0].phases[0].labor_requirements=[{skill_id:editorIds.skill,min_people:2,max_people:2,work_minutes:60,productivity_curve:{},is_mandatory:true}]
+ await ready();expect(screen.getByLabelText('Personas necesarias')).toHaveValue(2)
+ await click('QUITAR HABILIDAD');expect(screen.getByLabelText('Personas necesarias')).toHaveValue(2)
+ await click('GUARDAR BORRADOR');await waitFor(()=>expect(calls).toHaveLength(1))
+ expect(calls[0].body.lots[0].operations[0].phases[0]).toMatchObject({required_people:2,labor_requirements:[]})
+})

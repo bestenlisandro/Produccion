@@ -758,6 +758,9 @@ class PostgresExecutionUnitOfWork:
     def _validate_actual_resources(self, command: RegisterExecutionSegment) -> None:
         employee_ids = [value.employee_id for value in command.humans]
         resource_ids = list({value.physical_resource_id for value in (*command.physical_usages, *command.occupations)})
+        required_people=self.conn.scalar(text('SELECT required_people FROM production.required_operation_phases WHERE organization_id=:org AND id=:phase'),{'org':command.organization_id,'phase':command.phase_id}) or 0
+        if len(set(employee_ids)) < required_people:
+            raise StructuralAvailabilityConflict("actual team does not satisfy required people quantity")
         if employee_ids:
             active = self.conn.execute(
                 text("SELECT id FROM capacity.employees WHERE organization_id=:org AND id=ANY(:ids) AND status='active'"),
