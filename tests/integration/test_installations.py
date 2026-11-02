@@ -12,6 +12,7 @@ from tests.integration.test_product_editor import editor, save, action, read
 from tests.integration.test_production_release import command, simulate_raw
 
 FIELDS=('installation_site_name','installation_address','installation_locality','installation_contact_name','installation_contact_phone','installation_access_notes')
+pytestmark = pytest.mark.usefixtures("fixed_acceptance_clock")
 SITE=dict(zip(FIELDS,('Obra principal','Calle de prueba 123','Localidad de prueba','Contacto obra','555-0100','Portón lateral')))
 
 
@@ -28,8 +29,9 @@ def overview(api,path):
 
 
 @pytest.fixture
-def installation(editor):
+def installation(editor, fixed_acceptance_clock):
     case,api,path,lot=editor
+    api.app.state.container.clock=fixed_acceptance_clock
     second=deepcopy(lot['operations'][0]);second.update(code='INSTALL',name='Instalación',operation_kind='installation',predecessor_codes=['CUT'])
     second['phases'][0]['original_estimate_minutes']=780
     second['phases'][0]['labor_requirements'][0]['work_minutes']=780

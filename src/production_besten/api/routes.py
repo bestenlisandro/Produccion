@@ -56,7 +56,7 @@ def _execution_factory(container: ApiContainer):
 
 def _scheduling_factory(container: ApiContainer):
     return PostgresSchedulingUnitOfWorkFactory(
-        container.engine, failpoint=container.failpoints.get("scheduling")
+        container.engine, failpoint=container.failpoints.get("scheduling"), now=container.clock
     )
 
 

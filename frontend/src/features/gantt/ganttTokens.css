@@ -1,0 +1,39 @@
+/* Shared by the timeline, legend and mobile cards. State is never hue alone. */
+.ganttTheme {
+  --gantt-working-bg: #ffffff;
+  --gantt-offshift-bg: #eef2f6;
+  --gantt-weekend-bg: #dde3ea;
+  --gantt-grid: #cbd5e1;
+  --gantt-now: #111827;
+  --gantt-executed: #334155;
+  --gantt-in-progress: #0f766e;
+  --gantt-planned: #2563eb;
+  --gantt-simulation: #7c3aed;
+  --gantt-simulation-bg: #ede9fe;
+  --gantt-simulation-pattern: #c4b5fd;
+  --gantt-simulation-text: #3b0764;
+  --gantt-blocked: #b45309;
+  --gantt-blocked-text: #78350f;
+  --gantt-delayed: #b91c1c;
+  --gantt-critical: #9f1239;
+  --gantt-selected-border: #111827;
+  --gantt-selected-bg: #e0ecff;
+  --gantt-dependency: #334155;
+  --gantt-dependency-muted: #8492a6;
+  --gantt-dependency-halo: #ffffff;
+  --gantt-occupation: #92400e;
+  --gantt-on-dark: #ffffff;
+  --gantt-text: #243f51;
+  --gantt-muted: #526477;
+  --gantt-header-bg: #f7f9fb;
+  --gantt-group-bg: #e9eff4;
+  --gantt-stage-bg: #f4f7fa;
+  --gantt-related-bg: #dbeafe40;
+  --gantt-focus: #0759b5;
+  --gantt-tooltip-bg: #172d3f;
+  --gantt-shadow: #172d3f33;
+  --gantt-simulation-surface: #faf8fc;
+  --gantt-warning-bg: #fff9ee;
+  --gantt-intent-border: #91b1c8;
+  --gantt-intent-bg: #f4f9fd;
+}

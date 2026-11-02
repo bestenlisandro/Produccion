@@ -2002,6 +2002,35 @@ export interface components {
             blocker_code: string | null;
             /** Actual Segments */
             actual_segments?: components["schemas"]["GanttActualSegmentResponse"][];
+            /** Planned Segments */
+            planned_segments?: components["schemas"]["GanttPlannedSegmentResponse"][];
+            /** Stage Name */
+            stage_name?: string | null;
+            /** Stage Order */
+            stage_order?: number | null;
+            /** Operation Order */
+            operation_order?: number | null;
+            /** Committed Date */
+            committed_date?: string | null;
+            /** Split Policy */
+            split_policy?: string | null;
+            /** Skill Codes */
+            skill_codes?: string[];
+        };
+        /** GanttPlannedSegmentResponse */
+        GanttPlannedSegmentResponse: {
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Ended At
+             * Format: date-time
+             */
+            ended_at: string;
+            /** Phase Name */
+            phase_name?: string | null;
         };
         /** GanttResource */
         GanttResource: {
@@ -2024,6 +2053,8 @@ export interface components {
         };
         /** GanttResponse */
         GanttResponse: {
+            /** Plant Name */
+            plant_name?: string | null;
             /** Plan Version Id */
             plan_version_id: string | null;
             /** Plan Version Number */
@@ -2106,6 +2137,18 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Scenario Kind
+             * @default replan
+             */
+            scenario_kind: string;
+            /**
+             * Expired
+             * @default false
+             */
+            expired: boolean;
+            /** Origin Plan Version Number */
+            origin_plan_version_number?: number | null;
         };
         /** GanttScenarioResponse */
         GanttScenarioResponse: {
@@ -2132,6 +2175,13 @@ export interface components {
              * @default true
              */
             complete: boolean;
+            /**
+             * Expired
+             * @default false
+             */
+            expired: boolean;
+            /** Origin Plan Version Number */
+            origin_plan_version_number?: number | null;
             /** Stale */
             stale: boolean;
             /** Row Version */

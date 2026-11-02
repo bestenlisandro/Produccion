@@ -54,6 +54,20 @@ def seeded_case(engine: Engine) -> SeededCase:
     return seed_case(engine)
 
 
+@pytest.fixture(scope="module")
+def fixed_acceptance_clock():
+    """Historical fixtures publish after V1 starts, before their future work."""
+    with pytest.MonkeyPatch.context() as patch:
+        instant = datetime(2026, 9, 1, 9, tzinfo=timezone.utc)
+        def now():
+            nonlocal instant
+            instant += timedelta(microseconds=1)
+            return instant
+        patch.setattr("production_besten.persistence.scheduling_uow._utcnow",
+                      now)
+        yield now
+
+
 def seed_case(engine: Engine) -> SeededCase:
     ids = {name: uuid4() for name in (
         "org", "other_org", "calendar", "plant", "actor", "customer", "priority",

@@ -22,12 +22,12 @@ export const ganttFixture: GanttData = {
   }],
   occupations:[{id:'12121212-1212-4121-8121-121212121212',project_name:'Cocina Pérez',lot_name:'Muebles bajos',resource_id:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',resource_name:'Banco 1',group_id:'center-1',started_at:'2026-09-29T11:00:00Z',ended_at:'2026-09-29T15:00:00Z',source_kind:'planned'}],
   working_windows:[{started_at:'2026-09-29T11:00:00Z',ended_at:'2026-09-29T20:00:00Z',kind:'regular',label:'Turno'}],
-  available_scenarios:[{id:'13131313-1313-4131-8131-131313131313',code:'R-1',name:'Simulación R-1',status:'ready',stale:false,created_at:'2026-09-29T12:00:00Z'}],
+  available_scenarios:[{id:'13131313-1313-4131-8131-131313131313',code:'R-1',name:'Simulación R-1',scenario_kind:'replan',expired:false,status:'ready',stale:false,created_at:'2026-09-29T12:00:00Z'}],
   scenario:null,
 }
 
 export const ganttScenarioFixture: GanttData = {...ganttFixture, scenario:{
-  scenario_kind:'replan',complete:true,
+  expired:false,scenario_kind:'replan',complete:true,
   id:'13131313-1313-4131-8131-131313131313',code:'R-1',name:'Simulación R-1',status:'ready',stale:false,
   row_version:1,promotion_lock_version:2,changed_operations:1,affected_projects:1,customer_date_alerts:1,
   communication_recommended:true,project_finish_changes:[{project:'P-1'}],operations:[{

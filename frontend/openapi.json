@@ -9241,6 +9241,76 @@
             },
             "type": "array",
             "title": "Actual Segments"
+          },
+          "planned_segments": {
+            "items": {
+              "$ref": "#/components/schemas/GanttPlannedSegmentResponse"
+            },
+            "type": "array",
+            "title": "Planned Segments"
+          },
+          "stage_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage Name"
+          },
+          "stage_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage Order"
+          },
+          "operation_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation Order"
+          },
+          "committed_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Committed Date"
+          },
+          "split_policy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Split Policy"
+          },
+          "skill_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Skill Codes"
           }
         },
         "additionalProperties": false,
@@ -9267,6 +9337,38 @@
           "blocker_code"
         ],
         "title": "GanttOperationResponse"
+      },
+      "GanttPlannedSegmentResponse": {
+        "properties": {
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "ended_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ended At"
+          },
+          "phase_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "started_at",
+          "ended_at"
+        ],
+        "title": "GanttPlannedSegmentResponse"
       },
       "GanttResource": {
         "properties": {
@@ -9306,6 +9408,17 @@
       },
       "GanttResponse": {
         "properties": {
+          "plant_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plant Name"
+          },
           "plan_version_id": {
             "anyOf": [
               {
@@ -9520,6 +9633,27 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "scenario_kind": {
+            "type": "string",
+            "title": "Scenario Kind",
+            "default": "replan"
+          },
+          "expired": {
+            "type": "boolean",
+            "title": "Expired",
+            "default": false
+          },
+          "origin_plan_version_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin Plan Version Number"
           }
         },
         "additionalProperties": false,
@@ -9574,6 +9708,22 @@
             "type": "boolean",
             "title": "Complete",
             "default": true
+          },
+          "expired": {
+            "type": "boolean",
+            "title": "Expired",
+            "default": false
+          },
+          "origin_plan_version_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin Plan Version Number"
           },
           "stale": {
             "type": "boolean",

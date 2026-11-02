@@ -280,7 +280,7 @@ def test_customer_communication_threshold_suppresses_small_delay(
     assert value.result.customer_date_alerts == 0
 
 
-def _prepare_benchmark_replan(engine: Engine, seeded_case: SeededCase):
+def _prepare_benchmark_replan(engine: Engine, seeded_case: SeededCase, *, cutoff_at=None):
     prepare_basic(engine, seeded_case, minutes=60)
     project_ids = [seeded_case.project_id]
     with engine.begin() as connection:
@@ -354,7 +354,7 @@ def _prepare_benchmark_replan(engine: Engine, seeded_case: SeededCase):
                  "plant": seeded_case.plant_id})
     request = ReplanRequest(
         seeded_case.organization_id, seeded_case.plant_id, seeded_case.actor_id,
-        uuid4().hex, f"RP-{uuid4().hex}", "10x50 benchmark", HORIZON_START,
+        uuid4().hex, f"RP-{uuid4().hex}", "10x50 benchmark", cutoff_at or HORIZON_START,
         HORIZON_START + timedelta(days=30), seeded_case.definition_revision_id,
         seeded_case.initial_state_revision_id, plan_id,
         project_id=seeded_case.project_id,

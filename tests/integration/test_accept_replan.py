@@ -22,6 +22,8 @@ from production_besten.persistence.scheduling_uow import PostgresSchedulingUnitO
 from .conftest import SeededCase, seed_case
 from .test_replanning import ReplannedCase, _prepare, _prepare_benchmark_replan
 
+pytestmark = pytest.mark.usefixtures("fixed_acceptance_clock")
+
 
 @dataclass(frozen=True)
 class PromotedCase:
@@ -31,19 +33,19 @@ class PromotedCase:
 
 
 def _accept(engine: Engine, value: ReplannedCase, *, command_id=None,
-            failpoint=None, expected_lock=1, reason="planner approved"):
+            failpoint=None, expected_lock=1, reason="planner approved", now=None):
     command = AcceptReplan(
         value.case.organization_id, value.case.plant_id, value.case.actor_id,
         command_id or uuid4(), value.result.scenario_id, expected_lock, reason,
     )
     result = AcceptReplanService(
-        PostgresSchedulingUnitOfWorkFactory(engine, failpoint=failpoint)
+        PostgresSchedulingUnitOfWorkFactory(engine, failpoint=failpoint, now=now)
     ).execute(command)
     return command, result
 
 
 @pytest.fixture(scope="module")
-def promoted(engine: Engine) -> PromotedCase:
+def promoted(engine: Engine, fixed_acceptance_clock) -> PromotedCase:
     case = seed_case(engine)
     with engine.begin() as connection:
         connection.execute(text("UPDATE core.plants SET communication_threshold_business_days=0 WHERE organization_id=:org AND id=:plant"), {"org": case.organization_id, "plant": case.plant_id})
@@ -121,7 +123,7 @@ def test_accept_replan_postgresql_invariants(engine: Engine, promoted: PromotedC
         "segments_preserved": counts[0] > 0,
         "assignments_preserved": counts[1] > 0,
         "reservations_preserved": counts[2] > 0,
-        "scheduler_version_unchanged": algorithm == "v1-greedy-4",
+        "scheduler_version_unchanged": algorithm == "v1-greedy-5",
     }
     assert checks[invariant]
 
@@ -307,9 +309,12 @@ def test_accept_openapi_contract(engine: Engine) -> None:
 
 def test_accept_transaction_benchmark(engine: Engine, seeded_case: SeededCase,
                                       capsys) -> None:
-    value, _ = _prepare_benchmark_replan(engine, seeded_case)
+    from datetime import timedelta
+    from .scheduling_helpers import HORIZON_START
+    value, _ = _prepare_benchmark_replan(engine, seeded_case,
+                                         cutoff_at=HORIZON_START+timedelta(minutes=1))
     started = perf_counter()
-    _, result = _accept(engine, value)
+    _, result = _accept(engine, value, now=lambda:HORIZON_START+timedelta(seconds=1))
     elapsed_ms = (perf_counter() - started) * 1000
     with engine.connect() as connection:
         counts = connection.execute(text("SELECT (SELECT count(*) FROM planning.assignment_segments WHERE schedule_solution_id=:solution),(SELECT count(*) FROM planning.human_segment_assignments WHERE schedule_solution_id=:solution),(SELECT count(*) FROM planning.physical_resource_reservations WHERE schedule_solution_id=:solution)"), {"solution": result.schedule_solution_id}).one()

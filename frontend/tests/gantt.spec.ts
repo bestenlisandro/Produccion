@@ -68,7 +68,7 @@ test('flujo E: escenario stale no permite confirmar',async({page})=>{
   await page.route('**/api/planning/current/gantt**',route=>route.fulfill({json:stale}))
   await page.goto('/planning/gantt',{waitUntil:'domcontentloaded'})
   await expect(page.getByText('SIMULACIÓN OBSOLETA')).toBeVisible()
-  await expect(page.getByRole('button',{name:'CONFIRMAR NUEVO PLAN'})).toHaveCount(0)
+  await expect(page.getByRole('button',{name:'CONFIRMAR NUEVO PLAN'})).toBeDisabled()
 })
 
 test('performance: render inicial de 50 proyectos y 250 operaciones',async({page})=>{

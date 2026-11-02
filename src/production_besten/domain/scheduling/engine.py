@@ -13,7 +13,7 @@ from production_besten.domain.scheduling.models import (
 
 
 class GreedyFiniteCapacityScheduler:
-    version = "v1-greedy-4"
+    version = "v1-greedy-5"
 
     def __init__(self) -> None:
         self._calendar_cache: dict[object, list[TimeWindow]] = {}
@@ -126,7 +126,7 @@ class GreedyFiniteCapacityScheduler:
                 if candidate is None:
                     continue
                 windows, complete = candidate
-                allocated = sum(int((item.end - item.start).total_seconds() // 60) for item in windows)
+                allocated = sum((item.end - item.start for item in windows), timedelta()) // timedelta(minutes=1)
                 score = (not complete, -allocated if not complete else 0,
                          windows[-1].end, windows[0].start,
                          tuple(self._employee(value, x).code for x in employees),
@@ -146,8 +146,14 @@ class GreedyFiniteCapacityScheduler:
                 reservations, capacity_reservations,
             ))
         segment_values = []
+        elapsed = timedelta()
+        accounted_minutes = 0
         for window in windows:
-            minutes = int((window.end - window.start).total_seconds() // 60)
+            # Carry fractional minutes across boundaries; never change time windows.
+            elapsed += window.end - window.start
+            cumulative_minutes = elapsed // timedelta(minutes=1)
+            minutes = cumulative_minutes - accounted_minutes
+            accounted_minutes = cumulative_minutes
             employee_overtime = tuple((owner, self._overtime_for(value, phase.project_id, owner, None, window)) for owner in employees)
             resource_overtime = tuple((owner, self._overtime_for(value, phase.project_id, owner,
                 self._resource(value, owner).work_center_id, window)) for owner in resources)
@@ -166,7 +172,7 @@ class GreedyFiniteCapacityScheduler:
             blockers.append("OUT_OF_HORIZON")
         return PhaseOutcome(
             phase.id, "planned" if complete else "out_of_horizon", planned_minutes,
-            max(0, phase.original_minutes - planned_minutes), segments,
+            max(0, duration - planned_minutes), segments,
             tuple(dict.fromkeys(blockers)), ready,
         )
 

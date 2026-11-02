@@ -10,6 +10,37 @@ import { GanttPage } from './GanttPage'
 vi.mock('./GanttTimeline',()=>({GanttTimeline:({data,onSelect,adjustmentMode,onIntent}:{data:typeof ganttFixture,onSelect:(value:typeof ganttFixture.operations[0])=>void,adjustmentMode?:boolean,onIntent?:(value:unknown)=>void})=><div role="region" aria-label={`Cronograma en zona horaria ${data.timezone}. ${adjustmentMode?'Modo ajuste.':'Sólo lectura.'}`}><button onClick={()=>onSelect(data.operations[0])}>Seleccionar Armado</button>{adjustmentMode&&<button onClick={()=>onIntent?.({kind:'move',operation:{...data.operations[0],operational_status:'PENDIENTE',executed_minutes:0},requestedStart:'2026-10-20T14:00:00Z',requestedFinish:'2026-10-20T18:00:00Z',requestedDurationMinutes:240})}>Simular drag</button>}</div>}))
 
 const renderPage=()=>render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter><GanttPage/></MemoryRouter></QueryClientProvider>)
+
+test('simulación vencida sigue visible y revisable pero no puede confirmarse',async()=>{
+ let accepts=0
+ server.use(http.get('/api/planning/current/gantt',({request})=>HttpResponse.json(new URL(request.url).searchParams.has('scenario_id')?{...ganttScenarioFixture,scenario:{...ganttScenarioFixture.scenario!,expired:true}}:ganttFixture)),http.post('/api/scenarios/:id/accept',()=>{accepts++;return HttpResponse.json({})}))
+ renderPage();await screen.findByText(/Plan vigente V6/)
+ await userEvent.selectOptions(screen.getByLabelText('Comparar con'),ganttScenarioFixture.scenario!.id)
+ expect(await screen.findByText('SIMULACIÓN DESACTUALIZADA')).toBeVisible()
+ const confirm=screen.getByRole('button',{name:'CONFIRMAR NUEVO PLAN'})
+ expect(confirm).toBeDisabled();await userEvent.click(confirm);expect(accepts).toBe(0)
+ expect(screen.getByText(/Esta propuesta contiene operaciones/)).toHaveTextContent('Generá una nueva simulación')
+ await userEvent.click(screen.getByRole('button',{name:'Seleccionar Armado'}))
+ expect(screen.getByRole('dialog',{name:'Detalle de operación'})).toBeVisible()
+})
+
+test('vencimiento entre lectura y ACCEPT muestra error y conserva CURRENT',async()=>{
+ server.use(http.post('/api/scenarios/:id/accept',()=>HttpResponse.json({error:{code:'SCENARIO_EXPIRED',message:'Esta simulación quedó desactualizada. Generá una nueva simulación.'}},{status:409})))
+ renderPage();await screen.findByText(/Plan vigente V6/)
+ await userEvent.selectOptions(screen.getByLabelText('Comparar con'),ganttScenarioFixture.scenario!.id)
+ await userEvent.click(await screen.findByRole('button',{name:'CONFIRMAR NUEVO PLAN'}))
+ expect(await screen.findByText(/Esta simulación quedó desactualizada porque/)).toHaveClass('warning')
+ expect(screen.getByText(/Plan vigente V6/)).toBeVisible()
+ expect(screen.queryByText(/Nueva planificación confirmada/)).not.toBeInTheDocument()
+})
+
+test('leyenda distingue estados por texto, muestras e iconos',async()=>{
+ renderPage();await screen.findByText(/Plan vigente V6/)
+ const legend=screen.getByRole('region',{name:'Leyenda'})
+ for(const name of ['Ejecutado real','En curso','Futuro planificado','Simulación','Bloqueado','Retrasado','Ocupación física','AHORA'])expect(legend).toHaveTextContent(name)
+ expect(legend.querySelectorAll('i')).toHaveLength(8)
+ expect([...legend.querySelectorAll('i')].every(i=>i.getAttribute('aria-hidden')==='true')).toBe(true)
+})
 beforeEach(()=>server.use(http.get('/api/planning/current/gantt',({request})=>HttpResponse.json(new URL(request.url).searchParams.has('scenario_id')?ganttScenarioFixture:ganttFixture))))
 
 test('carga plan vigente, zona horaria, leyenda y controles',async()=>{
@@ -74,7 +105,27 @@ test('descarta la propuesta sin perder realidad',async()=>{
 test('una simulación stale nunca permite confirmar',async()=>{
   const stale={...ganttScenarioFixture,available_scenarios:[{...ganttFixture.available_scenarios[0],stale:true}],scenario:{...ganttScenarioFixture.scenario!,stale:true}}
   server.use(http.get('/api/planning/current/gantt',()=>HttpResponse.json(stale)))
-  renderPage();expect(await screen.findByText('SIMULACIÓN OBSOLETA')).toBeInTheDocument();expect(screen.queryByRole('button',{name:'CONFIRMAR NUEVO PLAN'})).not.toBeInTheDocument()
+  renderPage();expect(await screen.findByText('SIMULACIÓN OBSOLETA')).toBeInTheDocument();expect(screen.getByRole('button',{name:'CONFIRMAR NUEVO PLAN'})).toBeDisabled()
+})
+
+test('histórico initial compara con CURRENT, conserva botón y ordena etiquetas humanas',async()=>{
+ const recent={...ganttFixture.available_scenarios[0],scenario_kind:'initial',status:'confirmed',origin_plan_version_number:6,created_at:'2026-10-28T17:55:00Z'}
+ const older={...recent,id:'old-initial',status:'stale',stale:true,expired:true,origin_plan_version_number:null,created_at:'2026-10-27T18:08:00Z'}
+ const base={...ganttFixture,available_scenarios:[older,recent]}
+ server.use(http.get('/api/planning/current/gantt',({request})=>HttpResponse.json(new URL(request.url).searchParams.has('scenario_id')?{...base,scenario:{...ganttScenarioFixture.scenario!,id:older.id,scenario_kind:'initial',stale:true,expired:true}}:base)))
+ renderPage();await screen.findByText(/Plan vigente V6/)
+ const selector=screen.getByLabelText('Comparar con') as HTMLSelectElement
+ expect([...selector.options].map(o=>o.value)).toEqual(['',recent.id,older.id])
+ expect(selector.options[1].text).toContain('ORIGEN DE CURRENT V6')
+ expect(selector.options[1].text).not.toContain(recent.id)
+ await userEvent.selectOptions(selector,older.id)
+ expect(await screen.findByText('SIMULACIÓN DESACTUALIZADA')).toBeVisible()
+ expect(screen.getByText(/CURRENT V6 vs SIMULACIÓN SELECCIONADA/)).toBeVisible()
+ expect(screen.getByText(/Plan vigente V6/)).toBeVisible()
+ expect(screen.getByRole('button',{name:'CONFIRMAR NUEVO PLAN'})).toBeDisabled()
+ expect(screen.getByText(/Generá una nueva simulación para poder confirmarla\./,{selector:'#scenario-confirmation-blocker'})).toBeVisible()
+ expect(screen.queryByRole('region',{name:'Detalle de simulación inicial'})).not.toBeInTheDocument()
+ expect(screen.getByText('Armado',{selector:'li strong'})).toBeVisible()
 })
 
 test('inicia en consulta y captura una intención sin llamar al backend',async()=>{

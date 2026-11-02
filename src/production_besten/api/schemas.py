@@ -447,6 +447,12 @@ class GanttActualSegmentResponse(ApiModel):
     work_minutes: int
 
 
+class GanttPlannedSegmentResponse(ApiModel):
+    started_at: datetime
+    ended_at: datetime
+    phase_name: str | None = None
+
+
 class GanttOperationResponse(ApiModel):
     operation_id: UUID
     project_id: UUID
@@ -473,6 +479,13 @@ class GanttOperationResponse(ApiModel):
     remaining_minutes: int | None
     blocker_code: str | None
     actual_segments: list[GanttActualSegmentResponse] = Field(default_factory=list)
+    planned_segments: list[GanttPlannedSegmentResponse] = Field(default_factory=list)
+    stage_name: str | None = None
+    stage_order: int | None = None
+    operation_order: int | None = None
+    committed_date: date | None = None
+    split_policy: str | None = None
+    skill_codes: list[str] = Field(default_factory=list)
 
 
 class GanttOccupationResponse(ApiModel):
@@ -501,6 +514,9 @@ class GanttScenarioOptionResponse(ApiModel):
     status: str
     stale: bool
     created_at: datetime
+    scenario_kind: str = 'replan'
+    expired: bool = False
+    origin_plan_version_number: int | None = None
 
 
 class GanttScenarioOperationResponse(ApiModel):
@@ -522,6 +538,8 @@ class GanttScenarioResponse(ApiModel):
     scenario_kind: str = 'replan'
     solution_id: UUID | None = None
     complete: bool = True
+    expired: bool = False
+    origin_plan_version_number: int | None = None
     stale: bool
     row_version: int
     promotion_lock_version: int
@@ -535,6 +553,7 @@ class GanttScenarioResponse(ApiModel):
 
 
 class GanttResponse(ApiModel):
+    plant_name: str | None = None
     plan_version_id: UUID | None
     plan_version_number: int | None
     planning_state_revision_id: UUID

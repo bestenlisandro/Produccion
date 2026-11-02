@@ -311,7 +311,7 @@ def test_gantt_is_tenant_safe_validates_range_and_has_fixed_query_count(engine, 
         )
     finally:
         event.remove(engine, "before_cursor_execute", record)
-    assert len(statements) == 6
+    assert len(statements) == 7
 
 
 def test_gantt_compares_ready_scenario_semantically(engine, seeded_case):

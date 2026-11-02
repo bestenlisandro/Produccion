@@ -8,11 +8,14 @@ from dataclasses import asdict, is_dataclass, replace
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from math import ceil
-from typing import Any
+from typing import Any, Callable
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import Connection, Engine, text
+
+from production_besten.domain.scenario_expiry import ensure_scenario_not_expired
+from production_besten.persistence.scenario_expiry import solution_timings
 
 from production_besten.domain.errors import (
     EntityNotFound, IdempotencyConflict, InvalidSchedulingInput, ReplanConflict, RevisionConflict,
@@ -32,10 +35,16 @@ from production_besten.domain.scheduling.models import (
 )
 
 
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 class PostgresSchedulingUnitOfWork:
-    def __init__(self, engine: Engine, *, failpoint: str | None = None) -> None:
+    def __init__(self, engine: Engine, *, failpoint: str | None = None,
+                 now: Callable[[], datetime] | None = None) -> None:
         self._engine = engine
         self._failpoint = failpoint
+        self._now = now or _utcnow
         self._connection: Connection | None = None
         self._transaction: Any = None
 
@@ -517,7 +526,6 @@ class PostgresSchedulingUnitOfWork:
     def accept_replan(self, command: AcceptReplan) -> AcceptReplanResult:
         """Atomically publish one immutable schedule solution as the next plan."""
         command.validate()
-        now = datetime.now(timezone.utc)
         # Organization lock serializes an idempotency key across all its plants.
         organization = self.conn.scalar(text("""
             SELECT id FROM core.organizations WHERE id=:org FOR UPDATE
@@ -547,7 +555,7 @@ class PostgresSchedulingUnitOfWork:
             return self._accepted_replay(command, replay)
 
         plant = self.conn.execute(text("""
-            SELECT id,current_plan_version_id,current_product_definition_revision_id,
+            SELECT id,timezone,current_plan_version_id,current_product_definition_revision_id,
                    promotion_lock_version
               FROM core.plants
              WHERE organization_id=:org AND id=:plant FOR UPDATE
@@ -632,6 +640,15 @@ class PostgresSchedulingUnitOfWork:
             current={"id":None}
         elif current is None or current["status"] != "published":
             raise ReplanConflict("current published plan is missing")
+        # Read the clock after acquiring locks: lock waits also age a proposal.
+        timings = solution_timings(self.conn, command.organization_id, scenario["solution_id"])
+        now = self._now()
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise InvalidSchedulingInput("acceptance clock must include a timezone")
+        ensure_scenario_not_expired(
+            timings,
+            now.astimezone(ZoneInfo(plant["timezone"])),
+        )
         if current["id"] is not None and current["valid_from"] >= now:
             raise ReplanConflict("promotion timestamp must follow current plan start")
 
@@ -1529,11 +1546,13 @@ class PostgresSchedulingUnitOfWork:
 
 
 class PostgresSchedulingUnitOfWorkFactory:
-    def __init__(self, engine: Engine, *, failpoint: str | None = None) -> None:
+    def __init__(self, engine: Engine, *, failpoint: str | None = None,
+                 now: Callable[[], datetime] | None = None) -> None:
         self.engine, self.failpoint = engine, failpoint
+        self.now = now
 
     def __call__(self):
-        return PostgresSchedulingUnitOfWork(self.engine, failpoint=self.failpoint)
+        return PostgresSchedulingUnitOfWork(self.engine, failpoint=self.failpoint, now=self.now)
 
 
 def _jsonable(value):

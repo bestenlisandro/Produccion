@@ -60,3 +60,7 @@ class SchedulingBaseStale(DomainError):
 
 class ReplanConflict(DomainError):
     """A replan scenario changed concurrently or cannot accept the command."""
+
+
+class ScenarioExpired(ReplanConflict):
+    """Unstarted work in a proposal can no longer start as scheduled."""

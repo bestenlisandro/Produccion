@@ -1,20 +1,23 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, timezone
-from typing import Any
+from typing import Any, Callable
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import Engine, text
 
 from production_besten.domain.errors import EntityNotFound, InvalidSchedulingInput
+from production_besten.domain.scenario_expiry import PlannedOperationTiming, scenario_expired
+from production_besten.persistence.scenario_expiry import solution_timings
 
 
 class PostgresApiQueries:
     """Tenant-safe read adapter used by the HTTP composition layer."""
 
-    def __init__(self, engine: Engine) -> None:
+    def __init__(self, engine: Engine, *, now: Callable[[], datetime] | None = None) -> None:
         self.engine = engine
+        self._now = now or (lambda: datetime.now(timezone.utc))
 
     def ready(self) -> bool:
         with self.engine.connect() as conn:
@@ -331,10 +334,14 @@ class PostgresApiQueries:
 
         with self.engine.connect() as conn:
             metadata = conn.execute(text("""
-                SELECT pv.id AS plan_version_id,pv.version_no AS plan_version_number,
+                SELECT pv.id AS plan_version_id,pv.version_no AS plan_version_number,pv.source_scenario_id,
                        COALESCE(pv.planning_state_revision_id,h.current_revision_id) AS planning_state_revision_id,pv.schedule_solution_id,
                        p.timezone,p.base_calendar_id,p.promotion_lock_version,
-                       c.timezone AS calendar_timezone
+                       c.timezone AS calendar_timezone,p.name AS plant_name,
+                       (SELECT d.canonical_snapshot FROM planning.schedule_solutions sol
+                         JOIN production.product_definition_revisions d ON d.organization_id=sol.organization_id
+                          AND d.id=sol.input_product_definition_revision_id
+                        WHERE sol.organization_id=p.organization_id AND sol.id=pv.schedule_solution_id) AS definition_snapshot
                   FROM core.plants p
                   LEFT JOIN planning.plan_versions pv
                     ON pv.organization_id=p.organization_id
@@ -358,6 +365,7 @@ class PostgresApiQueries:
                 selected_scenario = conn.execute(text("""
                     SELECT s.id,s.code,s.name,s.status,s.row_version,
                            p.promotion_lock_version,sol.comparison,s.scenario_kind,sol.id AS solution_id,
+                           (SELECT canonical_snapshot FROM production.product_definition_revisions d WHERE d.organization_id=s.organization_id AND d.id=sol.input_product_definition_revision_id) AS definition_snapshot,
                            COALESCE((sol.diagnostics->>'complete')::boolean,false) AS complete,
                            (s.status='stale'
                             OR s.base_state_revision_id<>h.current_revision_id
@@ -369,7 +377,7 @@ class PostgresApiQueries:
                       JOIN planning.planning_state_heads h
                         ON h.organization_id=s.organization_id AND h.plant_id=s.plant_id
                       JOIN LATERAL (
-                        SELECT value.id,value.comparison,value.diagnostics
+                        SELECT value.id,value.comparison,value.diagnostics,value.input_product_definition_revision_id
                           FROM planning.schedule_solutions value
                          WHERE value.organization_id=s.organization_id
                            AND value.scenario_id=s.id
@@ -382,10 +390,22 @@ class PostgresApiQueries:
                 }).mappings().one_or_none()
                 if selected_scenario is None:
                     raise EntityNotFound("scenario not found")
+                selected_scenario = dict(selected_scenario)
+                selected_scenario["expired"] = scenario_expired(
+                    solution_timings(conn, org, selected_scenario["solution_id"]),
+                    self._now(),
+                )
+                selected_scenario["origin_plan_version_number"] = (
+                    metadata["plan_version_number"]
+                    if selected_scenario["id"] == metadata["source_scenario_id"] else None
+                )
 
             metadata=dict(metadata)
-            if selected_scenario and selected_scenario['scenario_kind']=='initial':
+            initial_view = bool(selected_scenario and selected_scenario['scenario_kind']=='initial'
+                                and metadata['plan_version_id'] is None)
+            if initial_view:
                 metadata['schedule_solution_id']=selected_scenario['solution_id']
+                metadata['definition_snapshot']=selected_scenario['definition_snapshot']
             elif metadata['plan_version_id'] is None and selected_scenario:
                 raise EntityNotFound('current plan not found')
 
@@ -401,7 +421,7 @@ class PostgresApiQueries:
                         ON ph.organization_id=ppr.organization_id
                        AND ph.id=ppr.required_operation_phase_id
                      WHERE ppr.organization_id=:org
-                       AND ppr.schedule_solution_id=:solution
+                       AND ppr.schedule_solution_id IN (:solution,:overlay_solution)
                      ORDER BY ppr.operation_plan_result_id,ph.sequence_no
                 ), people AS (
                     SELECT ppr.operation_plan_result_id,
@@ -421,7 +441,7 @@ class PostgresApiQueries:
                         ON e.organization_id=ha.organization_id
                        AND e.id=ha.employee_id
                      WHERE ppr.organization_id=:org
-                       AND ppr.schedule_solution_id=:solution
+                       AND ppr.schedule_solution_id IN (:solution,:overlay_solution)
                      GROUP BY ppr.operation_plan_result_id
                 ), resources AS (
                     SELECT ppr.operation_plan_result_id,
@@ -451,7 +471,7 @@ class PostgresApiQueries:
                         ON wc.organization_id=pr.organization_id
                        AND wc.id=pr.work_center_id
                      WHERE ppr.organization_id=:org
-                       AND ppr.schedule_solution_id=:solution
+                       AND ppr.schedule_solution_id IN (:solution,:overlay_solution)
                      GROUP BY ppr.operation_plan_result_id
                 ), latest_execution AS (
                     SELECT DISTINCT ON (oe.required_operation_id)
@@ -484,7 +504,7 @@ class PostgresApiQueries:
                        AND es.time_range && tstzrange(:range_from,:range_to,'[)')
                      GROUP BY oe.required_operation_id
                 )
-                SELECT ro.id AS operation_id,project.id AS project_id,
+                SELECT opr.schedule_solution_id AS _solution_id,ro.id AS operation_id,project.id AS project_id,
                        project.code AS project_code,project.name AS project_name,
                        lot.code AS lot_code,lot.name AS lot_name,
                        ro.code AS operation_code,ro.name AS operation_name,
@@ -512,7 +532,15 @@ class PostgresApiQueries:
                        rem.remaining_labor_minutes::int AS remaining_minutes,
                        COALESCE(opr.explanation->'blockers'->>0,
                                 fp.blocker_code) AS blocker_code,
-                       COALESCE(act.segments,'[]'::jsonb) AS actual_segments
+                       COALESCE(act.segments,'[]'::jsonb) AS actual_segments,
+                       COALESCE((SELECT jsonb_agg(jsonb_build_object(
+                         'started_at',lower(seg.time_range),'ended_at',upper(seg.time_range),
+                         'phase_name',ph.name) ORDER BY lower(seg.time_range))
+                         FROM planning.phase_plan_results ppr
+                         JOIN production.required_operation_phases ph ON ph.organization_id=ppr.organization_id AND ph.id=ppr.required_operation_phase_id
+                         JOIN planning.planned_phase_assignments pa ON pa.organization_id=ppr.organization_id AND pa.phase_plan_result_id=ppr.id
+                         JOIN planning.assignment_segments seg ON seg.organization_id=pa.organization_id AND seg.planned_phase_assignment_id=pa.id
+                         WHERE ppr.organization_id=opr.organization_id AND ppr.operation_plan_result_id=opr.id),'[]'::jsonb) AS planned_segments
                   FROM planning.operation_plan_results opr
                   JOIN production.required_operations ro
                     ON ro.organization_id=opr.organization_id
@@ -541,7 +569,7 @@ class PostgresApiQueries:
                   LEFT JOIN actual act
                     ON act.required_operation_id=ro.id
                  WHERE opr.organization_id=:org
-                   AND opr.schedule_solution_id=:solution
+                   AND opr.schedule_solution_id IN (:solution,:overlay_solution)
                    AND project.plant_id=:plant
                    AND ((opr.planned_start_at < :range_to
                          AND opr.planned_end_at > :range_from)
@@ -551,7 +579,8 @@ class PostgresApiQueries:
             """), {
                 "org": org, "plant": plant,
                 "solution": metadata["schedule_solution_id"],
-                "initial_view": bool(selected_scenario and selected_scenario['scenario_kind']=='initial'),
+                "overlay_solution": selected_scenario['solution_id'] if selected_scenario else None,
+                "initial_view": bool(selected_scenario),
                 "range_from": range_from, "range_to": range_to,
             }).mappings().all()
 
@@ -602,7 +631,8 @@ class PostgresApiQueries:
             }).mappings().all()
 
             scenario_options = conn.execute(text("""
-                SELECT s.id,s.code,s.name,s.status,s.created_at,
+                SELECT s.id,s.code,s.name,s.status,s.created_at,s.scenario_kind,
+                       sol.id AS solution_id,
                        (s.status='stale'
                         OR s.base_state_revision_id<>h.current_revision_id
                         OR s.base_product_definition_revision_id<>p.current_product_definition_revision_id
@@ -612,18 +642,50 @@ class PostgresApiQueries:
                     ON p.organization_id=s.organization_id AND p.id=s.plant_id
                   JOIN planning.planning_state_heads h
                     ON h.organization_id=s.organization_id AND h.plant_id=s.plant_id
+                  JOIN LATERAL (SELECT value.id FROM planning.schedule_solutions value
+                    WHERE value.organization_id=s.organization_id AND value.scenario_id=s.id
+                    ORDER BY value.run_no DESC LIMIT 1) sol ON true
                  WHERE s.organization_id=:org AND s.plant_id=:plant
                    AND s.scenario_kind IN ('initial','replan')
-                   AND (s.scenario_kind='replan' OR p.current_plan_version_id IS NULL)
-                   AND s.status IN ('ready','stale')
+                   AND s.status IN ('ready','stale','confirmed')
                  ORDER BY s.created_at DESC,s.id DESC LIMIT 50
             """), {"org": org, "plant": plant}).mappings().all()
+            # Batch all option timings; visibility is independent of promotion eligibility.
+            timing_rows = conn.execute(text("""
+                SELECT opr.schedule_solution_id,opr.planned_start_at,opr.planned_end_at,
+                       EXISTS(SELECT 1 FROM execution.operation_executions oe
+                         WHERE oe.organization_id=opr.organization_id
+                           AND oe.required_operation_id=opr.required_operation_id
+                           AND oe.started_at IS NOT NULL) AS execution_started
+                  FROM planning.operation_plan_results opr
+                 WHERE opr.organization_id=:org AND opr.schedule_solution_id=ANY(:solutions)
+            """), {"org":org,"solutions":[r['solution_id'] for r in scenario_options]}).mappings().all()
+            timings_by_solution = {}
+            for row in timing_rows:
+                timings_by_solution.setdefault(row['schedule_solution_id'],[]).append(
+                    PlannedOperationTiming(row['planned_start_at'],row['planned_end_at'],row['execution_started']))
+            option_now = self._now()
+            options = []
+            for row in scenario_options:
+                option = dict(row)
+                solution_id = option.pop('solution_id')
+                option['expired'] = scenario_expired(timings_by_solution.get(solution_id,()),option_now)
+                option['origin_plan_version_number'] = (metadata['plan_version_number']
+                    if option['id']==metadata['source_scenario_id'] else None)
+                options.append(option)
 
             if metadata['plan_version_id'] is None and scenario_id is None and not scenario_options:
                 raise EntityNotFound('current plan not found')
 
-        operations = [dict(row) for row in operation_rows]
-        if selected_scenario and selected_scenario['scenario_kind']=='initial':
+        operations, proposed = [], []
+        for row in operation_rows:
+            operation = dict(row)
+            solution_id = operation.pop('_solution_id')
+            if solution_id == metadata['schedule_solution_id']:
+                operations.append(operation)
+            if selected_scenario and solution_id == selected_scenario['solution_id']:
+                proposed.append(operation.copy())
+        if initial_view:
             pending=operations[:]
             operations=[]
             while pending:
@@ -631,6 +693,16 @@ class PostgresApiQueries:
                 ready=next((o for o in pending if not {UUID(str(p['id'])) for p in o['predecessors']} & pending_ids),pending[0])
                 pending.remove(ready)
                 operations.append(ready)
+        _enrich_gantt_definition(operations, metadata.get("definition_snapshot") or {})
+        if selected_scenario and metadata['plan_version_id'] is not None:
+            # Recompute dates against CURRENT, never against a historical stored base.
+            selected_scenario['comparison'] = _gantt_current_comparison(operations,proposed,
+                                                                       selected_scenario['comparison'])
+            current_ids = {o['operation_id'] for o in operations}
+            historical_only = [o for o in proposed if o['operation_id'] not in current_ids]
+            _enrich_gantt_definition(historical_only,selected_scenario['definition_snapshot'] or {})
+            operations.extend(o | {'planned_start':None,'planned_finish':None,'planned_segments':[]}
+                              for o in historical_only)
         groups = _gantt_groups(operations, group_by)
         for operation in operations:
             operation["group_ids"] = _gantt_group_ids(operation, group_by)
@@ -638,11 +710,12 @@ class PostgresApiQueries:
             dict(row) | {"group_id": str(row["resource_id"])}
             for row in occupation_rows
         ]
-        scenario = _gantt_scenario(selected_scenario) if selected_scenario else None
-        if scenario and scenario['scenario_kind']=='initial':
+        scenario = _gantt_scenario({k: v for k, v in selected_scenario.items() if k != 'definition_snapshot'}) if selected_scenario else None
+        if initial_view:
             scenario['affected_projects']=len({o['project_id'] for o in operations})
             scenario['changed_operations']=len(operations)
         return {
+            "plant_name": metadata["plant_name"],
             "plan_version_id": metadata["plan_version_id"],
             "plan_version_number": metadata["plan_version_number"],
             "planning_state_revision_id": metadata["planning_state_revision_id"],
@@ -658,9 +731,40 @@ class PostgresApiQueries:
                 range_from, range_to, metadata["calendar_timezone"],
                 intervals, exceptions,
             ),
-            "available_scenarios": [dict(row) for row in scenario_options],
+            "available_scenarios": options,
             "scenario": scenario,
         }
+
+
+def _gantt_current_comparison(current, proposed, original):
+    """Ephemeral date comparison against CURRENT, including historical initial runs."""
+    old = {o['operation_id']:o for o in current}
+    new = {o['operation_id']:o for o in proposed}
+    changes = []
+    for identifier in sorted(old.keys() | new.keys(),key=str):
+        a,b = old.get(identifier),new.get(identifier)
+        previous = ({'start':a['planned_start'],'end':a['planned_finish']} if a else None)
+        following = ({'start':b['planned_start'],'end':b['planned_finish']} if b else None)
+        delta = (int((b['planned_finish']-a['planned_finish']).total_seconds()//60)
+                 if a and b and a['planned_finish'] and b['planned_finish'] else None)
+        removed = not b or not b['planned_finish']
+        impact = ('removed_from_future' if removed else 'newly_planned' if not a
+                  else 'delayed' if delta and delta>0 else 'advanced' if delta and delta<0 else 'changed')
+        changes.append({'operation_id':str(identifier),'project_id':str((b or a)['project_id']),
+                        'changed':previous!=following,'impact_kind':impact,
+                        'delta_minutes':delta,'old':previous,'new':following})
+    finishes = []
+    projects = {o['project_id'] for o in [*current,*proposed]}
+    for project in sorted(projects,key=str):
+        a = max((o['planned_finish'] for o in current if o['project_id']==project and o['planned_finish']),default=None)
+        b = max((o['planned_finish'] for o in proposed if o['project_id']==project and o['planned_finish']),default=None)
+        if a!=b:
+            finishes.append({'project_id':str(project),'current_finish':a,'scenario_finish':b})
+    return dict(original or {}) | {
+        'operations':changes,'changed_operations':sum(c['changed'] for c in changes),
+        'frontier_project_ids':[str(p) for p in sorted(projects,key=str)],
+        'customer_date_alert_items':finishes,
+    }
 
 
 def _gantt_group_ids(operation: dict[str, Any], group_by: str) -> list[str]:
@@ -805,3 +909,22 @@ def _subtract_windows(windows: list[tuple[datetime, datetime, str, str | None]],
         if remove_end < end:
             result.append((remove_end, end, kind, label))
     return result
+
+
+def _enrich_gantt_definition(operations: list[dict[str, Any]], snapshot: dict[str, Any]) -> None:
+    """Display frozen metadata, never the next mutable draft or live stage catalog."""
+    index = {}
+    for project in snapshot.get("projects", []):
+        for lot in [*project.get("lots", []), {"code": None, "operations": project.get("unassigned_operations", [])}]:
+            for op in lot.get("operations", []):
+                index[(project["code"], lot.get("code"), op["code"])] = (project, op)
+    for row in operations:
+        found = index.get((row["project_code"], row["lot_code"], row["operation_code"]))
+        if not found:
+            continue
+        project, op = found
+        phase = next((p for p in op.get("phases", []) if p.get("name") == row["phase_name"]), {})
+        row.update(stage_name=op.get("stage_name") or op.get("operation_definition_code"),
+                   stage_order=op.get("stage_order"), operation_order=op.get("operation_order"),
+                   committed_date=project.get("committed_date"), split_policy=phase.get("split_policy"),
+                   skill_codes=[r["code"] for p in op.get("phases", []) for r in p.get("labor_requirements", []) if r.get("is_mandatory")])

@@ -21,7 +21,7 @@ class ApiContainer:
 
     @property
     def queries(self) -> PostgresApiQueries:
-        return PostgresApiQueries(self.engine)
+        return PostgresApiQueries(self.engine, now=self.clock)
 
 
 def get_container(request: Request) -> ApiContainer:
