@@ -5,6 +5,8 @@ from production_besten.api.dependencies import get_container, get_request_contex
 from production_besten.api.product_editor_schemas import EditorDefinition, EditorOptions, EditorSave, EditorAction
 from production_besten.application.product_editor_services import ProductEditorService
 from production_besten.persistence.product_editor_uow import PostgresProductEditorUnitOfWork
+from production_besten.api.product_editor_schemas import MaterialArrivalSelection, MaterialArrivalRoute, EditorOperation
+from production_besten.domain.material_arrival import catalog, build_template
 
 router = APIRouter(tags=['product-definition'])
 
@@ -16,6 +18,18 @@ def service(container):
 @router.get('/product-definition/options', response_model=EditorOptions)
 def options(context=Depends(get_request_context), container=Depends(get_container)):
     return service(container).options(context.organization_id, require_plant(context))
+
+
+@router.get('/product-definition/material-arrival-routes', response_model=list[MaterialArrivalRoute])
+def material_routes(context=Depends(get_request_context), container=Depends(get_container)):
+    service(container).options(context.organization_id, require_plant(context))
+    return catalog()
+
+
+@router.post('/product-definition/material-arrival-preview', response_model=list[EditorOperation])
+def material_preview(body: MaterialArrivalSelection, context=Depends(get_request_context), container=Depends(get_container)):
+    options = service(container).options(context.organization_id, require_plant(context))
+    return build_template(body.model_dump(), options['operations'])
 
 
 @router.get('/projects/{project_id}/product-definition', response_model=EditorDefinition)

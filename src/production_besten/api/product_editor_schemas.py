@@ -43,6 +43,36 @@ class EditorOperation(EditorItem):
     phases: list[EditorPhase] = Field(default_factory=list, max_length=200)
 
 
+class MaterialArrivalSelection(EditorItem):
+    route_code: Literal['MATERIAL_ROUTE_1', 'MATERIAL_ROUTE_2', 'MATERIAL_ROUTE_3', 'MATERIAL_ROUTE_4', 'MATERIAL_ROUTE_5']
+    materials: list[Literal['18', '15', '12', '03', '055']] = Field(min_length=1, max_length=5)
+    optional_process_codes: list[str] = Field(default_factory=list, max_length=8)
+
+    @model_validator(mode='after')
+    def applicable_selection(self):
+        from production_besten.domain.material_arrival import validate_selection
+        from production_besten.domain.errors import InvalidProductDefinition
+        try:
+            validate_selection(self.model_dump())
+        except InvalidProductDefinition as error:
+            raise ValueError(str(error)) from error
+        return self
+
+
+class MaterialArrivalProcessor(ApiModel):
+    reference: str
+    material: str
+    name: str
+    applicability: Literal['yes', 'no', 'optional']
+
+
+class MaterialArrivalRoute(ApiModel):
+    code: str
+    name: str
+    summary: str
+    processors: list[MaterialArrivalProcessor]
+
+
 class EditorLot(EditorItem):
     id: UUID | None = None
     code: str = Field(min_length=1, max_length=80)
@@ -51,6 +81,7 @@ class EditorLot(EditorItem):
     quantity: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     unit: str | None = Field(default=None, max_length=40)
     route_version_id: UUID | None = None
+    material_arrival: MaterialArrivalSelection | None = None
     operations: list[EditorOperation] = Field(default_factory=list, max_length=200)
 
 

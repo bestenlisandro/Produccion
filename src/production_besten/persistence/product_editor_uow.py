@@ -35,7 +35,7 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
     def editor_detail(self, org, plant, project):
         p = self.project(org,plant,project)
         latest = self.rows("SELECT action_code,metadata FROM audit.audit_entries WHERE organization_id=:org AND entity_id=:project AND action_code LIKE 'PRODUCT_EDITOR_%' AND action_code<>'PRODUCT_EDITOR_VALIDATE' ORDER BY occurred_at DESC,created_at DESC,id DESC LIMIT 1",org=org,project=project)
-        lots = self.rows("SELECT id,code,name,description,quantity,unit FROM core.project_lots WHERE organization_id=:org AND project_id=:project AND status<>'archived' ORDER BY sequence_no,code",org=org,project=project)
+        lots = self.rows("SELECT id,code,name,description,quantity,unit,material_arrival FROM core.project_lots WHERE organization_id=:org AND project_id=:project AND status<>'archived' ORDER BY sequence_no,code",org=org,project=project)
         ops = self.rows("SELECT id,project_lot_id,code,name,operation_definition_id,operation_kind,settings FROM production.required_operations WHERE organization_id=:org AND project_id=:project AND status<>'archived' ORDER BY code",org=org,project=project)
         phases = self.rows("SELECT ph.* FROM production.required_operation_phases ph JOIN production.required_operations o ON o.organization_id=ph.organization_id AND o.id=ph.required_operation_id WHERE o.organization_id=:org AND o.project_id=:project AND ph.status<>'archived' ORDER BY ph.sequence_no",org=org,project=project)
         labor = self.rows("SELECT r.* FROM production.operation_labor_requirements r JOIN production.required_operation_phases ph ON ph.organization_id=r.organization_id AND ph.id=r.required_operation_phase_id JOIN production.required_operations o ON o.organization_id=ph.organization_id AND o.id=ph.required_operation_id WHERE o.organization_id=:org AND o.project_id=:project AND r.is_mandatory",org=org,project=project)
@@ -84,6 +84,9 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
         seen_lots=set()
         for l in lots:
             prefix=l['name']+': '
+            if l.get('material_arrival'):
+                from production_besten.domain.material_arrival import validate_selection
+                validate_selection(l['material_arrival'])
             if l['code'] in seen_lots: errors.append(prefix+'Código de lote repetido.')
             seen_lots.add(l['code'])
             if str(l.get('route_version_id')) not in active['routes']: errors.append(prefix+'Seleccioná una ruta publicada activa.')
@@ -206,6 +209,7 @@ class PostgresProductEditorUnitOfWork(PostgresProductDefinitionUnitOfWork):
                 self.conn.execute(text("UPDATE core.project_lots SET name=:name,description=:description,quantity=:quantity,unit=:unit,sequence_no=:seq,status='draft',row_version=row_version+1,updated_at=now() WHERE organization_id=:org AND id=:id"),l|{'org':org,'id':lid,'seq':li})
             else:
                 lid=self.create_production_batch(CreateProductionBatch(org,project,l['code'],l['name'],actor,command_id('lot'+str(li)),description=l['description'],sequence_no=li,quantity=l['quantity'],unit=l['unit'])).entity_id
+            self.conn.execute(text('UPDATE core.project_lots SET material_arrival=CAST(:arrival AS jsonb) WHERE organization_id=:org AND id=:id'), {'org':org,'id':lid,'arrival':json.dumps(l['material_arrival']) if l.get('material_arrival') else None})
             kept_lots.append(lid)
             route=l.get('route_version_id')
             manual = route is None or bool(self.conn.scalar(text("SELECT EXISTS(SELECT 1 FROM production.route_versions v JOIN production.route_templates t ON t.organization_id=v.organization_id AND t.id=v.route_template_id WHERE v.organization_id=:org AND v.id=:route AND t.code=:code)"),{'org':org,'route':route,'code':'LOT_ROUTE_'+lid.hex}))
@@ -283,6 +287,8 @@ def _legacy_people_intent(value):
     # Only normalize the additive phase field; nested user metadata is significant.
     result=deepcopy(value)
     for lot in result.get('lots',[]):
+        if lot.get('material_arrival') is None:
+            lot.pop('material_arrival',None)
         for operation in lot['operations']:
             for phase in operation['phases']:
                 if phase.get('required_people')==0:

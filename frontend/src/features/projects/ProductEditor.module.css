@@ -3,3 +3,9 @@
 .stage{border:1px solid #bdcbd0;border-radius:8px;margin:18px 0;padding:16px;background:#f8fbfb}.stage>h3{font-size:1.4rem;color:#174e52;margin:0 0 16px}.operation{margin-left:12px}.phase{margin-left:12px}
 
 .fields{align-items:start}.fields label{align-content:start}.fields>button{align-self:start}
+
+.page fieldset{min-width:0}.page select{max-width:100%}
+.page [aria-label="Llegada del material"]{margin:18px 0;padding:14px;border:1px solid #bdcbd0;border-radius:8px;background:#f3f7f7}
+.page [aria-label="Llegada del material"] select{display:block;width:100%;white-space:normal;margin:8px 0}
+.page [aria-label="Llegada del material"] label:has(input[type="checkbox"]){display:flex;align-items:flex-start;gap:8px;margin:10px 0}
+.page [aria-label="Llegada del material"] input[type="checkbox"]{width:auto;flex-shrink:0;margin-top:3px}

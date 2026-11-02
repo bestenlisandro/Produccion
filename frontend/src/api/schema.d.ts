@@ -1079,6 +1079,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/product-definition/material-arrival-routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Material Routes */
+        get: operations["material_routes_product_definition_material_arrival_routes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/product-definition/material-arrival-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Material Preview */
+        post: operations["material_preview_product_definition_material_arrival_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/product-definition": {
         parameters: {
             query?: never;
@@ -1599,6 +1633,7 @@ export interface components {
             unit?: string | null;
             /** Route Version Id */
             route_version_id?: string | null;
+            material_arrival?: components["schemas"]["MaterialArrivalSelection"] | null;
             /** Operations */
             operations?: components["schemas"]["EditorOperation"][];
         };
@@ -1618,6 +1653,7 @@ export interface components {
             unit?: string | null;
             /** Route Version Id */
             route_version_id?: string | null;
+            material_arrival?: components["schemas"]["MaterialArrivalSelection"] | null;
             /** Operations */
             operations: components["schemas"]["EditorOperationView"][];
         };
@@ -2725,6 +2761,43 @@ export interface components {
              * @default false
              */
             idempotent_replay: boolean;
+        };
+        /** MaterialArrivalProcessor */
+        MaterialArrivalProcessor: {
+            /** Reference */
+            reference: string;
+            /** Material */
+            material: string;
+            /** Name */
+            name: string;
+            /**
+             * Applicability
+             * @enum {string}
+             */
+            applicability: "yes" | "no" | "optional";
+        };
+        /** MaterialArrivalRoute */
+        MaterialArrivalRoute: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Summary */
+            summary: string;
+            /** Processors */
+            processors: components["schemas"]["MaterialArrivalProcessor"][];
+        };
+        /** MaterialArrivalSelection */
+        MaterialArrivalSelection: {
+            /**
+             * Route Code
+             * @enum {string}
+             */
+            route_code: "MATERIAL_ROUTE_1" | "MATERIAL_ROUTE_2" | "MATERIAL_ROUTE_3" | "MATERIAL_ROUTE_4" | "MATERIAL_ROUTE_5";
+            /** Materials */
+            materials: ("18" | "15" | "12" | "03" | "055")[];
+            /** Optional Process Codes */
+            optional_process_codes?: string[];
         };
         /** MoveScheduledActivityRequest */
         MoveScheduledActivityRequest: {
@@ -6985,6 +7058,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EditorOptions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    material_routes_product_definition_material_arrival_routes_get: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaterialArrivalRoute"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    material_preview_product_definition_material_arrival_preview_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaterialArrivalSelection"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditorOperation"][];
                 };
             };
             /** @description Validation Error */

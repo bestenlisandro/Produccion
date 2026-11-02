@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from production_besten.domain.precedence import has_cycle as _has_cycle
+
 import hashlib
 import json
 from datetime import date, datetime, timezone
@@ -401,6 +403,8 @@ class PostgresProductDefinitionUnitOfWork:
                         "drawing_packages": self._snapshot_drawings(organization_id, lot["id"]),
                         "route": self._snapshot_route(organization_id, lot["id"]),
                         "operations": self._snapshot_operations(organization_id, project["id"], lot["id"])}
+                if lot["material_arrival"] is not None:
+                    item["material_arrival"] = lot["material_arrival"]
                 p["lots"].append(item)
             p["unassigned_operations"] = self._snapshot_operations(organization_id, project["id"], None)
             result.append(p)
@@ -691,27 +695,6 @@ def _canonical(value: Any) -> Any:
     return value
 
 
-def _has_cycle(edges: list[tuple[UUID, UUID]]) -> bool:
-    graph: dict[UUID, set[UUID]] = {}
-    for start, end in edges:
-        graph.setdefault(start, set()).add(end)
-        graph.setdefault(end, set())
-    visiting: set[UUID] = set()
-    visited: set[UUID] = set()
-
-    def visit(node: UUID) -> bool:
-        if node in visiting:
-            return True
-        if node in visited:
-            return False
-        visiting.add(node)
-        if any(visit(child) for child in graph[node]):
-            return True
-        visiting.remove(node)
-        visited.add(node)
-        return False
-
-    return any(visit(node) for node in graph)
 
 
 def _external(name: str, command_id: UUID) -> str:

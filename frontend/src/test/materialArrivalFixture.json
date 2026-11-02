@@ -1,0 +1,619 @@
+{
+  "catalog": [
+    {
+      "code": "MATERIAL_ROUTE_1",
+      "name": "Caso 1 — Todo cortado y pegado; fondos 3 mm y 5,5 mm enteros",
+      "summary": "Melaminas listas para procesados. Fondos: Corte independiente.",
+      "processors": [
+        {
+          "reference": "MUL-18",
+          "material": "18",
+          "name": "Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "MUL-15",
+          "material": "15",
+          "name": "Múltiple",
+          "applicability": "optional"
+        },
+        {
+          "reference": "MUL-12",
+          "material": "12",
+          "name": "Múltiple",
+          "applicability": "optional"
+        },
+        {
+          "reference": "SIN-18",
+          "material": "18",
+          "name": "Procesado sin Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "SIN-15",
+          "material": "15",
+          "name": "Procesado sin Múltiple",
+          "applicability": "no"
+        },
+        {
+          "reference": "SIN-12",
+          "material": "12",
+          "name": "Procesado sin Múltiple",
+          "applicability": "optional"
+        },
+        {
+          "reference": "RAN-18",
+          "material": "18",
+          "name": "Ranurado",
+          "applicability": "optional"
+        },
+        {
+          "reference": "RAN-15",
+          "material": "15",
+          "name": "Ranurado",
+          "applicability": "optional"
+        }
+      ]
+    },
+    {
+      "code": "MATERIAL_ROUTE_2",
+      "name": "Caso 2 — Todo cortado y pegado; fondos 3 mm y 5,5 mm cortados",
+      "summary": "Sin Corte ni Pegado internos. Procesados aplicables → Armado.",
+      "processors": [
+        {
+          "reference": "MUL-18",
+          "material": "18",
+          "name": "Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "MUL-15",
+          "material": "15",
+          "name": "Múltiple",
+          "applicability": "optional"
+        },
+        {
+          "reference": "MUL-12",
+          "material": "12",
+          "name": "Múltiple",
+          "applicability": "no"
+        },
+        {
+          "reference": "SIN-18",
+          "material": "18",
+          "name": "Procesado sin Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "SIN-15",
+          "material": "15",
+          "name": "Procesado sin Múltiple",
+          "applicability": "no"
+        },
+        {
+          "reference": "SIN-12",
+          "material": "12",
+          "name": "Procesado sin Múltiple",
+          "applicability": "no"
+        },
+        {
+          "reference": "RAN-18",
+          "material": "18",
+          "name": "Ranurado",
+          "applicability": "optional"
+        },
+        {
+          "reference": "RAN-15",
+          "material": "15",
+          "name": "Ranurado",
+          "applicability": "optional"
+        }
+      ]
+    },
+    {
+      "code": "MATERIAL_ROUTE_3",
+      "name": "Caso 3 — Tableros enteros",
+      "summary": "Melaminas: Corte → Pegado → procesados. Fondos: Corte independiente.",
+      "processors": [
+        {
+          "reference": "MUL-18",
+          "material": "18",
+          "name": "Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "MUL-15",
+          "material": "15",
+          "name": "Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "MUL-12",
+          "material": "12",
+          "name": "Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "SIN-18",
+          "material": "18",
+          "name": "Procesado sin Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "SIN-15",
+          "material": "15",
+          "name": "Procesado sin Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "SIN-12",
+          "material": "12",
+          "name": "Procesado sin Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "RAN-18",
+          "material": "18",
+          "name": "Ranurado",
+          "applicability": "optional"
+        },
+        {
+          "reference": "RAN-15",
+          "material": "15",
+          "name": "Ranurado",
+          "applicability": "no"
+        }
+      ]
+    },
+    {
+      "code": "MATERIAL_ROUTE_4",
+      "name": "Caso 4 — Melaminas cortadas sin pegado; fondos 3 mm y 5,5 mm enteros",
+      "summary": "Melaminas: Pegado → procesados. Sin Corte de melamina. Fondos: Corte independiente.",
+      "processors": [
+        {
+          "reference": "MUL-18",
+          "material": "18",
+          "name": "Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "MUL-15",
+          "material": "15",
+          "name": "Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "MUL-12",
+          "material": "12",
+          "name": "Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "SIN-18",
+          "material": "18",
+          "name": "Procesado sin Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "SIN-15",
+          "material": "15",
+          "name": "Procesado sin Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "SIN-12",
+          "material": "12",
+          "name": "Procesado sin Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "RAN-18",
+          "material": "18",
+          "name": "Ranurado",
+          "applicability": "optional"
+        },
+        {
+          "reference": "RAN-15",
+          "material": "15",
+          "name": "Ranurado",
+          "applicability": "optional"
+        }
+      ]
+    },
+    {
+      "code": "MATERIAL_ROUTE_5",
+      "name": "Caso 5 — Todo cortado y pegado, excepto melamina 15 mm y fondos enteros",
+      "summary": "18/12 mm listas. 15 mm: Corte → Pegado → procesados. Fondos: Corte independiente.",
+      "processors": [
+        {
+          "reference": "MUL-18",
+          "material": "18",
+          "name": "Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "MUL-15",
+          "material": "15",
+          "name": "Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "MUL-12",
+          "material": "12",
+          "name": "Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "SIN-18",
+          "material": "18",
+          "name": "Procesado sin Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "SIN-15",
+          "material": "15",
+          "name": "Procesado sin Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "SIN-12",
+          "material": "12",
+          "name": "Procesado sin Múltiple",
+          "applicability": "yes"
+        },
+        {
+          "reference": "RAN-18",
+          "material": "18",
+          "name": "Ranurado",
+          "applicability": "optional"
+        },
+        {
+          "reference": "RAN-15",
+          "material": "15",
+          "name": "Ranurado",
+          "applicability": "optional"
+        }
+      ]
+    }
+  ],
+  "stages": [
+    {
+      "id": "00000001-1111-4111-8111-111111111111",
+      "code": "ARMADO",
+      "name": "ARMADO",
+      "display_order": 1,
+      "status": "active"
+    },
+    {
+      "id": "00000002-1111-4111-8111-111111111111",
+      "code": "CORTE_ESCUADRADORA",
+      "name": "CORTE_ESCUADRADORA",
+      "display_order": 2,
+      "status": "active"
+    },
+    {
+      "id": "00000003-1111-4111-8111-111111111111",
+      "code": "PEGADO",
+      "name": "PEGADO",
+      "display_order": 3,
+      "status": "active"
+    },
+    {
+      "id": "00000004-1111-4111-8111-111111111111",
+      "code": "PERFORADORA_MULTIPLE",
+      "name": "PERFORADORA_MULTIPLE",
+      "display_order": 4,
+      "status": "active"
+    },
+    {
+      "id": "00000005-1111-4111-8111-111111111111",
+      "code": "PROCESADO_SIN_MULTIPLE",
+      "name": "PROCESADO_SIN_MULTIPLE",
+      "display_order": 5,
+      "status": "active"
+    }
+  ],
+  "previews": {
+    "1": [
+      {
+        "code": "50c496e0a813_MUL-18",
+        "name": "Múltiple · 18 mm",
+        "operation_definition_id": "00000004-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [],
+        "phases": []
+      },
+      {
+        "code": "50c496e0a813_SIN-18",
+        "name": "Procesado sin Múltiple · 18 mm",
+        "operation_definition_id": "00000005-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [],
+        "phases": []
+      },
+      {
+        "code": "50c496e0a813_COR-03",
+        "name": "Corte · Fondo 3 mm",
+        "operation_definition_id": "00000002-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [],
+        "phases": []
+      },
+      {
+        "code": "50c496e0a813_COR-055",
+        "name": "Corte · Fondo 5,5 mm",
+        "operation_definition_id": "00000002-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [],
+        "phases": []
+      },
+      {
+        "code": "50c496e0a813_ARM-01",
+        "name": "Armado",
+        "operation_definition_id": "00000001-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [
+          "50c496e0a813_MUL-18",
+          "50c496e0a813_SIN-18",
+          "50c496e0a813_COR-03",
+          "50c496e0a813_COR-055"
+        ],
+        "phases": []
+      }
+    ],
+    "3": [
+      {
+        "code": "7389a13ffa6e_COR-18",
+        "name": "Corte · 18 mm",
+        "operation_definition_id": "00000002-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [],
+        "phases": []
+      },
+      {
+        "code": "7389a13ffa6e_PEG-18",
+        "name": "Pegado de cantos · 18 mm",
+        "operation_definition_id": "00000003-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [
+          "7389a13ffa6e_COR-18"
+        ],
+        "phases": []
+      },
+      {
+        "code": "7389a13ffa6e_MUL-18",
+        "name": "Múltiple · 18 mm",
+        "operation_definition_id": "00000004-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [
+          "7389a13ffa6e_PEG-18"
+        ],
+        "phases": []
+      },
+      {
+        "code": "7389a13ffa6e_SIN-18",
+        "name": "Procesado sin Múltiple · 18 mm",
+        "operation_definition_id": "00000005-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [
+          "7389a13ffa6e_PEG-18"
+        ],
+        "phases": []
+      },
+      {
+        "code": "7389a13ffa6e_COR-15",
+        "name": "Corte · 15 mm",
+        "operation_definition_id": "00000002-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [],
+        "phases": []
+      },
+      {
+        "code": "7389a13ffa6e_PEG-15",
+        "name": "Pegado de cantos · 15 mm",
+        "operation_definition_id": "00000003-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [
+          "7389a13ffa6e_COR-15"
+        ],
+        "phases": []
+      },
+      {
+        "code": "7389a13ffa6e_MUL-15",
+        "name": "Múltiple · 15 mm",
+        "operation_definition_id": "00000004-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [
+          "7389a13ffa6e_PEG-15"
+        ],
+        "phases": []
+      },
+      {
+        "code": "7389a13ffa6e_SIN-15",
+        "name": "Procesado sin Múltiple · 15 mm",
+        "operation_definition_id": "00000005-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [
+          "7389a13ffa6e_PEG-15"
+        ],
+        "phases": []
+      },
+      {
+        "code": "7389a13ffa6e_COR-12",
+        "name": "Corte · 12 mm",
+        "operation_definition_id": "00000002-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [],
+        "phases": []
+      },
+      {
+        "code": "7389a13ffa6e_PEG-12",
+        "name": "Pegado de cantos · 12 mm",
+        "operation_definition_id": "00000003-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [
+          "7389a13ffa6e_COR-12"
+        ],
+        "phases": []
+      },
+      {
+        "code": "7389a13ffa6e_MUL-12",
+        "name": "Múltiple · 12 mm",
+        "operation_definition_id": "00000004-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [
+          "7389a13ffa6e_PEG-12"
+        ],
+        "phases": []
+      },
+      {
+        "code": "7389a13ffa6e_SIN-12",
+        "name": "Procesado sin Múltiple · 12 mm",
+        "operation_definition_id": "00000005-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [
+          "7389a13ffa6e_PEG-12"
+        ],
+        "phases": []
+      },
+      {
+        "code": "7389a13ffa6e_COR-03",
+        "name": "Corte · Fondo 3 mm",
+        "operation_definition_id": "00000002-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [],
+        "phases": []
+      },
+      {
+        "code": "7389a13ffa6e_COR-055",
+        "name": "Corte · Fondo 5,5 mm",
+        "operation_definition_id": "00000002-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [],
+        "phases": []
+      },
+      {
+        "code": "7389a13ffa6e_ARM-01",
+        "name": "Armado",
+        "operation_definition_id": "00000001-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [
+          "7389a13ffa6e_MUL-18",
+          "7389a13ffa6e_SIN-18",
+          "7389a13ffa6e_MUL-15",
+          "7389a13ffa6e_SIN-15",
+          "7389a13ffa6e_MUL-12",
+          "7389a13ffa6e_SIN-12",
+          "7389a13ffa6e_COR-03",
+          "7389a13ffa6e_COR-055"
+        ],
+        "phases": []
+      }
+    ],
+    "5": [
+      {
+        "code": "1704f189c390_MUL-18",
+        "name": "Múltiple · 18 mm",
+        "operation_definition_id": "00000004-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [],
+        "phases": []
+      },
+      {
+        "code": "1704f189c390_SIN-18",
+        "name": "Procesado sin Múltiple · 18 mm",
+        "operation_definition_id": "00000005-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [],
+        "phases": []
+      },
+      {
+        "code": "1704f189c390_COR-15",
+        "name": "Corte · 15 mm",
+        "operation_definition_id": "00000002-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [],
+        "phases": []
+      },
+      {
+        "code": "1704f189c390_PEG-15",
+        "name": "Pegado de cantos · 15 mm",
+        "operation_definition_id": "00000003-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [
+          "1704f189c390_COR-15"
+        ],
+        "phases": []
+      },
+      {
+        "code": "1704f189c390_MUL-15",
+        "name": "Múltiple · 15 mm",
+        "operation_definition_id": "00000004-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [
+          "1704f189c390_PEG-15"
+        ],
+        "phases": []
+      },
+      {
+        "code": "1704f189c390_SIN-15",
+        "name": "Procesado sin Múltiple · 15 mm",
+        "operation_definition_id": "00000005-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [
+          "1704f189c390_PEG-15"
+        ],
+        "phases": []
+      },
+      {
+        "code": "1704f189c390_MUL-12",
+        "name": "Múltiple · 12 mm",
+        "operation_definition_id": "00000004-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [],
+        "phases": []
+      },
+      {
+        "code": "1704f189c390_SIN-12",
+        "name": "Procesado sin Múltiple · 12 mm",
+        "operation_definition_id": "00000005-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [],
+        "phases": []
+      },
+      {
+        "code": "1704f189c390_COR-03",
+        "name": "Corte · Fondo 3 mm",
+        "operation_definition_id": "00000002-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [],
+        "phases": []
+      },
+      {
+        "code": "1704f189c390_COR-055",
+        "name": "Corte · Fondo 5,5 mm",
+        "operation_definition_id": "00000002-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [],
+        "phases": []
+      },
+      {
+        "code": "1704f189c390_ARM-01",
+        "name": "Armado",
+        "operation_definition_id": "00000001-1111-4111-8111-111111111111",
+        "operation_kind": "production",
+        "predecessor_codes": [
+          "1704f189c390_MUL-18",
+          "1704f189c390_SIN-18",
+          "1704f189c390_MUL-15",
+          "1704f189c390_SIN-15",
+          "1704f189c390_MUL-12",
+          "1704f189c390_SIN-12",
+          "1704f189c390_COR-03",
+          "1704f189c390_COR-055"
+        ],
+        "phases": []
+      }
+    ]
+  }
+}

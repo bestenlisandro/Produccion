@@ -4,7 +4,12 @@ $migrationDirectory = Join-Path $repositoryRoot 'db\migrations'
 $dictionaryPath = Join-Path $repositoryRoot 'docs\08-diccionario-datos-v1.md'
 
 $migrationFiles = Get-ChildItem -LiteralPath $migrationDirectory -Filter '*.sql' -File | Sort-Object Name
-if ($migrationFiles.Count -ne 12) { throw "Expected 12 migration files, found $($migrationFiles.Count)." }
+if ($migrationFiles.Count -eq 0) { throw 'No migrations found.' }
+for ($index = 0; $index -lt $migrationFiles.Count; $index++) {
+    if ($migrationFiles[$index].Name -notmatch ('^{0:D3}_[a-z0-9_]+\.sql$' -f $index)) {
+        throw "Migration sequence must be contiguous from 000: $($migrationFiles[$index].Name)"
+    }
+}
 
 $sql = ($migrationFiles | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n"
 $tableMatches = [regex]::Matches($sql, '(?m)^CREATE TABLE ([a-z_]+\.[a-z_]+)')

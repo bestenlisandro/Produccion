@@ -6457,6 +6457,164 @@
         }
       }
     },
+    "/product-definition/material-arrival-routes": {
+      "get": {
+        "tags": [
+          "product-definition"
+        ],
+        "summary": "Material Routes",
+        "operationId": "material_routes_product_definition_material_arrival_routes_get",
+        "parameters": [
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MaterialArrivalRoute"
+                  },
+                  "title": "Response Material Routes Product Definition Material Arrival Routes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/product-definition/material-arrival-preview": {
+      "post": {
+        "tags": [
+          "product-definition"
+        ],
+        "summary": "Material Preview",
+        "operationId": "material_preview_product_definition_material_arrival_preview_post",
+        "parameters": [
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaterialArrivalSelection"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EditorOperation"
+                  },
+                  "title": "Response Material Preview Product Definition Material Arrival Preview Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/projects/{project_id}/product-definition": {
       "get": {
         "tags": [
@@ -8150,6 +8308,16 @@
             ],
             "title": "Route Version Id"
           },
+          "material_arrival": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MaterialArrivalSelection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "operations": {
             "items": {
               "$ref": "#/components/schemas/EditorOperation"
@@ -8240,6 +8408,16 @@
               }
             ],
             "title": "Route Version Id"
+          },
+          "material_arrival": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MaterialArrivalSelection"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "operations": {
             "items": {
@@ -11352,6 +11530,118 @@
           "entity"
         ],
         "title": "MasterMutationResponse"
+      },
+      "MaterialArrivalProcessor": {
+        "properties": {
+          "reference": {
+            "type": "string",
+            "title": "Reference"
+          },
+          "material": {
+            "type": "string",
+            "title": "Material"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "applicability": {
+            "type": "string",
+            "enum": [
+              "yes",
+              "no",
+              "optional"
+            ],
+            "title": "Applicability"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reference",
+          "material",
+          "name",
+          "applicability"
+        ],
+        "title": "MaterialArrivalProcessor"
+      },
+      "MaterialArrivalRoute": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "processors": {
+            "items": {
+              "$ref": "#/components/schemas/MaterialArrivalProcessor"
+            },
+            "type": "array",
+            "title": "Processors"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "summary",
+          "processors"
+        ],
+        "title": "MaterialArrivalRoute"
+      },
+      "MaterialArrivalSelection": {
+        "properties": {
+          "route_code": {
+            "type": "string",
+            "enum": [
+              "MATERIAL_ROUTE_1",
+              "MATERIAL_ROUTE_2",
+              "MATERIAL_ROUTE_3",
+              "MATERIAL_ROUTE_4",
+              "MATERIAL_ROUTE_5"
+            ],
+            "title": "Route Code"
+          },
+          "materials": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "18",
+                "15",
+                "12",
+                "03",
+                "055"
+              ]
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Materials"
+          },
+          "optional_process_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Optional Process Codes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "route_code",
+          "materials"
+        ],
+        "title": "MaterialArrivalSelection"
       },
       "MoveScheduledActivityRequest": {
         "properties": {

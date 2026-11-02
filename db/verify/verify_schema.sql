@@ -121,7 +121,7 @@ BEGIN
   SELECT count(*) INTO n
     FROM pg_constraint c JOIN pg_class r ON r.oid=c.conrelid JOIN pg_namespace s ON s.oid=r.relnamespace
    WHERE c.contype='c' AND s.nspname IN ('core','capacity','production','planning','execution','portal','integration','audit');
-  IF n <> 156 THEN RAISE EXCEPTION 'Expected 156 check constraints, got %', n; END IF;
+  IF n <> 157 THEN RAISE EXCEPTION 'Expected 157 check constraints (M14), got %', n; END IF;
 
   SELECT count(*) INTO n
     FROM pg_constraint c JOIN pg_class r ON r.oid=c.conrelid JOIN pg_namespace s ON s.oid=r.relnamespace
