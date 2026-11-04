@@ -10,7 +10,7 @@ export function scenarioLabel(option:Option,timezone:string):string {
  if(option.stale&&option.status!=='confirmed')states.push('Histórica')
  if(!states.length)states.push('Vigente / revisable')
  if(option.origin_plan_version_number!=null)states.push(`ORIGEN DE CURRENT V${option.origin_plan_version_number}`)
- return `${date} · ${option.scenario_kind==='initial'?'Inicial':'Replan'} · ${states.join(' · ')}`
+ return `${date} · ${option.scenario_kind==='initial'?'Inicial':option.scenario_kind==='simulation'?'Simulación':'Replan'} · ${states.join(' · ')}`
 }
 
 export function confirmationBlocker(data:GanttData):string|null {

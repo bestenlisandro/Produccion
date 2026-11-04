@@ -6,10 +6,38 @@ import { beforeEach,expect,test,vi } from 'vitest'
 import { ganttFixture,ganttScenarioFixture } from '../../test/fixtures'
 import { http,HttpResponse,server } from '../../test/server'
 import { GanttPage } from './GanttPage'
+import {revisionSimulationFixture,revisionSimulationId} from '../../test/ganttRevisionSimulationFixture'
 
 vi.mock('./GanttTimeline',()=>({GanttTimeline:({data,onSelect,adjustmentMode,onIntent}:{data:typeof ganttFixture,onSelect:(value:typeof ganttFixture.operations[0])=>void,adjustmentMode?:boolean,onIntent?:(value:unknown)=>void})=><div role="region" aria-label={`Cronograma en zona horaria ${data.timezone}. ${adjustmentMode?'Modo ajuste.':'Sólo lectura.'}`}><button onClick={()=>onSelect(data.operations[0])}>Seleccionar Armado</button>{adjustmentMode&&<button onClick={()=>onIntent?.({kind:'move',operation:{...data.operations[0],operational_status:'PENDIENTE',executed_minutes:0},requestedStart:'2026-10-20T14:00:00Z',requestedFinish:'2026-10-20T18:00:00Z',requestedDurationMinutes:240})}>Simular drag</button>}</div>}))
 
 const renderPage=()=>render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter><GanttPage/></MemoryRouter></QueryClientProvider>)
+
+test('URL directa carga simulation READY de REV5 y compara sus ramas contra CURRENT V1 sin aceptar',async()=>{
+ const requests:string[]=[]
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}})
+ server.use(http.get('/api/planning/current/gantt',({request})=>{requests.push(request.url);return HttpResponse.json(revisionSimulationFixture)}))
+ render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/planning/gantt?scenario_id=${revisionSimulationId}`]}><GanttPage/></MemoryRouter></QueryClientProvider>)
+ await screen.findByText(/Plan vigente V1/)
+ expect(screen.queryByText('No pudimos cargar la información.')).not.toBeInTheDocument()
+ expect(screen.getByRole('region',{name:'Impacto de simulación'})).toHaveTextContent('A685 REV 5')
+ expect(screen.getByRole('region',{name:'Impacto de simulación'})).toHaveTextContent('Corte Fondos 3 mm')
+ expect(screen.getByRole('region',{name:'Impacto de simulación'})).toHaveTextContent('Procesado Múltiple 18 mm')
+ expect(screen.getByLabelText('Comparar con')).toHaveValue(revisionSimulationId)
+ expect(screen.getByRole('option',{name:/Simulación · Vigente \/ revisable/})).toBeInTheDocument()
+ await waitFor(()=>expect(requests.length).toBeGreaterThan(1))
+ await waitFor(()=>expect(client.isFetching()).toBe(0))
+ expect(requests.every(url=>new URL(url).searchParams.get('scenario_id')===revisionSimulationId)).toBe(true)
+})
+
+test('error Gantt conserva mensaje seguro y registra código y requestId en consola',async()=>{
+ const log=vi.spyOn(console,'error').mockImplementation(()=>{})
+ server.use(http.get('/api/planning/current/gantt',()=>HttpResponse.json({error:{code:'RESOURCE_NOT_FOUND',message:'resource not found',request_id:'trace-gantt-9'}},{status:404,headers:{'X-Request-Id':'trace-gantt-9'}})))
+ render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter initialEntries={[`/planning/gantt?scenario_id=${revisionSimulationId}`]}><GanttPage/></MemoryRouter></QueryClientProvider>)
+ await screen.findByText('No pudimos cargar la información.')
+ expect(log).toHaveBeenCalledWith('API request failed',expect.objectContaining({status:404,code:'RESOURCE_NOT_FOUND',requestId:'trace-gantt-9'}))
+ expect(screen.queryByText('trace-gantt-9')).not.toBeInTheDocument()
+ log.mockRestore()
+})
 
 test('simulación vencida sigue visible y revisable pero no puede confirmarse',async()=>{
  let accepts=0

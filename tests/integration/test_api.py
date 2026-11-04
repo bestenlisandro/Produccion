@@ -95,7 +95,10 @@ def test_cross_tenant_project_is_indistinguishable_from_missing(engine, seeded_c
     foreign = client.get(f"/projects/{seeded_case.project_id}", headers=_headers(seeded_case, organization_id=seeded_case.other_organization_id, key=False))
     missing = client.get(f"/projects/{uuid4()}", headers=_headers(seeded_case, key=False))
     assert foreign.status_code == missing.status_code == 404
-    assert foreign.json() == missing.json() == {"error": {"code": "RESOURCE_NOT_FOUND", "message": "resource not found"}}
+    for response in (foreign, missing):
+        error = response.json()['error']
+        assert error['code'] == 'RESOURCE_NOT_FOUND' and error['message'] == 'resource not found'
+        assert error['request_id'] == response.headers['X-Request-Id']
 
 
 def test_create_and_list_batch(engine, seeded_case):

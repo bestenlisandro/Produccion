@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import logging
+from uuid import uuid4
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
@@ -23,6 +26,20 @@ from production_besten.domain.errors import (
 )
 from production_besten.domain.master_data import InvalidMasterData, MasterDataConflict
 
+logger = logging.getLogger(__name__)
+
+
+def error_response(request: Request, status: int, code: str, message: str,
+                   exc: Exception) -> JSONResponse:
+    request_id = str(uuid4())
+    logger.log(logging.ERROR if status >= 500 else logging.WARNING,
+               'API error request_id=%s code=%s status=%s method=%s path=%s detail=%s',
+               request_id, code, status, request.method, request.url.path, str(exc),
+               exc_info=(type(exc), exc, exc.__traceback__) if status >= 500 else None)
+    return JSONResponse(status_code=status, headers={'X-Request-Id': request_id},
+                        content={'error': {'code': code, 'message': message,
+                                           'request_id': request_id}})
+
 
 def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
@@ -42,15 +59,17 @@ def install_error_handlers(app: FastAPI) -> None:
             status, code, message = 400, _code(exc), str(exc)
         else:
             status, code, message = 400, "DOMAIN_ERROR", str(exc)
-        return JSONResponse(status_code=status, content={"error": {"code": code, "message": message}})
+        return error_response(request, status, code, message, exc)
 
     @app.exception_handler(IntegrityError)
     async def integrity_error_handler(request: Request, exc: IntegrityError) -> JSONResponse:
-        return JSONResponse(status_code=409, content={"error": {"code": "PERSISTENCE_CONFLICT", "message": "the request conflicts with persisted data"}})
+        return error_response(request, 409, 'PERSISTENCE_CONFLICT',
+                              'the request conflicts with persisted data', exc)
 
     @app.exception_handler(Exception)
     async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResponse:
-        return JSONResponse(status_code=500, content={"error": {"code": "INTERNAL_ERROR", "message": "an unexpected internal error occurred"}})
+        return error_response(request, 500, 'INTERNAL_ERROR',
+                              'an unexpected internal error occurred', exc)
 
 
 def _code(exc: Exception) -> str:

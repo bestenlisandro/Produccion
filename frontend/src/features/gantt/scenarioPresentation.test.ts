@@ -2,6 +2,13 @@ import {expect,test} from 'vitest'
 import {ganttFixture,ganttScenarioFixture} from '../../test/fixtures'
 import {confirmationBlocker,scenarioLabel} from './scenarioPresentation'
 
+test('escenario simulation se etiqueta como Simulación y conserva las reglas de confirmación',()=>{
+ const option={...ganttFixture.available_scenarios[0],scenario_kind:'simulation'}
+ expect(scenarioLabel(option,'America/Argentina/Cordoba')).toContain('Simulación')
+ expect(scenarioLabel(option,'America/Argentina/Cordoba')).not.toContain('Replan')
+ expect(confirmationBlocker({...ganttScenarioFixture,scenario:{...ganttScenarioFixture.scenario!,scenario_kind:'simulation'}})).toBeNull()
+})
+
 test.each([
  {status:'ready',stale:false,expired:false,complete:true,blocked:false},
  {status:'ready',stale:true,expired:false,complete:true,blocked:true},

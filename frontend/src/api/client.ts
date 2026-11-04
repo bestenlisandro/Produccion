@@ -24,7 +24,7 @@ export type MasterSnapshot = {
 export type MasterMutation = components['schemas']['MasterMutationResponse']
 
 export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string) { super(safeErrorMessage(status,message)) }
+  constructor(public status: number, public code: string, message: string, public requestId?: string) { super(safeErrorMessage(status,message)) }
 }
 
 type DevContext = { userId: string; organizationId: string; plantId: string }
@@ -61,8 +61,8 @@ export async function request<T>(path: string, init: RequestInit = {}, idempoten
   try{
     const response = await fetch(`/api${path}`, { ...init, headers })
     if (!response.ok) {
-      const body = await response.json().catch(() => ({})) as { error?: { code?: string; message?: string } }
-      throw new ApiError(response.status, body.error?.code ?? 'HTTP_ERROR',body.error?.message ?? 'No se pudo completar la solicitud.')
+      const body = await response.json().catch(() => ({})) as { error?: { code?: string; message?: string; request_id?: string } }
+      throw new ApiError(response.status, body.error?.code ?? 'HTTP_ERROR',body.error?.message ?? 'No se pudo completar la solicitud.',response.headers.get('X-Request-Id')??body.error?.request_id)
     }
     let result:T
     try{result=response.status===204?undefined as T:await response.json() as T}
@@ -72,7 +72,7 @@ export async function request<T>(path: string, init: RequestInit = {}, idempoten
   }catch(error){
     // A transport/parse failure has an uncertain outcome: preserve existing retry/key handling.
     const safe=error instanceof ApiError?error:new ApiError(503,'NETWORK_ERROR','No se pudo conectar.')
-    console.error('API request failed',{method,path,status:safe.status,code:safe.code})
+    console.error('API request failed',{method,path,status:safe.status,code:safe.code,requestId:safe.requestId})
     if(mutating)notify('error',actionFor(path,method,payload).failure,`${method} ${path}`)
     throw safe
   }

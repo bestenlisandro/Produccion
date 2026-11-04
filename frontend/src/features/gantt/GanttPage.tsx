@@ -293,7 +293,7 @@ export function GanttPage() {
         <dt>Restante vigente</dt><dd>{minutes(selected.remaining_minutes)}</dd></dl>
       {!!selected.planned_segments?.length&&<section aria-label="Segmentos planificados"><h3>Segmentos de trabajo</h3><ul>{selected.planned_segments.map((s,i)=><li key={i}>{s.phase_name}: {plantDateTime(s.started_at,data.timezone)} → {plantDateTime(s.ended_at,data.timezone)}</li>)}</ul></section>}
       <h3>¿Por qué empieza a esta hora?</h3><p>El planificador no expone actualmente el motivo detallado.</p><p>Criticidad no disponible. Las dependencias lógicas no representan bloqueos por capacidad.</p>
-      {data.scenario?.scenario_kind==='replan'&&<p>Personas y recursos corresponden al plan actual. La comparación expone fechas propuestas, no las nuevas asignaciones ni sus interrupciones.</p>}
+      {data.scenario&&data.plan_version_id&&<p>Personas y recursos corresponden al plan actual. La comparación expone fechas propuestas, no las nuevas asignaciones ni sus interrupciones.</p>}
       {blockerMessage(selected.blocker_code) && <p className="warning"><strong>{selected.operational_status==='BLOQUEADO'?'Bloqueo:':'Restricción informada:'}</strong> {blockerMessage(selected.blocker_code)}</p>}
       {adjustmentMode && !['FINALIZADO', 'EN_CURSO'].includes(selected.operational_status)
         && selected.executed_minutes === 0 && <section>

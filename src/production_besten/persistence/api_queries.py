@@ -384,7 +384,7 @@ class PostgresApiQueries:
                          ORDER BY value.run_no DESC LIMIT 1
                       ) sol ON true
                      WHERE s.organization_id=:org AND s.plant_id=:plant
-                       AND s.id=:scenario AND s.scenario_kind IN ('initial','replan')
+                       AND s.id=:scenario AND s.scenario_kind IN ('initial','replan','simulation')
                 """), {
                     "org": org, "plant": plant, "scenario": scenario_id,
                 }).mappings().one_or_none()
@@ -646,7 +646,7 @@ class PostgresApiQueries:
                     WHERE value.organization_id=s.organization_id AND value.scenario_id=s.id
                     ORDER BY value.run_no DESC LIMIT 1) sol ON true
                  WHERE s.organization_id=:org AND s.plant_id=:plant
-                   AND s.scenario_kind IN ('initial','replan')
+                   AND s.scenario_kind IN ('initial','replan','simulation')
                    AND s.status IN ('ready','stale','confirmed')
                  ORDER BY s.created_at DESC,s.id DESC LIMIT 50
             """), {"org": org, "plant": plant}).mappings().all()
