@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: produccion-besten
+    runtime: docker
+    region: virginia
+    plan: free
+    autoDeployTrigger: "off"
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: PUBLIC_ORIGIN
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: PRODUCTION_PLANT_ID
+        sync: false

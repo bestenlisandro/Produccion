@@ -141,7 +141,7 @@ export function GanttPage() {
       return <main><section className="state" role="status">
         <h1>Todavía no existe un plan vigente.</h1>
         <p>Cargá y liberá un proyecto y generá una simulación para comenzar.</p>
-        <Link to="/projects">IR A PROYECTOS</Link>
+        <div className="actions"><Link to="/projects">IR A PROYECTOS</Link><Link to="/planning/resource-occupancy">Ocupación de recursos</Link></div>
       </section></main>
     }
     return <ErrorState retry={() => void query.refetch()} />
@@ -161,7 +161,9 @@ export function GanttPage() {
     <header className={styles.heading}>
       <div><p className="eyebrow">PLANIFICACIÓN</p><h1>Gantt operativo</h1>
         <p>{initial?'Simulación inicial · SIMULACIÓN · No aceptada':data.plan_version_id?`Plan vigente V${data.plan_version_number}`:'Todavía no existe un plan vigente.'} · {data.plant_name??'Planta'} · {data.timezone} · {adjustmentMode ? 'Modo ajuste DEV/interno' : 'Sólo lectura'}</p></div>
-      <div><small>Actualizado: {plantDateTime(data.generated_at,data.timezone)}</small><br/><Link to="/">TABLERO DIARIO</Link></div>
+      <div><small>Actualizado: {plantDateTime(data.generated_at,data.timezone)}</small>
+        <div className="actions"><Link to="/planning/resource-occupancy">Ocupación de recursos</Link><Link to="/">TABLERO DIARIO</Link></div>
+      </div>
     </header>
 
     <section className={styles.toolbar} aria-label="Controles del Gantt">

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Literal
 from uuid import UUID
 
@@ -34,6 +34,7 @@ from production_besten.domain.replanning import (
 from production_besten.persistence.execution_uow import PostgresExecutionUnitOfWorkFactory
 from production_besten.persistence.product_definition_uow import PostgresProductDefinitionUnitOfWorkFactory
 from production_besten.persistence.remaining_estimate_uow import PostgresUnitOfWorkFactory
+from production_besten.persistence.resource_occupancy import read_resource_occupancy
 from production_besten.persistence.scheduling_uow import PostgresSchedulingUnitOfWorkFactory
 
 router = APIRouter(responses={
@@ -290,6 +291,18 @@ def get_current_gantt(
     return GanttResponse.model_validate(container.queries.gantt(
         context.organization_id, plant_id, range_from, range_to,
         group_by, scenario_id,
+    ))
+
+
+@router.get("/planning/current/resource-occupancy", response_model=ResourceOccupancyResponse,
+            tags=["planning"], summary="Read 30 days of resource occupancy in the published plan")
+def get_resource_occupancy(
+    context: RequestContext = Depends(get_request_context),
+    container: ApiContainer = Depends(get_container),
+) -> ResourceOccupancyResponse:
+    now = container.clock() if container.clock else datetime.now(timezone.utc)
+    return ResourceOccupancyResponse.model_validate(read_resource_occupancy(
+        container.engine, context.organization_id, require_plant(context), now,
     ))
 
 

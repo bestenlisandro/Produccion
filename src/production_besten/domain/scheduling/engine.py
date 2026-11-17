@@ -413,17 +413,10 @@ class GreedyFiniteCapacityScheduler:
         return None
 
     def _owner_windows(self, value, calendar_id, owner_id, center_id, project_id, reservations):
-        windows = list(self._base_windows(value, calendar_id))
-        for overtime in value.overtime:
-            if overtime.project_id not in (None, project_id):
-                continue
-            scoped = overtime.employee_id is not None or overtime.resource_id is not None or overtime.work_center_id is not None
-            if owner_id is None or not scoped or overtime.employee_id == owner_id or overtime.resource_id == owner_id or overtime.work_center_id == center_id:
-                authorized_end = overtime.end
-                if overtime.max_minutes is not None:
-                    authorized_end = min(authorized_end, overtime.start + timedelta(minutes=overtime.max_minutes))
-                windows.append(TimeWindow(overtime.start, authorized_end))
-        windows = _merge(windows)
+        windows = _merge([
+            *self._base_windows(value, calendar_id),
+            *overtime_windows(value.overtime, owner_id, center_id, project_id),
+        ])
         if owner_id is not None:
             windows = _subtract(windows, [*value.unavailability.get(owner_id, ()),
                                           *value.actual_occupations.get(owner_id, ()), *reservations])
@@ -501,15 +494,7 @@ class GreedyFiniteCapacityScheduler:
         if _contains(self._base_windows(value, regular_calendar), window):
             return None
         for overtime in value.overtime:
-            if overtime.project_id not in (None, project_id):
-                continue
-            authorized_end = overtime.end
-            if overtime.max_minutes is not None:
-                authorized_end = min(authorized_end, overtime.start + timedelta(minutes=overtime.max_minutes))
-            if not (overtime.start <= window.start and window.end <= authorized_end):
-                continue
-            scoped = overtime.employee_id is not None or overtime.resource_id is not None or overtime.work_center_id is not None
-            if not scoped or overtime.employee_id == owner_id or overtime.resource_id == owner_id or overtime.work_center_id == center_id:
+            if _contains(overtime_windows((overtime,), owner_id, center_id, project_id), window):
                 return overtime.id
         return None
 
@@ -517,31 +502,9 @@ class GreedyFiniteCapacityScheduler:
         key = (calendar_id, value.horizon_start, value.horizon_end)
         if key in self._calendar_cache:
             return self._calendar_cache[key]
-        calendar = value.calendars[calendar_id]
-        zone = ZoneInfo(calendar.timezone)
-        start_date = value.horizon_start.astimezone(zone).date()
-        end_date = value.horizon_end.astimezone(zone).date()
-        windows = []
-        current = start_date
-        while current <= end_date:
-            day = []
-            for interval in calendar.intervals:
-                if interval.weekday == current.isoweekday() and (interval.valid_from is None or current >= interval.valid_from) and (interval.valid_to is None or current < interval.valid_to):
-                    begin = datetime.combine(current, interval.local_start, zone).astimezone(timezone.utc)
-                    finish = datetime.combine(current, interval.local_end, zone).astimezone(timezone.utc)
-                    day.append(TimeWindow(max(begin, value.horizon_start), min(finish, value.horizon_end)))
-            exceptions = [item for item in calendar.exceptions if item.date == current]
-            for exception in exceptions:
-                changed = [] if exception.effect == "replace" else day
-                if exception.effect == "remove":
-                    removal = [TimeWindow(exception.start, exception.end)] if exception.start else list(day)
-                    changed = _subtract(day, removal)
-                elif exception.effect in {"add", "replace"} and exception.start:
-                    changed = [*changed, TimeWindow(exception.start, exception.end)]
-                day = changed
-            windows.extend(item for item in day if item.start < item.end)
-            current += timedelta(days=1)
-        self._calendar_cache[key] = _merge(windows)
+        self._calendar_cache[key] = calendar_windows(
+            value.calendars[calendar_id], value.horizon_start, value.horizon_end
+        )
         return self._calendar_cache[key]
 
     def _capacity_blocker(self, value, phase, ready, reservations):
@@ -598,6 +561,52 @@ class GreedyFiniteCapacityScheduler:
     @staticmethod
     def _resource(value, resource_id) -> ResourceData:
         return next(item for item in value.resources if item.id == resource_id)
+
+
+
+def calendar_windows(calendar: CalendarData, start: datetime, end: datetime) -> list[TimeWindow]:
+    zone = ZoneInfo(calendar.timezone)
+    start_date = start.astimezone(zone).date()
+    end_date = end.astimezone(zone).date()
+    windows = []
+    current = start_date
+    while current <= end_date:
+        day = []
+        for interval in calendar.intervals:
+            if interval.weekday == current.isoweekday() and (interval.valid_from is None or current >= interval.valid_from) and (interval.valid_to is None or current < interval.valid_to):
+                begin = datetime.combine(current, interval.local_start, zone).astimezone(timezone.utc)
+                finish = datetime.combine(current, interval.local_end, zone).astimezone(timezone.utc)
+                day.append(TimeWindow(max(begin, start), min(finish, end)))
+        exceptions = [item for item in calendar.exceptions if item.date == current]
+        for exception in exceptions:
+            changed = [] if exception.effect == "replace" else day
+            if exception.effect == "remove":
+                removal = [TimeWindow(exception.start, exception.end)] if exception.start else list(day)
+                changed = _subtract(day, removal)
+            elif exception.effect in {"add", "replace"} and exception.start:
+                changed = [*changed, TimeWindow(exception.start, exception.end)]
+            day = changed
+        windows.extend(item for item in day if item.start < item.end)
+        current += timedelta(days=1)
+    return _merge(windows)
+
+
+def overtime_windows(overtime, owner_id, center_id, project_id):
+    windows = []
+    for item in overtime:
+        if item.project_id not in (None, project_id):
+            continue
+        if owner_id is not None and not (
+            (item.employee_id is None and item.resource_id is None and item.work_center_id is None)
+            or item.employee_id == owner_id or item.resource_id == owner_id
+            or (center_id is not None and item.work_center_id == center_id)
+        ):
+            continue
+        end = item.end
+        if item.max_minutes is not None:
+            end = min(end, item.start + timedelta(minutes=item.max_minutes))
+        windows.append(TimeWindow(item.start, end))
+    return windows
 
 
 def _gate_blocker(gate_type: str) -> str:

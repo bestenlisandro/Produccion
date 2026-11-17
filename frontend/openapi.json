@@ -2809,6 +2809,84 @@
         }
       }
     },
+    "/planning/current/resource-occupancy": {
+      "get": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Read 30 days of resource occupancy in the published plan",
+        "operationId": "get_resource_occupancy_planning_current_resource_occupancy_get",
+        "parameters": [
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceOccupancyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
     "/operations/{operation_id}": {
       "get": {
         "tags": [
@@ -13342,6 +13420,269 @@
           "base_calendar_id"
         ],
         "title": "ResourceInput"
+      },
+      "ResourceOccupancyBooking": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "project_code": {
+            "type": "string",
+            "title": "Project Code"
+          },
+          "project_name": {
+            "type": "string",
+            "title": "Project Name"
+          },
+          "operation_name": {
+            "type": "string",
+            "title": "Operation Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "work",
+              "hold",
+              "actual_hold"
+            ],
+            "title": "Kind"
+          },
+          "start_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start At"
+          },
+          "end_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End At"
+          },
+          "minutes_in_day": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes In Day"
+          },
+          "occupied_minutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occupied Minutes"
+          },
+          "alerts": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "outside_availability",
+                "overlap"
+              ]
+            },
+            "type": "array",
+            "title": "Alerts"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "project_code",
+          "project_name",
+          "operation_name",
+          "kind",
+          "start_at",
+          "end_at",
+          "minutes_in_day",
+          "occupied_minutes",
+          "alerts"
+        ],
+        "title": "ResourceOccupancyBooking"
+      },
+      "ResourceOccupancyDay": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "available",
+              "no_shift",
+              "unavailable",
+              "missing_calendar"
+            ],
+            "title": "Status"
+          },
+          "available_minutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Minutes"
+          },
+          "occupied_minutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occupied Minutes"
+          },
+          "free_minutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Free Minutes"
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent"
+          },
+          "bookings": {
+            "items": {
+              "$ref": "#/components/schemas/ResourceOccupancyBooking"
+            },
+            "type": "array",
+            "title": "Bookings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "date",
+          "status",
+          "available_minutes",
+          "occupied_minutes",
+          "free_minutes",
+          "percent",
+          "bookings"
+        ],
+        "title": "ResourceOccupancyDay"
+      },
+      "ResourceOccupancyResponse": {
+        "properties": {
+          "plant_name": {
+            "type": "string",
+            "title": "Plant Name"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "plan_version_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Version Number"
+          },
+          "dates": {
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "type": "array",
+            "title": "Dates"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/ResourceOccupancyRow"
+            },
+            "type": "array",
+            "title": "Resources"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "plant_name",
+          "timezone",
+          "plan_version_number",
+          "dates",
+          "resources"
+        ],
+        "title": "ResourceOccupancyResponse"
+      },
+      "ResourceOccupancyRow": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "group_key": {
+            "type": "string",
+            "title": "Group Key"
+          },
+          "group_name": {
+            "type": "string",
+            "title": "Group Name"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/ResourceOccupancyDay"
+            },
+            "type": "array",
+            "title": "Days"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "group_key",
+          "group_name",
+          "days"
+        ],
+        "title": "ResourceOccupancyRow"
       },
       "ResourceUpdate": {
         "properties": {

@@ -568,3 +568,41 @@ class GanttResponse(ApiModel):
     working_windows: list[GanttWorkingWindowResponse]
     available_scenarios: list[GanttScenarioOptionResponse]
     scenario: GanttScenarioResponse | None = None
+
+class ResourceOccupancyBooking(ApiModel):
+    id: UUID
+    project_code: str
+    project_name: str
+    operation_name: str
+    kind: Literal["work", "hold", "actual_hold"]
+    start_at: datetime
+    end_at: datetime | None
+    minutes_in_day: float | None
+    occupied_minutes: float | None
+    alerts: list[Literal["outside_availability", "overlap"]]
+
+
+class ResourceOccupancyDay(ApiModel):
+    date: date
+    status: Literal["available", "no_shift", "unavailable", "missing_calendar"]
+    available_minutes: float | None
+    occupied_minutes: float | None
+    free_minutes: float | None
+    percent: float | None
+    bookings: list[ResourceOccupancyBooking]
+
+
+class ResourceOccupancyRow(ApiModel):
+    id: UUID
+    name: str
+    group_key: str
+    group_name: str
+    days: list[ResourceOccupancyDay]
+
+
+class ResourceOccupancyResponse(ApiModel):
+    plant_name: str
+    timezone: str
+    plan_version_number: int | None
+    dates: list[date]
+    resources: list[ResourceOccupancyRow]

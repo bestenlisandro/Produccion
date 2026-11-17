@@ -27,9 +27,10 @@ from production_besten.domain.replanning import (
     ResizeScheduledActivity,
 )
 from production_besten.domain.scheduling.engine import GreedyFiniteCapacityScheduler
+from production_besten.persistence.capacity_queries import load_calendars, load_overtime
 from production_besten.domain.scheduling.models import (
-    CalendarData, CalendarException, CalendarInterval, CapacityUsage, EmployeeData, GateData,
-    GenerateSchedule, LaborNeed, OvertimeData, PhaseData, PhysicalNeed,
+    CapacityUsage, EmployeeData, GateData,
+    GenerateSchedule, LaborNeed, PhaseData, PhysicalNeed,
     PrecedenceData, ProjectData, ResourceData, ScheduleGenerationResult,
     SchedulingInput, SchedulingOutput, TimeWindow, WorkCenterData,
 )
@@ -1342,16 +1343,7 @@ class PostgresSchedulingUnitOfWork:
         resources = tuple(ResourceData(row["id"], row["code"], row["base_calendar_id"], row["resource_type_id"], row["work_center_id"], frozenset(groups[row["id"]]), row["scheduling_mode"], float(row["capacity_units"])) for row in resource_rows)
         calendar_ids = {self.conn.scalar(text("SELECT base_calendar_id FROM core.plants WHERE organization_id=:org AND id=:plant"), {"org": command.organization_id, "plant": command.plant_id}), *(row["base_calendar_id"] for row in employee_rows), *(row["base_calendar_id"] for row in resource_rows)}
         calendar_ids.update(center.calendar_id for center in self._work_centers.values())
-        calendar_rows = self.conn.execute(text("SELECT id,timezone FROM capacity.calendars WHERE organization_id=:org AND id=ANY(:ids) AND status='active'"), {"org": command.organization_id, "ids": list(calendar_ids)}).mappings().all()
-        interval_rows = self.conn.execute(text("SELECT calendar_id,weekday,local_start,local_end,valid_during,capacity_factor FROM capacity.calendar_working_intervals WHERE organization_id=:org AND calendar_id=ANY(:ids) ORDER BY calendar_id,weekday,local_start"), {"org": command.organization_id, "ids": list(calendar_ids)}).mappings().all()
-        exception_rows = self.conn.execute(text("SELECT calendar_id,exception_date,effect,lower(time_range) AS start_at,upper(time_range) AS end_at,capacity_factor FROM capacity.calendar_exceptions WHERE organization_id=:org AND calendar_id=ANY(:ids) ORDER BY calendar_id,exception_date"), {"org": command.organization_id, "ids": list(calendar_ids)}).mappings().all()
-        intervals, exceptions = defaultdict(list), defaultdict(list)
-        for row in interval_rows:
-            range_value = row["valid_during"]
-            intervals[row["calendar_id"]].append(CalendarInterval(row["weekday"], row["local_start"], row["local_end"], range_value.lower, range_value.upper, float(row["capacity_factor"])))
-        for row in exception_rows:
-            exceptions[row["calendar_id"]].append(CalendarException(row["exception_date"], row["effect"], row["start_at"], row["end_at"], float(row["capacity_factor"]) if row["capacity_factor"] is not None else None))
-        calendars = {row["id"]: CalendarData(row["id"], row["timezone"], tuple(intervals[row["id"]]), tuple(exceptions[row["id"]])) for row in calendar_rows}
+        calendars = load_calendars(self.conn, command.organization_id, calendar_ids)
         if calendar_ids != set(calendars):
             raise InvalidSchedulingInput("an effective calendar is missing or inactive")
         unavailable_rows = self.conn.execute(text("""
@@ -1422,13 +1414,8 @@ class PostgresSchedulingUnitOfWork:
                 units = max(units,max((item.capacity_units for item in occupation if item.window.start<finish and start<item.window.end),default=0))
                 if units:
                     actual_capacity[key[1]].append(CapacityUsage(TimeWindow(start,finish),units))
-        overtime_rows = self.conn.execute(text("""
-            SELECT id,lower(time_range) AS start_at,upper(time_range) AS end_at,project_id,employee_id,physical_resource_id,work_center_id,max_minutes
-            FROM capacity.overtime_authorizations WHERE organization_id=:org AND plant_id=:plant AND revoked_at IS NULL
-              AND time_range && tstzrange(:start,:finish,'[)') AND (scenario_id IS NULL OR scenario_id=:scenario)
-            ORDER BY start_at,id
-        """), {"org": command.organization_id, "plant": command.plant_id, "start": command.horizon_start, "finish": command.horizon_end, "scenario": scenario_id}).mappings().all()
-        overtime = tuple(OvertimeData(row["id"], row["start_at"], row["end_at"], row["project_id"], row["employee_id"], row["physical_resource_id"], row["work_center_id"], row["max_minutes"]) for row in overtime_rows)
+        overtime = load_overtime(self.conn, command.organization_id, command.plant_id,
+                                 command.horizon_start, command.horizon_end, scenario_id)
         return (employees, resources, calendars,
                 {k: tuple(v) for k,v in unavailability.items()},
                 {k: tuple(v) for k,v in occupations.items()},

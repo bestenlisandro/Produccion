@@ -449,6 +449,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/planning/current/resource-occupancy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read 30 days of resource occupancy in the published plan */
+        get: operations["get_resource_occupancy_planning_current_resource_occupancy_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/operations/{operation_id}": {
         parameters: {
             query?: never;
@@ -3443,6 +3460,90 @@ export interface components {
              */
             base_calendar_id: string;
         };
+        /** ResourceOccupancyBooking */
+        ResourceOccupancyBooking: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Project Code */
+            project_code: string;
+            /** Project Name */
+            project_name: string;
+            /** Operation Name */
+            operation_name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "work" | "hold" | "actual_hold";
+            /**
+             * Start At
+             * Format: date-time
+             */
+            start_at: string;
+            /** End At */
+            end_at: string | null;
+            /** Minutes In Day */
+            minutes_in_day: number | null;
+            /** Occupied Minutes */
+            occupied_minutes: number | null;
+            /** Alerts */
+            alerts: ("outside_availability" | "overlap")[];
+        };
+        /** ResourceOccupancyDay */
+        ResourceOccupancyDay: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "available" | "no_shift" | "unavailable" | "missing_calendar";
+            /** Available Minutes */
+            available_minutes: number | null;
+            /** Occupied Minutes */
+            occupied_minutes: number | null;
+            /** Free Minutes */
+            free_minutes: number | null;
+            /** Percent */
+            percent: number | null;
+            /** Bookings */
+            bookings: components["schemas"]["ResourceOccupancyBooking"][];
+        };
+        /** ResourceOccupancyResponse */
+        ResourceOccupancyResponse: {
+            /** Plant Name */
+            plant_name: string;
+            /** Timezone */
+            timezone: string;
+            /** Plan Version Number */
+            plan_version_number: number | null;
+            /** Dates */
+            dates: string[];
+            /** Resources */
+            resources: components["schemas"]["ResourceOccupancyRow"][];
+        };
+        /** ResourceOccupancyRow */
+        ResourceOccupancyRow: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Group Key */
+            group_key: string;
+            /** Group Name */
+            group_name: string;
+            /** Days */
+            days: components["schemas"]["ResourceOccupancyDay"][];
+        };
         /** ResourceUpdate */
         ResourceUpdate: {
             /** Code */
@@ -5386,6 +5487,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GanttResponse"];
+                };
+            };
+            /** @description Semantically invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Resource not found or inaccessible in tenant */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description State, concurrency, availability, gate or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Structurally invalid path, header or body */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected internal error without implementation details */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Required infrastructure or identity provider unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_resource_occupancy_planning_current_resource_occupancy_get: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceOccupancyResponse"];
                 };
             };
             /** @description Semantically invalid request */

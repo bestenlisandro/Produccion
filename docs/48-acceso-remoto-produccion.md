@@ -1,0 +1,26 @@
+# Acceso remoto a Producción Besten
+
+La configuración usa la dirección HTTPS gratuita de Render y un proyecto exclusivo de Producción en Supabase Free. Render entrega React, FastAPI y el formulario de ingreso en la misma dirección. Supabase Auth verifica el correo y la contraseña. FastAPI valida la firma y vigencia del token, y guarda la sesión del navegador en una cookie segura con una duración máxima de una hora. La planta y los permisos se resuelven en el servidor. El entorno local conserva Vite y su identidad de desarrollo.
+
+El [Blueprint](../render.yaml) ofrece el servicio web gratuito en Virginia. Render lo suspende después de 15 minutos sin tráfico y el primer acceso puede tardar alrededor de un minuto. Supabase Free admite 500 MB por proyecto, puede pausar el proyecto tras una semana de inactividad y requiere copias lógicas propias para recuperación. [Límites de Render Free](https://render.com/docs/free) · [Plan gratuito de Supabase](https://supabase.com/pricing)
+
+## Preparar el entorno
+
+1. Identificar el espacio de Render de Besten y un repositorio privado de este proyecto o un registro privado de imágenes. El `Dockerfile` genera la imagen desde los locks de Node y Python. El contexto Docker excluye la base, las credenciales, `test-results` y el historial de Git. En un despliegue Git, validar el Blueprint con `render blueprints validate render.yaml` antes de aplicarlo. Mantener el despliegue automático deshabilitado durante la prueba.
+2. El proyecto `Producción Besten - Prueba` en Supabase, referencia `kdrdwkmejnftyvnziaqe`, usa PostgreSQL 17.12. Las migraciones 000–014 y las pruebas SQL de integridad y datos sintéticos pasaron. En este proyecto, `btree_gist` quedó en el esquema `extensions` de Supabase. Antes de transferir información operativa, ensayar una carga **solo de datos** desde un PostgreSQL 18 desechable. Limitar el volcado a los ocho esquemas de Besten y conservar los esquemas administrados por Supabase. Antes del corte, comprobar extensiones, conteos, revisiones y CURRENT contra el origen. [Proyecto de prueba](https://supabase.com/dashboard/project/kdrdwkmejnftyvnziaqe) · [Migrar desde PostgreSQL](https://supabase.com/kb/guides/migrate-from-postgres)
+3. Crear `produccion_besten_app` como rol de conexión dedicado, con contraseña aleatoria configurada en el gestor de secretos y sin membresía en el rol dueño. Aplicar [los permisos de ejecución](../db/operations/cloud_runtime_grants.sql) en la base de destino. Usar la conexión directa si Render dispone de IPv6, o Supavisor en modo sesión por IPv4 y puerto 5432. Configurar el driver `postgresql+psycopg` y TLS con `sslmode=verify-full` y el certificado CA correspondiente al endpoint. Mantener la credencial solo en Render y dejar los esquemas de negocio fuera de la Data API de Supabase. [Conexiones PostgreSQL de Supabase](https://supabase.com/docs/guides/database/connecting-to-postgres)
+4. En Supabase Auth, habilitar correo y contraseña, seleccionar una clave asimétrica ES256 o RS256 y deshabilitar el registro público y las sesiones anónimas. Crear únicamente usuarios aprobados y asociar su UUID a `core.user_profiles.auth_subject` en la base de destino. Esta primera versión admite el rol `admin` activo en la planta configurada. Darlo solo a quien pueda administrar maestros, operaciones y escenarios. Al deshabilitar el perfil o retirar el rol, la app revoca el acceso en la siguiente solicitud. La creación de cuentas y la recuperación de contraseñas se administran en Supabase. [Configuración de Auth](https://supabase.com/docs/guides/auth/general-configuration) · [Claves de firma](https://supabase.com/docs/guides/auth/signing-keys)
+
+| Variable del servicio | Valor esperado |
+|---|---|
+| `DATABASE_URL` | Conexión de Supabase directa o en modo sesión, con TLS y el rol dedicado de aplicación |
+| `PUBLIC_ORIGIN` | Dirección HTTPS asignada por Render, sin barra final |
+| `SUPABASE_URL` | Origen HTTPS del proyecto dedicado en Supabase |
+| `SUPABASE_PUBLISHABLE_KEY` | Clave de tipo `sb_publishable_…` del mismo proyecto |
+| `PRODUCTION_PLANT_ID` | ID de la planta activa en la base restaurada |
+
+## Verificar y habilitar
+
+1. Comprobar desde otra red que la URL de Render abre el inicio de sesión y que una sesión aprobada abre la app, el Gantt y Ocupación de recursos. Probar desde el navegador de un celular y de una PC. Confirmar que la API rechaza las solicitudes sin sesión y que el plan vigente coincide con el origen.
+2. Probar una restauración de respaldo en una instancia separada y registrar el tiempo necesario. Usar `/health` para verificar el proceso y `/ready` al validar el acceso a la base. Conservar copias lógicas cifradas fuera de Supabase y probar su restauración.
+3. Acordar el corte. Pausar las escrituras en la base local, tomar el volcado definitivo, restaurarlo en el destino, verificar datos y permisos y habilitar las escrituras solo en la base nueva. Si hay que volver atrás después de que el destino reciba escrituras, conservar primero los datos nuevos y reconciliarlos antes de reabrir el origen. Consultar el [procedimiento detallado de migración](43-cloud-readiness-audit.md#11-migración-local--cloud-procedimiento-propuesto-no-ejecutado).

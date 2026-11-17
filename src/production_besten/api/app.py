@@ -18,6 +18,7 @@ from production_besten.persistence.database import create_database_engine
 
 
 def create_app(*, engine: Engine | None = None, enable_dev_context: bool | None = None,
+               expose_docs: bool = True,
                failpoints: dict[str, str] | None = None,
                clock: Callable[[], datetime] | None = None) -> FastAPI:
     if engine is None:
@@ -29,7 +30,8 @@ def create_app(*, engine: Engine | None = None, enable_dev_context: bool | None 
     if enable_dev_context is not None:
         enabled = enable_dev_context
     app = FastAPI(title="Producción Besten API", version="1.0.0",
-                  description="API interna mínima sobre servicios de dominio validados.")
+                  description="API interna mínima sobre servicios de dominio validados.",
+                  openapi_url="/openapi.json" if expose_docs else None)
     app.state.container = ApiContainer(engine, DevRequestContextProvider(enabled=enabled), failpoints or {}, clock)
     install_error_handlers(app)
     from production_besten.api.installation_routes import router as installation_router

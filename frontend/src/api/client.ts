@@ -47,13 +47,15 @@ export function safeErrorMessage(status:number,message:unknown):string {
 }
 
 export async function request<T>(path: string, init: RequestInit = {}, idempotencyKey?: string): Promise<T> {
-  const value = context()
   const headers = new Headers(init.headers)
   headers.set('Accept', 'application/json')
   if (init.body) headers.set('Content-Type', 'application/json')
-  headers.set('X-Dev-User-Id', value.userId)
-  headers.set('X-Dev-Organization-Id', value.organizationId)
-  headers.set('X-Dev-Plant-Id', value.plantId)
+  if (import.meta.env.VITE_CLOUD_BUILD !== 'true') {
+    const value = context()
+    headers.set('X-Dev-User-Id', value.userId)
+    headers.set('X-Dev-Organization-Id', value.organizationId)
+    headers.set('X-Dev-Plant-Id', value.plantId)
+  }
   if (idempotencyKey) headers.set('Idempotency-Key', idempotencyKey)
   const method=(init.method??'GET').toUpperCase(),mutating=!['GET','HEAD'].includes(method)
   let payload:Record<string,unknown>={}
@@ -61,6 +63,9 @@ export async function request<T>(path: string, init: RequestInit = {}, idempoten
   try{
     const response = await fetch(`/api${path}`, { ...init, headers })
     if (!response.ok) {
+      if (response.status === 401 && import.meta.env.VITE_CLOUD_BUILD === 'true') {
+        window.location.assign('/login')
+      }
       const body = await response.json().catch(() => ({})) as { error?: { code?: string; message?: string; request_id?: string } }
       throw new ApiError(response.status, body.error?.code ?? 'HTTP_ERROR',body.error?.message ?? 'No se pudo completar la solicitud.',response.headers.get('X-Request-Id')??body.error?.request_id)
     }

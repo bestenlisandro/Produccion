@@ -43,7 +43,7 @@ export function MasterDataPage(){
   if(query.isError)return <main><Async title="No pudimos cargar la configuración" detail={query.error.message}><button onClick={()=>query.refetch()}>REINTENTAR</button></Async></main>
   const data=query.data
   return <main>
-    <p className="eyebrow">CONFIGURACIÓN · DEV ONLY</p><h1>Maestros operativos</h1>
+    <p className="eyebrow">CONFIGURACIÓN{import.meta.env.VITE_CLOUD_BUILD !== 'true' && ' · DEV ONLY'}</p><h1>Maestros operativos</h1>
     <p className={styles.dev}>Contexto local de desarrollo. Autenticación y autorización productivas: BLOCKER FOR PRODUCTION.</p>
     <nav className={styles.tabs} aria-label="Secciones de configuración">{sections.map(([id,label])=><button key={id} className={section===id?styles.active:'secondary'} aria-pressed={section===id} onClick={()=>setSection(id)}>{label}</button>)}</nav>
     {section!=='plant'&&<label className={styles.filter}><input type="checkbox" checked={showInactive} onChange={event=>setShowInactive(event.target.checked)}/> Mostrar inactivos</label>}
