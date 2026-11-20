@@ -129,7 +129,9 @@ class PostgresApiQueries:
                 WHERE organization_id=:org AND required_operation_phase_id=:phase AND is_mandatory
                 ORDER BY id
             """), {"org": org, "phase": row["phase_id"]}).mappings().all()
-        return dict(row) | {"labor_requirements": [dict(x) for x in labor],
+            required_people = conn.scalar(text("SELECT required_people FROM production.required_operation_phases WHERE organization_id=:org AND id=:phase"),
+                                          {"org": org, "phase": row["phase_id"]})
+        return dict(row) | {"required_people": required_people, "labor_requirements": [dict(x) for x in labor],
                             "physical_requirements": [dict(x) for x in physical]}
 
     def revision_created_at(self, org: UUID, revision_id: UUID) -> Any:

@@ -118,3 +118,21 @@ def test_restricted_runtime_draft_rollback_after_result_completion(engine,editor
         api.headers.update(owner.headers)
         assert mutate(api,'PUT',path,body).status_code==500
     assert snapshot(engine,case.organization_id)==before
+
+
+def test_cloud_runtime_grants_allow_organization_lock_without_user_administration(engine, seeded_case, restricted_runtime):
+    runtime, _ = restricted_runtime
+    role = make_url(runtime.url).query['options'].removeprefix('-c role=')
+    source = (Path(__file__).resolve().parents[2] / 'db/operations/cloud_runtime_grants.sql').read_text(encoding='utf-8')
+    with engine.connect().execution_options(isolation_level='AUTOCOMMIT') as owner:
+        quoted_role = owner.dialect.identifier_preparer.quote(role)
+        owner.exec_driver_sql(source.replace('produccion_besten_app', quoted_role))
+    with runtime.begin() as connection:
+        assert connection.scalar(text('SELECT id FROM core.organizations WHERE id=:org FOR UPDATE'),
+                                 {'org': seeded_case.organization_id}) == seeded_case.organization_id
+        assert connection.execute(text("""
+            SELECT has_column_privilege(current_user,'core.organizations','updated_at','UPDATE'),
+                   has_column_privilege(current_user,'core.organizations','legal_name','UPDATE'),
+                   has_table_privilege(current_user,'core.user_roles','UPDATE'),
+                   has_table_privilege(current_user,'core.user_profiles','INSERT')
+        """)).one() == (True, False, False, False)

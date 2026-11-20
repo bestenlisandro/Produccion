@@ -36,8 +36,7 @@ class RemainingResourceInput:
             raise InvalidEstimate("capacity_units must be positive")
         if self.dimension is RemainingDimension.LABOR_WORK:
             if (
-                self.skill_id is None
-                or self.min_people is None
+                self.min_people is None
                 or self.max_people is None
                 or self.min_people < 1
                 or self.max_people < self.min_people

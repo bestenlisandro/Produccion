@@ -18,9 +18,12 @@ def remaining_command(body: UpdateRemainingEstimateRequest, context: dict, *, or
         requirement_id = item.physical_requirement_id
         if item.dimension == "LABOR_WORK" and (skill_id is None or minimum is None or maximum is None):
             labor = context["labor_requirements"]
-            if len(labor) != 1:
+            if not labor and skill_id is None and context.get("required_people", 0) > 0:
+                minimum = maximum = context["required_people"]
+            elif len(labor) == 1:
+                skill_id, minimum, maximum = labor[0]["skill_id"], labor[0]["min_people"], labor[0]["max_people"]
+            else:
                 raise InvalidEstimate("labor skill/team must be specified when the phase does not have exactly one mandatory labor requirement")
-            skill_id, minimum, maximum = labor[0]["skill_id"], labor[0]["min_people"], labor[0]["max_people"]
         if item.dimension == "ACTIVE_PHYSICAL_USE" and requirement_id is None:
             physical = [value for value in context["physical_requirements"] if value["usage_mode"] == "active_use"]
             if len(physical) != 1:

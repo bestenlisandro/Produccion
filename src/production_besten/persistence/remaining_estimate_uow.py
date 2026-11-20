@@ -13,6 +13,7 @@ from production_besten.domain.errors import (
     RevisionConflict,
 )
 from production_besten.domain.remaining_estimate import (
+    RemainingDimension,
     RemainingEstimateResult,
     UpdateRemainingEstimate,
 )
@@ -108,6 +109,19 @@ class PostgresRemainingEstimateUnitOfWork:
         )
         if not phase_belongs:
             raise InvalidEstimate("a resource dimension references a phase outside the execution")
+
+        for resource in command.resources:
+            if resource.dimension is RemainingDimension.LABOR_WORK and resource.skill_id is None:
+                generic_team = conn.scalar(text("""
+                    SELECT ph.required_people FROM production.required_operation_phases ph
+                    WHERE ph.organization_id=:org AND ph.id=:phase
+                      AND NOT EXISTS (
+                        SELECT 1 FROM production.operation_labor_requirements r
+                        WHERE r.organization_id=ph.organization_id
+                          AND r.required_operation_phase_id=ph.id AND r.is_mandatory)
+                """), {"org": command.organization_id, "phase": resource.phase_id})
+                if not generic_team or resource.min_people != generic_team or resource.max_people != generic_team:
+                    raise InvalidEstimate("generic labor must match the phase's required people without mandatory skills")
 
         previous = conn.execute(
             text(

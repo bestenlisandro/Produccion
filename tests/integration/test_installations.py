@@ -50,6 +50,41 @@ def test_location_empty_for_historical_and_no_installation(editor):
     assert not overview(api,path)['required']
 
 
+def test_installation_without_skill_can_update_remaining_and_preserve_execution(editor):
+    case, api, path, lot = editor
+    operation = lot['operations'][0]
+    operation.update(operation_kind='installation', predecessor_codes=[])
+    operation['phases'][0].update(required_people=1, labor_requirements=[])
+    assert save(api, path, [lot]).status_code == 200
+    assert action(api, path, 'freeze').status_code == 200
+    assert location(api, path).status_code == 200
+    assert command(api, path, 'release').status_code == 200
+    operation = read(api, path)['lots'][0]['operations'][0]
+    phase_id = operation['phases'][0]['id']
+    start = HORIZON_START
+    started = mutate(api, 'POST', f"/operations/{operation['id']}/start",
+                     {'phase_id': phase_id, 'started_at': start.isoformat()})
+    assert started.status_code == 201, started.text
+    execution_id = started.json()['execution_id']
+    end = start + timedelta(minutes=20)
+    segment = mutate(api, 'POST', f'/executions/{execution_id}/segments', {
+        'phase_id': phase_id, 'started_at': start.isoformat(), 'ended_at': end.isoformat(),
+        'work_minutes': 20, 'humans': [{'employee_id': str(case.employee_id), 'work_minutes': 20}],
+        'physical_usages': [{'physical_resource_id': str(case.physical_resource_id),
+                             'work_minutes': 20, 'capacity_units': 1}],
+    })
+    assert segment.status_code == 201, segment.text
+    item = overview(api, path)['installations'][0]
+    updated = mutate(api, 'POST', f"/installations/{operation['id']}/remaining-estimate", {
+        'expected_revision_no': item['remaining_revision_no'], 'cutoff_at': end.isoformat(),
+        'remaining': [{'dimension': 'LABOR_WORK', 'phase_id': phase_id, 'minutes': 120}],
+        'reason': 'Disposable unskilled installation delay',
+    })
+    assert updated.status_code == 200, updated.text
+    item = overview(api, path)['installations'][0]
+    assert item['executed_minutes'] == 20 and item['remaining_minutes'] == 120
+
+
 @pytest.mark.parametrize('field',FIELDS)
 def test_structured_location_roundtrip(editor,field):
     _,api,path,_=editor
