@@ -363,7 +363,9 @@ def test_gantt_postgresql_benchmark_10_50_and_50_250(engine, seeded_case):
     )
     small_ms = (perf_counter() - started) * 1000
     small_bytes = len(json.dumps(small, default=str, separators=(",", ":")).encode())
-    assert len(small["operations"]) == 50
+    assert len([o for o in small['operations'] if o['planned_start']]) == 50
+    historical = [o for o in small['operations'] if not o['planned_start']]
+    assert len(historical) == 1 and historical[0]['actual_segments']
 
     _seed_gantt_scale(engine, seeded_case, first_project=10, project_count=40)
     started = perf_counter()
@@ -373,7 +375,8 @@ def test_gantt_postgresql_benchmark_10_50_and_50_250(engine, seeded_case):
     )
     moderate_ms = (perf_counter() - started) * 1000
     moderate_bytes = len(json.dumps(moderate, default=str, separators=(",", ":")).encode())
-    assert len(moderate["operations"]) == 250
+    assert len([o for o in moderate['operations'] if o['planned_start']]) == 250
+    assert [o['operation_id'] for o in moderate['operations'] if not o['planned_start']] == [historical[0]['operation_id']]
 
     print(
         f"GANTT_BENCHMARK 10/50={small_ms:.2f}ms/{small_bytes / 1024:.1f}KiB "

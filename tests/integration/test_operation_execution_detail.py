@@ -23,6 +23,9 @@ def test_production_execution_detail_commands_history_and_remaining_replay(edito
     assert before.status_code == 200, before.text
     assert before.json()['can_execute'] and not before.json()['segments']
     assert len(before.json()['phases']) == 2
+    unplanned = api.get(f"/operations/{op['id']}")
+    assert unplanned.status_code == 200, unplanned.text
+    assert unplanned.json()['planned_start'] is None
     phase = op['phases'][0]['id']
     start = HORIZON_START
     started = mutate(api, 'POST', f"/operations/{op['id']}/start", {'phase_id': phase, 'started_at': start.isoformat()})
@@ -61,6 +64,24 @@ def test_production_execution_detail_commands_history_and_remaining_replay(edito
     started = mutate(api, 'POST', f"/operations/{op['id']}/start", {'phase_id': op['phases'][1]['id'], 'started_at': end.isoformat()})
     assert started.status_code == 201, started.text
     assert api.get(url).json()['phases'][1]['started']
+    finished = mutate(api, 'POST', f"/operations/{op['id']}/finish", {'phase_id': op['phases'][1]['id'], 'completed_at': end.isoformat()})
+    assert finished.status_code == 200, finished.text
+    summary = api.get(f"/operations/{op['id']}")
+    assert summary.status_code == 200, summary.text
+    assert summary.json()['operational_status'] == 'FINALIZADO'
+    assert summary.json()['executed_minutes'] == 20 and summary.json()['remaining_minutes'] == 0
+    assert summary.json()['progress_percent'] == 100
+    assert api.get(url).json()['segments'] == detail['segments']
+    for grouping in ('person', 'resource', 'center', 'project'):
+        gantt = api.get('/planning/current/gantt', params={'from': start.isoformat(), 'to': (start+timedelta(days=1)).isoformat(), 'group_by': grouping})
+        assert gantt.status_code == 200, gantt.text
+        historical = next(o for o in gantt.json()['operations'] if o['operation_id'] == op['id'])
+        assert historical['planned_start'] is None and historical['planned_segments'] == []
+        assert historical['operational_status'] == 'FINALIZADO' and historical['remaining_minutes'] == 0
+        assert historical['actual_segments'][0]['id'] == segment.json()['segment_id']
+        assert historical['people'][0]['id'] == str(case.employee_id)
+        assert historical['resources'][0]['id'] == str(case.physical_resource_id)
+        assert historical['group_ids']
 
 
 def test_read_only_context_and_plant_scope(editor):
