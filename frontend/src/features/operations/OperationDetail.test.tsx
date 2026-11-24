@@ -35,7 +35,9 @@ test('oculta acciones sin permiso y conserva el historial al finalizar',async()=
 })
 
 test('finalizada muestra tramo y no ofrece acciones de escritura',async()=>{
+ server.use(http.get('/api/operations/:id',()=>HttpResponse.json({...detail,planned_start:null,planned_finish:null,operational_status:'FINALIZADO'})))
  server.use(http.get('/api/operations/:id/execution',()=>HttpResponse.json({...execution,execution_status:'completed',phases:execution.phases.map(p=>({...p,completed:true})),segments:[{id:'segment',phase_id:detail.phase_id,phase_name:'Armado',started_at:execution.started_at,ended_at:'2026-11-24T12:00:00Z',work_minutes:30,people:[{id:'person',name:'Mariano',minutes:30}],resources:[{id:'bank',name:'Banco de armado 1',minutes:30}]}]})))
  renderDetail();expect(await screen.findByText(/Operación finalizada/)).toBeInTheDocument();expect(screen.getByText('Mariano (30 min)')).toBeInTheDocument()
  expect(screen.queryByRole('button',{name:'REGISTRAR TRAMO'})).not.toBeInTheDocument()
+ expect(screen.getAllByText('Sin programación futura')).toHaveLength(2)
 })
