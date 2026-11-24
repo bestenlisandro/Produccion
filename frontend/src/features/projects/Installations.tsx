@@ -1,10 +1,11 @@
-import {useRef,useState,type FormEvent} from 'react'
+import {useState,type FormEvent} from 'react'
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query'
 import {Link} from 'react-router'
 import moment from 'moment-timezone'
 import {request,ApiError,api} from '../../api/client'
 import type {components} from '../../api/schema'
 import {ReplanPanel} from '../replanning/ReplanPanel'
+import {useCommand} from '../../api/useCommand'
 import styles from './Projects.module.css'
 
 type Project=components['schemas']['InstallationProject']
@@ -13,15 +14,6 @@ export const installationStates:Record<string,string>={not_ready:'NO LISTA',read
 export const siteFields=['installation_site_name','installation_address','installation_locality','installation_contact_name','installation_contact_phone','installation_access_notes'] as const
 const labels=['Nombre del lugar','Dirección','Localidad','Contacto en obra','Teléfono de contacto','Indicaciones de acceso']
 function date(value:string|null,zone:string){return value?moment(value).tz(zone).format('DD/MM/YYYY HH:mm'):'—'}
-
-function useCommand(refresh:()=>void){
- const intent=useRef<{path:string;body:unknown;method:'POST'|'PATCH';key:string}|null>(null)
- const mutation=useMutation({mutationFn:()=>{const c=intent.current!;return request(c.path,{method:c.method,body:JSON.stringify(c.body)},c.key)},retry:false,
- onSuccess:async()=>{await refresh();intent.current=null},onError:e=>{if(e instanceof ApiError&&e.status<500)intent.current=null}})
- return {...mutation,uncertain:!!intent.current&&!mutation.isPending,
- send:(path:string,body:unknown,method:'POST'|'PATCH'='POST')=>{if(intent.current)return;intent.current={path,body:structuredClone(body),method,key:crypto.randomUUID()};mutation.mutate()},
- retry:()=>mutation.mutate()}
-}
 
 export function InstallationSection({projectId}:{projectId:string}){
  const qc=useQueryClient()
