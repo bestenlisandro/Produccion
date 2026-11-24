@@ -6,7 +6,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response, status
 
-from production_besten.api.context import RequestContext, require_plant
+from production_besten.api.context import RequestContext, require_plant, require_execution_permission
+from production_besten.api.operation_execution_schemas import OperationExecutionResponse
+from production_besten.persistence.operation_execution_queries import operation_execution
 from production_besten.api.dependencies import ApiContainer, get_container, get_idempotency_key, get_request_context
 from production_besten.api.mappers import remaining_command
 from production_besten.api.schemas import *
@@ -167,6 +169,7 @@ def freeze_definition(project_id: UUID, body: FreezeDefinitionRequest, response:
 def start_operation(operation_id: UUID, body: StartOperationRequest, response: Response,
                     command_id: UUID = Depends(get_idempotency_key), context: RequestContext = Depends(get_request_context),
                     container: ApiContainer = Depends(get_container)) -> StartOperationResponse:
+    require_execution_permission(context)
     container.queries.operation(context.organization_id, operation_id, context.plant_id)
     result = StartOperationService(_execution_factory(container)).execute(StartOperation(context.organization_id,
         operation_id, body.phase_id, body.started_at, context.user_id, command_id,
@@ -185,6 +188,7 @@ def start_operation(operation_id: UUID, body: StartOperationRequest, response: R
 def register_segment(execution_id: UUID, body: RegisterSegmentRequest, response: Response,
                      command_id: UUID = Depends(get_idempotency_key), context: RequestContext = Depends(get_request_context),
                      container: ApiContainer = Depends(get_container)) -> SegmentResponse:
+    require_execution_permission(context)
     container.queries.execution(context.organization_id, execution_id, context.plant_id)
     result = RegisterExecutionSegmentService(_execution_factory(container)).execute(RegisterExecutionSegment(
         context.organization_id, execution_id, body.phase_id, body.started_at, body.ended_at,
@@ -205,6 +209,7 @@ def register_segment(execution_id: UUID, body: RegisterSegmentRequest, response:
              tags=["execution"], summary="Finish an operation phase")
 def finish_operation(operation_id: UUID, body: FinishOperationRequest, command_id: UUID = Depends(get_idempotency_key),
                      context: RequestContext = Depends(get_request_context), container: ApiContainer = Depends(get_container)) -> FinishOperationResponse:
+    require_execution_permission(context)
     execution_id = container.queries.execution_for_operation(context.organization_id, operation_id, context.plant_id, require_active=False)
     result = FinishOperationService(_execution_factory(container)).execute(FinishOperation(
         context.organization_id, execution_id, body.phase_id, body.completed_at, context.user_id, command_id, "api"))
@@ -220,6 +225,7 @@ def finish_operation(operation_id: UUID, body: FinishOperationRequest, command_i
              tags=["execution"], summary="Update the current remaining estimate")
 def update_remaining(operation_id: UUID, body: UpdateRemainingEstimateRequest,
                      context: RequestContext = Depends(get_request_context), container: ApiContainer = Depends(get_container)) -> RemainingEstimateResponse:
+    require_execution_permission(context)
     value = container.queries.remaining_context(context.organization_id, operation_id, context.plant_id)
     result = UpdateRemainingEstimateService(PostgresUnitOfWorkFactory(container.engine)).execute(
         remaining_command(body, value, organization_id=context.organization_id, actor_id=context.user_id))
@@ -304,6 +310,14 @@ def get_resource_occupancy(
     return ResourceOccupancyResponse.model_validate(read_resource_occupancy(
         container.engine, context.organization_id, require_plant(context), now,
     ))
+
+
+@router.get('/operations/{operation_id}/execution', response_model=OperationExecutionResponse, tags=['execution'])
+def execution_detail(operation_id: UUID, context: RequestContext = Depends(get_request_context),
+                     container: ApiContainer = Depends(get_container)):
+    with container.engine.connect() as conn:
+        return operation_execution(conn, context.organization_id, require_plant(context), operation_id,
+                                   can_execute='execution:write' in context.capabilities)
 
 
 @router.get("/operations/{operation_id}", response_model=OperationDetailResponse,

@@ -33,10 +33,15 @@ class DevRequestContextProvider:
     ) -> RequestContext:
         if not self.enabled:
             raise HTTPException(status_code=503, detail={"code": "AUTH_PROVIDER_NOT_CONFIGURED", "message": "production identity provider is not configured"})
-        return RequestContext(user_id, organization_id, plant_id)
+        return RequestContext(user_id, organization_id, plant_id, frozenset({'execution:write'}))
 
 
 def require_plant(context: RequestContext) -> UUID:
     if context.plant_id is None:
         raise HTTPException(status_code=400, detail={"code": "PLANT_CONTEXT_REQUIRED", "message": "X-Dev-Plant-Id is required for this operation"})
     return context.plant_id
+
+
+def require_execution_permission(context: RequestContext) -> None:
+    if 'execution:write' not in context.capabilities:
+        raise HTTPException(403, detail={'code': 'EXECUTION_FORBIDDEN', 'message': 'Tu usuario no tiene permiso para registrar ejecución.'})

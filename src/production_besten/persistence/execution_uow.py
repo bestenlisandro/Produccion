@@ -94,6 +94,16 @@ class PostgresExecutionUnitOfWork:
         replay = self._start_replay(command.organization_id, command.source_system, external_reference, command.required_operation_id, command.phase_id)
         if replay:
             return replay
+        late_predecessor = self.conn.scalar(text("""
+            SELECT EXISTS(SELECT 1 FROM production.operation_precedences pr
+              LEFT JOIN LATERAL (SELECT completed_at,status FROM execution.operation_executions e
+                WHERE e.organization_id=pr.organization_id AND e.required_operation_id=pr.predecessor_operation_id
+                ORDER BY e.created_at DESC LIMIT 1) e ON true
+              WHERE pr.organization_id=:org AND pr.successor_operation_id=:id AND pr.active
+                AND (e.status IS DISTINCT FROM 'completed' OR e.completed_at+pr.lag_minutes*interval '1 minute'>:at))
+        """), {'org': command.organization_id, 'id': command.required_operation_id, 'at': command.started_at})
+        if late_predecessor:
+            raise InvalidExecutionState('Finalizá las operaciones precedentes y respetá su horario de finalización antes de iniciar.')
         if operation['project_status'] in {'inactive','archived'} or operation['operation_status']=='archived':
             raise InvalidExecutionState('El proyecto u operación no está activo para iniciar ejecución.')
         if self.conn.scalar(text("SELECT EXISTS(SELECT 1 FROM execution.operation_executions WHERE organization_id=:org AND required_operation_id=:id AND status='completed')"),{'org':command.organization_id,'id':command.required_operation_id}):
@@ -299,6 +309,8 @@ class PostgresExecutionUnitOfWork:
         if command.started_at < execution["started_at"]:
             raise InvalidEstimate("segment cannot start before operation execution")
         self._require_phase(command.organization_id, execution["required_operation_id"], command.phase_id)
+        if self._phase_completed(command.organization_id, command.operation_execution_id, command.phase_id):
+            raise ExecutionAlreadyCompleted('La fase ya finalizó y conserva sus tramos registrados.')
         self._require_previous_phases_complete(
             command.organization_id,
             execution["required_operation_id"],
@@ -325,19 +337,16 @@ class PostgresExecutionUnitOfWork:
                 include_operation_level=False,
             )
         self._validate_segment_origin(command)
-        is_installation=self.conn.scalar(text("SELECT operation_kind='installation' FROM production.required_operations WHERE organization_id=:org AND id=:id"),{'org':command.organization_id,'id':execution['required_operation_id']})
-        if is_installation:
-            if not command.humans:raise StructuralAvailabilityConflict('La instalación debe registrar su equipo real.')
-            for table,ids in [('capacity.employees',[h.employee_id for h in command.humans]),('capacity.physical_resources',[h.physical_resource_id for h in command.physical_usages])]:
-                count=self.conn.scalar(text('SELECT count(*) FROM '+table+" WHERE organization_id=:org AND plant_id=:plant AND id=ANY(:ids) AND status='active'"),{'org':command.organization_id,'plant':execution['plant_id'],'ids':ids})
-                if count!=len(set(ids)):raise EntityNotFound('Equipo real fuera de planta.')
-            required=self.conn.execute(text('SELECT * FROM production.operation_physical_requirements WHERE organization_id=:org AND required_operation_phase_id=:phase AND is_mandatory'),{'org':command.organization_id,'phase':command.phase_id}).mappings().all()
-            for req in required:
-                ids=[h.physical_resource_id for h in command.physical_usages]
-                count=self.conn.scalar(text('''SELECT count(*) FROM capacity.physical_resources r WHERE r.organization_id=:org AND r.plant_id=:plant AND r.id=ANY(:ids)
-                    AND (CAST(:type AS uuid) IS NULL OR r.resource_type_id=:type) AND (CAST(:center AS uuid) IS NULL OR r.work_center_id=:center)
-                    AND (CAST(:group AS uuid) IS NULL OR EXISTS(SELECT 1 FROM capacity.physical_resource_group_members m WHERE m.organization_id=r.organization_id AND m.physical_resource_id=r.id AND m.group_id=:group AND m.valid_during @> CAST(:day AS date)))'''),{'org':command.organization_id,'plant':execution['plant_id'],'ids':ids,'type':req['physical_resource_type_id'],'center':req['work_center_id'],'group':req['physical_resource_group_id'],'day':command.started_at.date()})
-                if count<req['quantity']:raise StructuralAvailabilityConflict('Falta recurso físico requerido para instalación.')
+        for table,ids in [('capacity.employees',[h.employee_id for h in command.humans]),('capacity.physical_resources',[h.physical_resource_id for h in command.physical_usages])]:
+            count=self.conn.scalar(text('SELECT count(*) FROM '+table+" WHERE organization_id=:org AND plant_id=:plant AND id=ANY(:ids) AND status='active'"),{'org':command.organization_id,'plant':execution['plant_id'],'ids':ids})
+            if count!=len(set(ids)):raise EntityNotFound('Equipo real fuera de planta.')
+        required=self.conn.execute(text('SELECT * FROM production.operation_physical_requirements WHERE organization_id=:org AND required_operation_phase_id=:phase AND is_mandatory'),{'org':command.organization_id,'phase':command.phase_id}).mappings().all()
+        for req in required:
+            ids=[h.physical_resource_id for h in command.physical_usages]
+            count=self.conn.scalar(text('''SELECT count(*) FROM capacity.physical_resources r WHERE r.organization_id=:org AND r.plant_id=:plant AND r.id=ANY(:ids)
+                AND (CAST(:type AS uuid) IS NULL OR r.resource_type_id=:type) AND (CAST(:center AS uuid) IS NULL OR r.work_center_id=:center)
+                AND (CAST(:group AS uuid) IS NULL OR EXISTS(SELECT 1 FROM capacity.physical_resource_group_members m WHERE m.organization_id=r.organization_id AND m.physical_resource_id=r.id AND m.group_id=:group AND m.valid_during @> CAST(:day AS date)))'''),{'org':command.organization_id,'plant':execution['plant_id'],'ids':ids,'type':req['physical_resource_type_id'],'center':req['work_center_id'],'group':req['physical_resource_group_id'],'day':command.started_at.date()})
+            if count<req['quantity']:raise StructuralAvailabilityConflict('Falta un recurso físico requerido por esta fase.')
         self._validate_actual_resources(command)
         if command.occupations and execution["project_lot_id"] is None:
             raise InvalidEstimate("physical occupation requires an operation project lot")
@@ -447,6 +456,14 @@ class PostgresExecutionUnitOfWork:
             raise InvalidExecutionState("finish requires running or paused execution")
         if command.completed_at < execution["started_at"]:
             raise InvalidEstimate("completion cannot precede execution start")
+        last_end = self.conn.scalar(text("""
+            SELECT max(upper(s.time_range)) FROM execution.execution_segments s
+            WHERE s.organization_id=:org AND s.operation_execution_id=:execution
+              AND NOT EXISTS(SELECT 1 FROM execution.execution_segments n
+                WHERE n.organization_id=s.organization_id AND n.supersedes_id=s.id)
+        """), {'org': command.organization_id, 'execution': command.operation_execution_id})
+        if last_end and command.completed_at < last_end:
+            raise InvalidEstimate('La finalización no puede ser anterior al último tramo registrado.')
         self._require_phase(command.organization_id, execution["required_operation_id"], command.phase_id)
         self._require_previous_phases_complete(
             command.organization_id,
@@ -759,8 +776,10 @@ class PostgresExecutionUnitOfWork:
         employee_ids = [value.employee_id for value in command.humans]
         resource_ids = list({value.physical_resource_id for value in (*command.physical_usages, *command.occupations)})
         required_people=self.conn.scalar(text('SELECT required_people FROM production.required_operation_phases WHERE organization_id=:org AND id=:phase'),{'org':command.organization_id,'phase':command.phase_id}) or 0
+        if not employee_ids and self.conn.scalar(text('SELECT EXISTS(SELECT 1 FROM production.operation_labor_requirements WHERE organization_id=:org AND required_operation_phase_id=:phase AND is_mandatory)'), {'org': command.organization_id, 'phase': command.phase_id}):
+            raise StructuralAvailabilityConflict('Seleccioná el equipo con las habilitaciones requeridas por esta fase.')
         if len(set(employee_ids)) < required_people:
-            raise StructuralAvailabilityConflict("actual team does not satisfy required people quantity")
+            raise StructuralAvailabilityConflict('Faltan personas para el equipo mínimo requerido por esta fase.')
         if employee_ids:
             active = self.conn.execute(
                 text("SELECT id FROM capacity.employees WHERE organization_id=:org AND id=ANY(:ids) AND status='active'"),
@@ -781,7 +800,7 @@ class PostgresExecutionUnitOfWork:
                 {"org": command.organization_id, "ids": employee_ids, "started": command.started_at, "ended": command.ended_at},
             )
             if conflicts:
-                raise StructuralAvailabilityConflict("real employee has overlapping actual work")
+                raise StructuralAvailabilityConflict('Una persona seleccionada ya tiene trabajo registrado en ese horario.')
             requirements = self.conn.execute(
                 text("SELECT skill_id,min_people,max_people FROM production.operation_labor_requirements WHERE organization_id=:org AND required_operation_phase_id=:phase AND is_mandatory"),
                 {"org": command.organization_id, "phase": command.phase_id},
@@ -792,7 +811,7 @@ class PostgresExecutionUnitOfWork:
                     {"org": command.organization_id, "ids": employee_ids, "skill": requirement["skill_id"], "work_date": command.started_at.date()},
                 ))
                 if skilled < requirement["min_people"] or skilled > requirement["max_people"]:
-                    raise StructuralAvailabilityConflict("actual team does not satisfy required skill quantity")
+                    raise StructuralAvailabilityConflict('El equipo seleccionado no cumple las habilitaciones y cantidades requeridas por esta fase.')
         if resource_ids:
             active = self.conn.execute(
                 text("SELECT id FROM capacity.physical_resources WHERE organization_id=:org AND id=ANY(:ids) AND status='active'"),
@@ -817,7 +836,7 @@ class PostgresExecutionUnitOfWork:
                 {"org": command.organization_id, "ids": active_use_ids, "started": command.started_at, "ended": command.ended_at},
             )
             if conflict:
-                raise StructuralAvailabilityConflict("exclusive physical resource has overlapping actual use")
+                raise StructuralAvailabilityConflict('Una máquina o banco seleccionado ya tiene uso registrado en ese horario.')
 
     def _insert_actual_usage(
         self, organization_id: UUID, segment_id: UUID, started_at: datetime,

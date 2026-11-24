@@ -360,6 +360,107 @@
         }
       }
     },
+    "/operations/{operation_id}/execution/remaining-estimate": {
+      "post": {
+        "tags": [
+          "installations",
+          "execution"
+        ],
+        "summary": "Production Remaining",
+        "operationId": "production_remaining_operations__operation_id__execution_remaining_estimate_post",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operation Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstallationRemaining"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstallationRemainingResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/projects/production-readiness": {
       "get": {
         "tags": [
@@ -2862,6 +2963,94 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ResourceOccupancyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Semantically invalid request"
+          },
+          "404": {
+            "description": "Resource not found or inaccessible in tenant"
+          },
+          "409": {
+            "description": "State, concurrency, availability, gate or idempotency conflict"
+          },
+          "422": {
+            "description": "Structurally invalid path, header or body"
+          },
+          "500": {
+            "description": "Unexpected internal error without implementation details"
+          },
+          "503": {
+            "description": "Required infrastructure or identity provider unavailable"
+          }
+        }
+      }
+    },
+    "/operations/{operation_id}/execution": {
+      "get": {
+        "tags": [
+          "execution"
+        ],
+        "summary": "Execution Detail",
+        "operationId": "execution_detail_operations__operation_id__execution_get",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operation Id"
+            }
+          },
+          {
+            "name": "X-Dev-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-User-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Organization-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "X-Dev-Organization-Id"
+            }
+          },
+          {
+            "name": "X-Dev-Plant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Plant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationExecutionResponse"
                 }
               }
             }
@@ -9021,6 +9210,146 @@
         ],
         "title": "EditorStageOption"
       },
+      "ExecutionChoice": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ExecutionChoice"
+      },
+      "ExecutionPhase": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "original_estimate_minutes": {
+            "type": "integer",
+            "title": "Original Estimate Minutes"
+          },
+          "required_people": {
+            "type": "integer",
+            "title": "Required People"
+          },
+          "started": {
+            "type": "boolean",
+            "title": "Started"
+          },
+          "completed": {
+            "type": "boolean",
+            "title": "Completed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "original_estimate_minutes",
+          "required_people",
+          "started",
+          "completed"
+        ],
+        "title": "ExecutionPhase"
+      },
+      "ExecutionSegment": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "phase_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Phase Id"
+          },
+          "phase_name": {
+            "type": "string",
+            "title": "Phase Name"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "ended_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ended At"
+          },
+          "work_minutes": {
+            "type": "integer",
+            "title": "Work Minutes"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/ExecutionUsage"
+            },
+            "type": "array",
+            "title": "People"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/ExecutionUsage"
+            },
+            "type": "array",
+            "title": "Resources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "phase_id",
+          "phase_name",
+          "started_at",
+          "ended_at",
+          "work_minutes",
+          "people",
+          "resources"
+        ],
+        "title": "ExecutionSegment"
+      },
+      "ExecutionUsage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "minutes"
+        ],
+        "title": "ExecutionUsage"
+      },
       "FinishOperationRequest": {
         "properties": {
           "phase_id": {
@@ -12038,6 +12367,139 @@
           "next_operation_name"
         ],
         "title": "OperationDetailResponse"
+      },
+      "OperationExecutionResponse": {
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "execution_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Id"
+          },
+          "execution_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Status"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "remaining_revision_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Revision No"
+          },
+          "remaining_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Minutes"
+          },
+          "can_execute": {
+            "type": "boolean",
+            "title": "Can Execute"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blockers"
+          },
+          "phases": {
+            "items": {
+              "$ref": "#/components/schemas/ExecutionPhase"
+            },
+            "type": "array",
+            "title": "Phases"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/ExecutionChoice"
+            },
+            "type": "array",
+            "title": "People"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/ExecutionChoice"
+            },
+            "type": "array",
+            "title": "Resources"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/ExecutionSegment"
+            },
+            "type": "array",
+            "title": "Segments"
+          }
+        },
+        "type": "object",
+        "required": [
+          "timezone",
+          "execution_id",
+          "execution_status",
+          "started_at",
+          "completed_at",
+          "remaining_revision_no",
+          "remaining_minutes",
+          "can_execute",
+          "blockers",
+          "phases",
+          "people",
+          "resources",
+          "segments"
+        ],
+        "title": "OperationExecutionResponse"
       },
       "PersonDisplay": {
         "properties": {

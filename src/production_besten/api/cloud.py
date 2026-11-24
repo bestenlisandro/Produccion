@@ -105,7 +105,7 @@ class SupabaseIdentity:
                    "day": datetime.now(ZoneInfo(plant["timezone"])).date()})
         if actor is None:
             raise HTTPException(403, "Tu usuario no está habilitado para esta planta.")
-        return RequestContext(actor, plant["organization_id"], self.settings.production_plant_id)
+        return RequestContext(actor, plant["organization_id"], self.settings.production_plant_id, frozenset({'execution:write'}))
 
     async def sign_in(self, email: str, password: str) -> tuple[str, int]:
         try:

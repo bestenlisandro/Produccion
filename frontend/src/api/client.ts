@@ -92,7 +92,7 @@ export const api = {
   },
   operation: (id: string) => request<OperationDetail>(`/operations/${id}`),
   updateRemaining: (id: string, phaseId: string, minutes: number) => request<RemainingResult>(`/operations/${id}/remaining-estimate`, { method: 'POST', body: JSON.stringify({ cutoff_at: new Date().toISOString(), reason: 'Actualización desde tablero diario', input_mode: 'remaining_duration', remaining: [{ dimension: 'LABOR_WORK', minutes, phase_id: phaseId }] }) }),
-  replan: (id: string) => request<ReplanResult>(`/operations/${id}/replan`, { method: 'POST', body: JSON.stringify({ cutoff_at: new Date().toISOString(), horizon_end: new Date(Date.now() + 90 * 86400000).toISOString(), reason: 'Desvío operativo' }) }, crypto.randomUUID()),
+  replan: (id: string, cutoff = new Date().toISOString()) => request<ReplanResult>(`/operations/${id}/replan`, { method: 'POST', body: JSON.stringify({ cutoff_at: cutoff, horizon_end: new Date(Date.parse(cutoff) + 90 * 86400000).toISOString(), reason: 'Desvío operativo' }) }, crypto.randomUUID()),
   scenario: (id: string) => request<Scenario>(`/scenarios/${id}`),
   accept: (id: string, lock: number) => request(`/scenarios/${id}/accept`, { method: 'POST', body: JSON.stringify({ expected_promotion_lock_version: lock, reason: 'Confirmado desde tablero diario' }) }, crypto.randomUUID()),
   reject: (id: string, row: number) => request(`/scenarios/${id}/reject`, { method: 'POST', body: JSON.stringify({ expected_row_version: row, reason: 'Propuesta descartada por el operador' }) }, crypto.randomUUID()),

@@ -72,6 +72,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/operations/{operation_id}/execution/remaining-estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Production Remaining */
+        post: operations["production_remaining_operations__operation_id__execution_remaining_estimate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/production-readiness": {
         parameters: {
             query?: never;
@@ -458,6 +475,23 @@ export interface paths {
         };
         /** Read 30 days of resource occupancy in the published plan */
         get: operations["get_resource_occupancy_planning_current_resource_occupancy_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/operations/{operation_id}/execution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Execution Detail */
+        get: operations["execution_detail_operations__operation_id__execution_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1858,6 +1892,77 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** ExecutionChoice */
+        ExecutionChoice: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** ExecutionPhase */
+        ExecutionPhase: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Original Estimate Minutes */
+            original_estimate_minutes: number;
+            /** Required People */
+            required_people: number;
+            /** Started */
+            started: boolean;
+            /** Completed */
+            completed: boolean;
+        };
+        /** ExecutionSegment */
+        ExecutionSegment: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Phase Id
+             * Format: uuid
+             */
+            phase_id: string;
+            /** Phase Name */
+            phase_name: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Ended At
+             * Format: date-time
+             */
+            ended_at: string;
+            /** Work Minutes */
+            work_minutes: number;
+            /** People */
+            people: components["schemas"]["ExecutionUsage"][];
+            /** Resources */
+            resources: components["schemas"]["ExecutionUsage"][];
+        };
+        /** ExecutionUsage */
+        ExecutionUsage: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Minutes */
+            minutes: number;
+        };
         /** FinishOperationRequest */
         FinishOperationRequest: {
             /**
@@ -2925,6 +3030,35 @@ export interface components {
             /** Next Operation Name */
             next_operation_name: string | null;
         };
+        /** OperationExecutionResponse */
+        OperationExecutionResponse: {
+            /** Timezone */
+            timezone: string;
+            /** Execution Id */
+            execution_id: string | null;
+            /** Execution Status */
+            execution_status: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /** Remaining Revision No */
+            remaining_revision_no: number | null;
+            /** Remaining Minutes */
+            remaining_minutes: number | null;
+            /** Can Execute */
+            can_execute: boolean;
+            /** Blockers */
+            blockers: string[];
+            /** Phases */
+            phases: components["schemas"]["ExecutionPhase"][];
+            /** People */
+            people: components["schemas"]["ExecutionChoice"][];
+            /** Resources */
+            resources: components["schemas"]["ExecutionChoice"][];
+            /** Segments */
+            segments: components["schemas"]["ExecutionSegment"][];
+        };
         /** PersonDisplay */
         PersonDisplay: {
             /**
@@ -3959,6 +4093,46 @@ export interface operations {
         };
     };
     remaining_installations__operation_id__remaining_estimate_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstallationRemaining"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstallationRemainingResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    production_remaining_operations__operation_id__execution_remaining_estimate_post: {
         parameters: {
             query?: never;
             header: {
@@ -5553,6 +5727,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResourceOccupancyResponse"];
+                };
+            };
+            /** @description Semantically invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Resource not found or inaccessible in tenant */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description State, concurrency, availability, gate or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Structurally invalid path, header or body */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected internal error without implementation details */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Required infrastructure or identity provider unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    execution_detail_operations__operation_id__execution_get: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Dev-User-Id": string;
+                "X-Dev-Organization-Id": string;
+                "X-Dev-Plant-Id"?: string | null;
+            };
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationExecutionResponse"];
                 };
             };
             /** @description Semantically invalid request */
