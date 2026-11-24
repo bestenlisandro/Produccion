@@ -2991,16 +2991,10 @@ export interface components {
             operation_name: string;
             /** Phase Name */
             phase_name: string | null;
-            /**
-             * Planned Start
-             * Format: date-time
-             */
-            planned_start: string;
-            /**
-             * Planned Finish
-             * Format: date-time
-             */
-            planned_finish: string;
+            /** Planned Start */
+            planned_start: string | null;
+            /** Planned Finish */
+            planned_finish: string | null;
             /** People */
             people?: components["schemas"]["PersonDisplay"][];
             /** Work Center */
