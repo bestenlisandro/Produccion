@@ -345,6 +345,8 @@ class DailyBoardResponse(ApiModel):
 
 
 class OperationDetailResponse(DailyOperationResponse):
+    planned_start: datetime | None
+    planned_finish: datetime | None
     phase_id: UUID | None
     original_estimate_minutes: int | None
     plan_requires_reconciliation: bool
