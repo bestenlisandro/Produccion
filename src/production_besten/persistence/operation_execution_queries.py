@@ -10,7 +10,8 @@ def operation_execution(conn, org, plant, operation_id, *, can_execute):
         SELECT o.id, p.status AS project_status, o.status, pl.timezone,
                pl.current_product_definition_revision_id,
                e.id AS execution_id,e.status AS execution_status,e.started_at,e.completed_at,
-               r.revision_no AS remaining_revision_no,r.remaining_labor_minutes AS remaining_minutes
+               r.revision_no AS remaining_revision_no,
+               CASE WHEN e.status='completed' THEN 0 ELSE r.remaining_labor_minutes END AS remaining_minutes
         FROM production.required_operations o
         JOIN core.projects p ON p.organization_id=o.organization_id AND p.id=o.project_id
         JOIN core.plants pl ON pl.organization_id=p.organization_id AND pl.id=p.plant_id
@@ -71,3 +72,39 @@ def operation_execution(conn, org, plant, operation_id, *, can_execute):
         blockers.append('La operación no tiene fases configuradas.')
     return {**dict(operation), **choices, 'phases': phases, 'segments': segments,
             'can_execute': can_execute, 'blockers': blockers}
+
+
+def operation_summary(conn, org, plant, operation_id):
+    """Keep a completed/unplanned operation readable after it leaves CURRENT."""
+    detail = operation_execution(conn, org, plant, operation_id, can_execute=False)
+    meta = conn.execute(text("""
+        SELECT o.id AS operation_id,p.id AS project_id,p.code AS project_code,p.name AS project_name,
+               l.code AS lot_code,l.name AS lot_name,o.code AS operation_code,o.name AS operation_name,
+               pri.name AS priority,pri.rank AS priority_rank
+        FROM production.required_operations o
+        JOIN core.projects p ON p.organization_id=o.organization_id AND p.id=o.project_id
+        JOIN core.project_priorities pri ON pri.organization_id=p.organization_id AND pri.id=p.priority_id
+        LEFT JOIN core.project_lots l ON l.organization_id=o.organization_id AND l.id=o.project_lot_id
+        WHERE o.organization_id=:org AND o.id=:operation AND p.plant_id=:plant
+    """), {'org': org, 'plant': plant, 'operation': operation_id}).mappings().one()
+    people = {str(p['id']): {'id': p['id'], 'name': p['name']} for s in detail['segments'] for p in s['people']}
+    resources = {str(r['id']): r['name'] for s in detail['segments'] for r in s['resources']}
+    centers = conn.scalars(text("""
+        SELECT DISTINCT c.name FROM capacity.physical_resources r
+        JOIN capacity.work_centers c ON c.organization_id=r.organization_id AND c.id=r.work_center_id
+        WHERE r.organization_id=:org AND r.plant_id=:plant AND r.id=ANY(CAST(:ids AS uuid[])) ORDER BY c.name
+    """), {'org': org, 'plant': plant, 'ids': list(resources)}).all()
+    executed = sum(p['minutes'] for s in detail['segments'] for p in s['people'])
+    if not people:
+        executed = sum(s['work_minutes'] for s in detail['segments'])
+    finished = detail['execution_status'] == 'completed'
+    remaining = 0 if finished else detail['remaining_minutes']
+    total = executed + (remaining or 0)
+    phase = next((p for p in detail['phases'] if not p['completed']), next(iter(detail['phases']), None))
+    return {**dict(meta), 'planned_start': None, 'planned_finish': None,
+            'phase_name': phase['name'] if phase else None, 'people': list(people.values()),
+            'physical_resource': ', '.join(resources.values()) or None, 'work_center': ', '.join(centers) or None,
+            'operational_status': 'FINALIZADO' if finished else 'EN_CURSO' if detail['execution_id'] else 'PENDIENTE',
+            'executed_minutes': executed, 'remaining_minutes': remaining,
+            'progress_percent': 100 if finished else round(100 * executed / total) if total else None,
+            'blocker_code': None}
