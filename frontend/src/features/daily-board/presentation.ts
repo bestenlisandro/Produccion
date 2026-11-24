@@ -22,4 +22,4 @@ export const blockerMessages: Record<string, string> = {
 
 export const blockerMessage = (code?: string | null) => code ? blockerMessages[code] ?? `Bloqueo informado: ${code.replaceAll('_', ' ').toLowerCase()}.` : null
 export const minutes = (value?: number | null) => value == null ? '—' : `${Math.floor(value / 60)} h ${value % 60} min`
-export const time = (value: string) => new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit' }).format(new Date(value))
+export const time = (value: string | null) => value == null ? 'Sin programación futura' : new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit' }).format(new Date(value))
