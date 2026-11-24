@@ -3,7 +3,7 @@ from typing import Literal
 from uuid import UUID
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from production_besten.api.context import require_plant
+from production_besten.api.context import require_plant, require_execution_permission
 from production_besten.api.dependencies import get_container, get_request_context
 from production_besten.api.project_intake_schemas import InstallationLocation
 from production_besten.persistence.installation_queries import installation_overview
@@ -110,6 +110,16 @@ class InstallationRemainingResult(BaseModel):
 
 @router.post('/installations/{operation_id}/remaining-estimate', response_model=InstallationRemainingResult)
 def remaining(operation_id: UUID, body: InstallationRemaining, key=Depends(get_idempotency_key), context=Depends(get_request_context), container=Depends(get_container)):
+    return save_remaining(operation_id, body, key, context, container, installation_only=True)
+
+
+@router.post('/operations/{operation_id}/execution/remaining-estimate', response_model=InstallationRemainingResult, tags=['execution'])
+def production_remaining(operation_id: UUID, body: InstallationRemaining, key=Depends(get_idempotency_key), context=Depends(get_request_context), container=Depends(get_container)):
+    return save_remaining(operation_id, body, key, context, container, installation_only=False)
+
+
+def save_remaining(operation_id, body, key, context, container, *, installation_only):
+    require_execution_permission(context)
     from dataclasses import asdict, replace
     import hashlib,json
     from sqlalchemy import text
@@ -117,19 +127,21 @@ def remaining(operation_id: UUID, body: InstallationRemaining, key=Depends(get_i
     from production_besten.api.mappers import remaining_command
     from production_besten.persistence.remaining_estimate_uow import PostgresRemainingEstimateUnitOfWork
     plant=require_plant(context)
+    hash_name = 'installation_remaining_hash' if installation_only else 'production_remaining_hash'
+    action_code = 'INSTALLATION_REMAINING_UPDATED' if installation_only else 'PRODUCTION_REMAINING_UPDATED'
     with container.engine.begin() as conn:
         conn.execute(text('SELECT id FROM core.organizations WHERE id=:org FOR UPDATE'),{'org':context.organization_id})
-        operation=conn.scalar(text("SELECT o.id FROM production.required_operations o JOIN core.projects p ON p.organization_id=o.organization_id AND p.id=o.project_id WHERE o.organization_id=:org AND p.plant_id=:plant AND o.id=:id AND o.operation_kind='installation'"),{'org':context.organization_id,'plant':plant,'id':operation_id})
+        operation=conn.scalar(text("SELECT o.id FROM production.required_operations o JOIN core.projects p ON p.organization_id=o.organization_id AND p.id=o.project_id WHERE o.organization_id=:org AND p.plant_id=:plant AND o.id=:id AND (NOT :installation_only OR o.operation_kind='installation')"),{'org':context.organization_id,'plant':plant,'id':operation_id,'installation_only':installation_only})
         if not operation:raise EntityNotFound()
         digest=hashlib.sha256(json.dumps([str(plant),str(operation_id),str(context.user_id),body.model_dump(mode='json')],sort_keys=True).encode()).hexdigest()
         replay=conn.execute(text('SELECT metadata,after_data FROM audit.audit_entries WHERE organization_id=:org AND request_id=:key LIMIT 1'),{'org':context.organization_id,'key':key}).mappings().one_or_none()
         if replay:
-            if replay['metadata'].get('installation_remaining_hash')!=digest:raise IdempotencyConflict('La clave corresponde a otra intención.')
+            if replay['metadata'].get(hash_name)!=digest:raise IdempotencyConflict('La clave corresponde a otra intención.')
             return replay['after_data']|{'idempotent_replay':True}
         value=container.queries.remaining_context(context.organization_id,operation_id,plant)
         command=replace(remaining_command(body,value,organization_id=context.organization_id,actor_id=context.user_id),expected_revision_no=body.expected_revision_no)
         command.validate()
         adapter=PostgresRemainingEstimateUnitOfWork(None);adapter._connection=conn
         result=json.loads(json.dumps(asdict(adapter.update_remaining_estimate(command)),default=str))
-        conn.execute(text("INSERT INTO audit.audit_entries(organization_id,actor_user_id,action_code,entity_type,entity_id,request_id,transaction_key,after_data,metadata) VALUES (:org,:actor,'INSTALLATION_REMAINING_UPDATED','required_operation',:id,:key,:key,CAST(:after AS jsonb),CAST(:meta AS jsonb))"),{'org':context.organization_id,'actor':context.user_id,'id':operation_id,'key':key,'after':json.dumps(result),'meta':json.dumps({'installation_remaining_hash':digest})})
+        conn.execute(text("INSERT INTO audit.audit_entries(organization_id,actor_user_id,action_code,entity_type,entity_id,request_id,transaction_key,after_data,metadata) VALUES (:org,:actor,:action,'required_operation',:id,:key,:key,CAST(:after AS jsonb),CAST(:meta AS jsonb))"),{'org':context.organization_id,'actor':context.user_id,'id':operation_id,'key':key,'action':action_code,'after':json.dumps(result),'meta':json.dumps({hash_name:digest})})
         return result|{'idempotent_replay':False}
