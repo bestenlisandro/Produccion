@@ -313,8 +313,10 @@ class PostgresApiQueries:
                          JOIN execution.remaining_estimate_revisions r ON r.organization_id=oe.organization_id AND r.operation_execution_id=oe.id AND r.superseded_at IS NULL
                          JOIN core.plants p ON p.organization_id=oe.organization_id
                          JOIN planning.plan_versions pv ON pv.organization_id=p.organization_id AND pv.id=p.current_plan_version_id
+                         JOIN planning.planning_state_revisions remaining_state ON remaining_state.organization_id=r.organization_id AND remaining_state.id=r.planning_state_revision_id
+                         JOIN planning.planning_state_revisions published_state ON published_state.organization_id=pv.organization_id AND published_state.id=pv.planning_state_revision_id
                         WHERE oe.organization_id=ro.organization_id AND oe.required_operation_id=ro.id
-                          AND p.id=:plant AND r.planning_state_revision_id<>pv.planning_state_revision_id)) AS plan_requires_reconciliation,
+                          AND p.id=:plant AND remaining_state.revision_no>published_state.revision_no)) AS plan_requires_reconciliation,
                        (SELECT nxt.name FROM production.operation_precedences op
                          JOIN production.required_operations nxt ON nxt.organization_id=op.organization_id AND nxt.id=op.successor_operation_id
                         WHERE op.organization_id=ro.organization_id AND op.predecessor_operation_id=ro.id AND op.active
