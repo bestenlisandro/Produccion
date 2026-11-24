@@ -220,11 +220,12 @@ class PostgresApiQueries:
                             WHEN opr.planned_end_at < now() THEN 'DEMORADO'
                             WHEN opr.planned_start_at <= now() THEN 'LISTO'
                             ELSE 'PENDIENTE' END AS operational_status,
-                       CASE WHEN rem.updated_total_labor_minutes>0
-                            THEN LEAST(100,ROUND(100.0*rem.executed_labor_minutes_at_cutoff/rem.updated_total_labor_minutes)::int)
+                       CASE WHEN exe.status='completed' THEN 100
+                            WHEN COALESCE(actual.executed_minutes,0)+rem.remaining_labor_minutes>0
+                            THEN LEAST(100,ROUND(100.0*COALESCE(actual.executed_minutes,0)/(COALESCE(actual.executed_minutes,0)+rem.remaining_labor_minutes))::int)
                             ELSE NULL END AS progress_percent,
-                       COALESCE(rem.executed_labor_minutes_at_cutoff,actual.executed_minutes,0)::int AS executed_minutes,
-                       rem.remaining_labor_minutes::int AS remaining_minutes,
+                       COALESCE(actual.executed_minutes,rem.executed_labor_minutes_at_cutoff,0)::int AS executed_minutes,
+                       CASE WHEN exe.status='completed' THEN 0 ELSE rem.remaining_labor_minutes::int END AS remaining_minutes,
                        COALESCE(opr.explanation->'blockers'->>0,phase.blocker_code) AS blocker_code
                   FROM core.plants plant
                   JOIN planning.plan_versions pv
@@ -273,7 +274,9 @@ class PostgresApiQueries:
                     ON rem.organization_id=ro.organization_id AND rem.operation_execution_id=exe.id AND rem.superseded_at IS NULL
                   LEFT JOIN LATERAL (SELECT COALESCE(sum(es.work_minutes),0)::int AS executed_minutes
                     FROM execution.execution_segments es WHERE es.organization_id=ro.organization_id
-                    AND es.operation_execution_id=exe.id AND es.segment_kind='work') actual ON true
+                    AND es.operation_execution_id=exe.id AND es.segment_kind='work'
+                    AND NOT EXISTS(SELECT 1 FROM execution.execution_segments n
+                      WHERE n.organization_id=es.organization_id AND n.supersedes_id=es.id)) actual ON true
                  WHERE plant.organization_id=:org AND plant.id=:plant
                    AND opr.planned_start_at < CAST(:day AS date)+INTERVAL '1 day'
                    AND opr.planned_end_at >= CAST(:day AS date)
@@ -291,12 +294,12 @@ class PostgresApiQueries:
                 JOIN planning.operation_plan_results opr ON opr.organization_id=pv.organization_id AND opr.schedule_solution_id=pv.schedule_solution_id
                 WHERE opr.organization_id=:org AND opr.required_operation_id=:operation
             """), {"org": org, "operation": operation_id})
-        if planned_day is None:
-            raise EntityNotFound("operation is not present in current plan")
-        rows = self.daily_board(org, operation["plant_id"], planned_day)
+        rows = self.daily_board(org, operation["plant_id"], planned_day) if planned_day else []
         item = next((row for row in rows if row["operation_id"] == operation_id), None)
         if item is None:
-            raise EntityNotFound("operation is not present in current plan")
+            from production_besten.persistence.operation_execution_queries import operation_summary
+            with self.engine.connect() as conn:
+                item = operation_summary(conn, org, operation['plant_id'], operation_id)
         with self.engine.connect() as conn:
             extra = conn.execute(text("""
                 SELECT ph.id AS phase_id,ph.original_estimate_minutes,
@@ -504,19 +507,48 @@ class PostgresApiQueries:
                        AND es.operation_execution_id=oe.id
                      WHERE oe.organization_id=:org
                        AND es.time_range && tstzrange(:range_from,:range_to,'[)')
+                       AND NOT EXISTS(SELECT 1 FROM execution.execution_segments n
+                         WHERE n.organization_id=es.organization_id AND n.supersedes_id=es.id)
                      GROUP BY oe.required_operation_id
+                ), actual_people AS (
+                    SELECT oe.required_operation_id,
+                      jsonb_agg(DISTINCT jsonb_build_object('id',e.id,'name',e.display_name)) AS values
+                    FROM execution.operation_executions oe
+                    JOIN execution.execution_segments es ON es.organization_id=oe.organization_id AND es.operation_execution_id=oe.id
+                    JOIN execution.actual_resource_usages u ON u.organization_id=es.organization_id AND u.execution_segment_id=es.id
+                    JOIN capacity.employees e ON e.organization_id=u.organization_id AND e.id=u.employee_id
+                    WHERE oe.organization_id=:org AND es.time_range && tstzrange(:range_from,:range_to,'[)')
+                      AND NOT EXISTS(SELECT 1 FROM execution.execution_segments n WHERE n.organization_id=es.organization_id AND n.supersedes_id=es.id)
+                      AND NOT EXISTS(SELECT 1 FROM execution.actual_resource_usages n WHERE n.organization_id=u.organization_id AND n.supersedes_id=u.id)
+                    GROUP BY oe.required_operation_id
+                ), actual_resources AS (
+                    SELECT oe.required_operation_id,
+                      jsonb_agg(DISTINCT jsonb_build_object('id',r.id,'name',r.name,'work_center_id',c.id,
+                        'scheduling_mode',r.scheduling_mode,'capacity_units',r.capacity_units)) AS resource_values,
+                      jsonb_agg(DISTINCT jsonb_build_object('id',c.id,'name',c.name,'capacity_mode',c.capacity_mode,
+                        'aggregate_capacity',c.aggregate_capacity)) AS center_values
+                    FROM execution.operation_executions oe
+                    JOIN execution.execution_segments es ON es.organization_id=oe.organization_id AND es.operation_execution_id=oe.id
+                    JOIN execution.actual_resource_usages u ON u.organization_id=es.organization_id AND u.execution_segment_id=es.id
+                    JOIN capacity.physical_resources r ON r.organization_id=u.organization_id AND r.id=u.physical_resource_id
+                    JOIN capacity.work_centers c ON c.organization_id=r.organization_id AND c.id=r.work_center_id
+                    WHERE oe.organization_id=:org AND es.time_range && tstzrange(:range_from,:range_to,'[)')
+                      AND NOT EXISTS(SELECT 1 FROM execution.execution_segments n WHERE n.organization_id=es.organization_id AND n.supersedes_id=es.id)
+                      AND NOT EXISTS(SELECT 1 FROM execution.actual_resource_usages n WHERE n.organization_id=u.organization_id AND n.supersedes_id=u.id)
+                    GROUP BY oe.required_operation_id
                 )
-                SELECT opr.schedule_solution_id AS _solution_id,ro.id AS operation_id,project.id AS project_id,
+                SELECT COALESCE(opr.schedule_solution_id,CAST(:solution AS uuid)) AS _solution_id,ro.id AS operation_id,project.id AS project_id,
                        project.code AS project_code,project.name AS project_name,
                        lot.code AS lot_code,lot.name AS lot_name,
                        ro.code AS operation_code,ro.name AS operation_name,
-                       fp.phase_id,fp.phase_name,fp.duration_minutes,
+                       COALESCE(fp.phase_id,hp.id) AS phase_id,COALESCE(fp.phase_name,hp.name) AS phase_name,
+                       COALESCE(fp.duration_minutes,hp.original_estimate_minutes) AS duration_minutes,
                        COALESCE((SELECT jsonb_agg(jsonb_build_object('id',pre.id,'name',pre.name) ORDER BY pre.code) FROM production.operation_precedences edge JOIN production.required_operations pre ON pre.organization_id=edge.organization_id AND pre.id=edge.predecessor_operation_id WHERE edge.organization_id=ro.organization_id AND edge.successor_operation_id=ro.id AND edge.active),'[]'::jsonb) AS predecessors,
                        opr.planned_start_at AS planned_start,
                        opr.planned_end_at AS planned_finish,
-                       COALESCE(pe.values,'[]'::jsonb) AS people,
-                       COALESCE(re.center_values,'[]'::jsonb) AS centers,
-                       COALESCE(re.resource_values,'[]'::jsonb) AS resources,
+                       COALESCE(pe.values,ap.values,'[]'::jsonb) AS people,
+                       COALESCE(re.center_values,ar.center_values,'[]'::jsonb) AS centers,
+                       COALESCE(re.resource_values,ar.resource_values,'[]'::jsonb) AS resources,
                        priority.name AS priority,priority.rank AS priority_rank,
                        CASE
                          WHEN le.status='completed' OR opr.result_status='completed'
@@ -529,11 +561,11 @@ class PostgresApiQueries:
                          WHEN opr.planned_start_at <= now() THEN 'LISTO'
                          ELSE 'PENDIENTE'
                        END AS operational_status,
-                       COALESCE(rem.executed_labor_minutes_at_cutoff,
-                                act.executed_minutes,0)::int AS executed_minutes,
-                       rem.remaining_labor_minutes::int AS remaining_minutes,
-                       COALESCE(opr.explanation->'blockers'->>0,
-                                fp.blocker_code) AS blocker_code,
+                       COALESCE(act.executed_minutes,
+                                rem.executed_labor_minutes_at_cutoff,0)::int AS executed_minutes,
+                       CASE WHEN le.status='completed' THEN 0 ELSE rem.remaining_labor_minutes::int END AS remaining_minutes,
+                       CASE WHEN le.status='completed' THEN NULL ELSE COALESCE(opr.explanation->'blockers'->>0,
+                                fp.blocker_code) END AS blocker_code,
                        COALESCE(act.segments,'[]'::jsonb) AS actual_segments,
                        COALESCE((SELECT jsonb_agg(jsonb_build_object(
                          'started_at',lower(seg.time_range),'ended_at',upper(seg.time_range),
@@ -543,10 +575,10 @@ class PostgresApiQueries:
                          JOIN planning.planned_phase_assignments pa ON pa.organization_id=ppr.organization_id AND pa.phase_plan_result_id=ppr.id
                          JOIN planning.assignment_segments seg ON seg.organization_id=pa.organization_id AND seg.planned_phase_assignment_id=pa.id
                          WHERE ppr.organization_id=opr.organization_id AND ppr.operation_plan_result_id=opr.id),'[]'::jsonb) AS planned_segments
-                  FROM planning.operation_plan_results opr
-                  JOIN production.required_operations ro
-                    ON ro.organization_id=opr.organization_id
-                   AND ro.id=opr.required_operation_id
+                  FROM production.required_operations ro
+                  LEFT JOIN planning.operation_plan_results opr
+                    ON opr.organization_id=ro.organization_id AND opr.required_operation_id=ro.id
+                   AND opr.schedule_solution_id IN (:solution,:overlay_solution)
                   JOIN core.projects project
                     ON project.organization_id=ro.organization_id
                    AND project.id=ro.project_id
@@ -558,6 +590,10 @@ class PostgresApiQueries:
                    AND lot.id=ro.project_lot_id
                   LEFT JOIN first_phase fp
                     ON fp.operation_plan_result_id=opr.id
+                  LEFT JOIN LATERAL (SELECT ph.id,ph.name,ph.original_estimate_minutes
+                    FROM production.required_operation_phases ph
+                    WHERE ph.organization_id=ro.organization_id AND ph.required_operation_id=ro.id AND ph.status<>'archived'
+                    ORDER BY ph.sequence_no LIMIT 1) hp ON opr.id IS NULL
                   LEFT JOIN people pe
                     ON pe.operation_plan_result_id=opr.id
                   LEFT JOIN resources re
@@ -565,18 +601,20 @@ class PostgresApiQueries:
                   LEFT JOIN latest_execution le
                     ON le.required_operation_id=ro.id
                   LEFT JOIN execution.remaining_estimate_revisions rem
-                    ON rem.organization_id=opr.organization_id
+                    ON rem.organization_id=ro.organization_id
                    AND rem.operation_execution_id=le.id
                    AND rem.superseded_at IS NULL
                   LEFT JOIN actual act
                     ON act.required_operation_id=ro.id
-                 WHERE opr.organization_id=:org
-                   AND opr.schedule_solution_id IN (:solution,:overlay_solution)
+                  LEFT JOIN actual_people ap ON ap.required_operation_id=ro.id
+                  LEFT JOIN actual_resources ar ON ar.required_operation_id=ro.id
+                 WHERE ro.organization_id=:org
+                   AND (opr.id IS NOT NULL OR act.required_operation_id IS NOT NULL)
                    AND project.plant_id=:plant
                    AND ((opr.planned_start_at < :range_to
                          AND opr.planned_end_at > :range_from)
                         OR opr.result_status IN ('blocked','out_of_horizon')
-                        OR :initial_view)
+                        OR :initial_view OR act.required_operation_id IS NOT NULL)
                  ORDER BY opr.planned_start_at NULLS LAST,priority.rank,ro.id
             """), {
                 "org": org, "plant": plant,

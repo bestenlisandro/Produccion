@@ -12,6 +12,16 @@ vi.mock('./GanttTimeline',()=>({GanttTimeline:({data,onSelect,adjustmentMode,onI
 
 const renderPage=()=>render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter><GanttPage/></MemoryRouter></QueryClientProvider>)
 
+test('conserva ejecución visible cuando una operación finalizada sale del trabajo futuro',async()=>{
+ const operation={...ganttFixture.operations[0],planned_start:null,planned_finish:null,planned_segments:[],operational_status:'FINALIZADO',remaining_minutes:0,
+ actual_segments:[{id:'actual-finished',started_at:'2026-11-25T11:30:00Z',ended_at:'2026-11-25T11:50:00Z',work_minutes:20}]}
+ server.use(http.get('/api/planning/current/gantt',()=>HttpResponse.json({...ganttFixture,operations:[operation]})))
+ renderPage();expect(await screen.findByText('Sin trabajo futuro planificado')).toBeInTheDocument()
+ expect(screen.getByText(/Ejecutado:.*20 min/)).toBeInTheDocument()
+ await userEvent.click(screen.getByRole('button',{name:'Seleccionar Armado'}))
+ expect(screen.getByRole('link',{name:'VER DETALLE'})).toBeInTheDocument()
+})
+
 test('URL directa carga simulation READY de REV5 y compara sus ramas contra CURRENT V1 sin aceptar',async()=>{
  const requests:string[]=[]
  const client=new QueryClient({defaultOptions:{queries:{retry:false}}})
