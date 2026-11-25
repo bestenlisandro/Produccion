@@ -1,11 +1,31 @@
-import { render,screen,fireEvent } from '@testing-library/react';import userEvent from '@testing-library/user-event';import { QueryClient,QueryClientProvider } from '@tanstack/react-query';import { MemoryRouter,Route,Routes } from 'react-router';import { http,HttpResponse,server } from '../../test/server';import { operation } from '../../test/fixtures';import { OperationDetail } from './OperationDetail'
+import { render,screen,fireEvent,waitFor } from '@testing-library/react';import userEvent from '@testing-library/user-event';import { QueryClient,QueryClientProvider } from '@tanstack/react-query';import { MemoryRouter,Route,Routes } from 'react-router';import { http,HttpResponse,server } from '../../test/server';import { operation } from '../../test/fixtures';import { OperationDetail } from './OperationDetail'
 const detail={...operation,phase_id:'55555555-5555-4555-8555-555555555555',original_estimate_minutes:600,plan_requires_reconciliation:false,next_operation_name:'Canteado'}
 const execution={timezone:'America/Argentina/Buenos_Aires',execution_id:crypto.randomUUID(),execution_status:'running',started_at:'2026-11-24T11:30:00Z',completed_at:null,remaining_revision_no:1,remaining_minutes:180,can_execute:true,blockers:[],phases:[{id:detail.phase_id,name:'Armado',original_estimate_minutes:600,required_people:1,started:true,completed:false}],people:[{id:'person',name:'Mariano'}],resources:[{id:'bank',name:'Banco de armado 1'}],segments:[]}
 const renderDetail=()=>render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter initialEntries={['/operations/'+operation.operation_id]}><Routes><Route path="/operations/:operationId" element={<OperationDetail/>}/><Route path="/" element={<div>tablero</div>}/></Routes></MemoryRouter></QueryClientProvider>)
 beforeEach(()=>server.use(http.get('/api/operations/:id',()=>HttpResponse.json(detail)),http.get('/api/operations/:id/execution',()=>HttpResponse.json(execution)),http.post('/api/operations/:id/execution/remaining-estimate',()=>HttpResponse.json({revision_id:crypto.randomUUID(),revision_number:2,original_minutes:600,executed_minutes:420,remaining_minutes:240,updated_total_minutes:660,planning_state_revision_id:crypto.randomUUID(),planning_state_revision_number:2,effective_event_id:crypto.randomUUID(),current_plan_version_id:crypto.randomUUID()}))))
 test('muestra detalle real',async()=>{renderDetail();expect(await screen.findByRole('heading',{name:'Armado'})).toBeInTheDocument();expect(screen.getByText('Canteado')).toBeInTheDocument()})
 test.each([[30,'+30 min'],[60,'+1 h'],[120,'+2 h']])('atajo agrega %i minutos',async(delta,label)=>{renderDetail();await screen.findByText('Actualizar tiempo restante');const input=screen.getByLabelText(/Nueva estimación/);await userEvent.click(screen.getByText(label));expect(input).toHaveValue(180+delta)})
-test('guardar muestra reconciliación sin optimistic update',async()=>{renderDetail();await screen.findByText('Actualizar tiempo restante');await userEvent.click(screen.getByText('GUARDAR ESTIMACIÓN'));expect(await screen.findByText(/planificación necesita revisión/i)).toBeInTheDocument()})
+test('aviso sigue el estado confirmado y se resuelve al publicar sin recargar',async()=>{
+ let needsReview=false
+ const scenarioId=crypto.randomUUID()
+ server.use(
+  http.get('/api/operations/:id',()=>HttpResponse.json({...detail,plan_requires_reconciliation:needsReview})),
+  http.post('/api/operations/:id/execution/remaining-estimate',()=>{needsReview=true;return HttpResponse.json({})}),
+  http.post('/api/operations/:id/replan',()=>HttpResponse.json({scenario_id:scenarioId})),
+  http.get('/api/scenarios/:id',()=>HttpResponse.json({id:scenarioId,status:'ready',promotion_lock_version:1,changed_operations:1,affected_projects:1,impacts:[]})),
+  http.post('/api/scenarios/:id/accept',()=>{needsReview=false;return HttpResponse.json({})}),
+ )
+ renderDetail();await screen.findByText('Actualizar tiempo restante')
+ expect(screen.queryByText(/planificación necesita revisión/i)).not.toBeInTheDocument()
+ await userEvent.click(screen.getByRole('button',{name:'GUARDAR ESTIMACIÓN'}))
+ expect(await screen.findByText(/planificación necesita revisión/i)).toBeInTheDocument()
+ await userEvent.click(screen.getByRole('button',{name:'SIMULAR REPROGRAMACIÓN'}))
+ await userEvent.click(await screen.findByRole('button',{name:'CONFIRMAR NUEVO PLAN'}))
+ await waitFor(()=>expect(screen.queryByText(/planificación necesita revisión/i)).not.toBeInTheDocument())
+ // Another later change must still raise the warning in the same mounted page.
+ await userEvent.click(screen.getByRole('button',{name:'GUARDAR ESTIMACIÓN'}))
+ expect(await screen.findByText(/planificación necesita revisión/i)).toBeInTheDocument()
+})
 
 test('ofrece iniciar la primera fase pendiente sin mostrar registro antes del inicio',async()=>{
  server.use(http.get('/api/operations/:id/execution',()=>HttpResponse.json({...execution,execution_id:null,execution_status:null,phases:execution.phases.map(p=>({...p,started:false}))})))

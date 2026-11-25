@@ -20,6 +20,7 @@ test('conserva ejecución visible cuando una operación finalizada sale del trab
  expect(screen.getByText(/Ejecutado:.*20 min/)).toBeInTheDocument()
  await userEvent.click(screen.getByRole('button',{name:'Seleccionar Armado'}))
  expect(screen.getByRole('link',{name:'VER DETALLE'})).toBeInTheDocument()
+ expect(screen.getAllByText('Sin programación futura')).toHaveLength(2)
 })
 
 test('URL directa carga simulation READY de REV5 y compara sus ramas contra CURRENT V1 sin aceptar',async()=>{
