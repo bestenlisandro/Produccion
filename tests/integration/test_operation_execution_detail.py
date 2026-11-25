@@ -2,6 +2,7 @@ from copy import deepcopy
 from dataclasses import replace
 from datetime import timedelta
 from uuid import UUID, uuid4
+from sqlalchemy import text
 
 from production_besten.api.context import RequestContext
 from production_besten.api.dependencies import get_request_context
@@ -10,7 +11,7 @@ from tests.integration.test_product_editor import editor, save, action, read
 from tests.integration.scheduling_helpers import HORIZON_START
 
 
-def test_production_execution_detail_commands_history_and_remaining_replay(editor):
+def test_production_execution_detail_commands_history_and_remaining_replay(editor, engine):
     case, api, path, lot = editor
     second = deepcopy(lot['operations'][0]['phases'][0])
     second.update(code='ASSEMBLE', name='Armado')
@@ -82,6 +83,13 @@ def test_production_execution_detail_commands_history_and_remaining_replay(edito
         assert historical['people'][0]['id'] == str(case.employee_id)
         assert historical['resources'][0]['id'] == str(case.physical_resource_id)
         assert historical['group_ids']
+    # A later published state already incorporates an older remaining estimate.
+    assert summary.json()['plan_requires_reconciliation']
+    with engine.begin() as conn:
+        conn.execute(text('''UPDATE planning.plan_versions pv SET planning_state_revision_id=h.current_revision_id
+            FROM planning.planning_state_heads h WHERE pv.organization_id=h.organization_id
+              AND pv.plant_id=h.plant_id AND pv.id=:plan'''), {'plan': case.plan_version_id})
+    assert not api.get(f"/operations/{op['id']}").json()['plan_requires_reconciliation']
 
 
 def test_read_only_context_and_plant_scope(editor):
@@ -99,3 +107,70 @@ def test_read_only_context_and_plant_scope(editor):
         assert api.get(f"/operations/{op['id']}/execution").status_code == 404
     finally:
         api.app.dependency_overrides.pop(get_request_context, None)
+
+
+def test_warning_tracks_real_execution_estimate_and_publication_cycle(engine, seeded_case, fixed_acceptance_clock):
+    from tests.integration.test_replanning import _prepare
+    from tests.integration.test_operational_frontend_api import _client, _headers
+
+    case = seeded_case
+    value = _prepare(engine, case)
+    operation_id = str(value.request.trigger_operation_id)
+    client = _client(engine)
+    client.app.state.container.clock = fixed_acceptance_clock
+    url = f'/operations/{operation_id}'
+    headers = _headers(case)
+
+    def needs_review():
+        result = client.get(url, headers=headers)
+        assert result.status_code == 200, result.text
+        return result.json()['plan_requires_reconciliation']
+
+    def publish(cutoff):
+        proposal = client.post(url+'/replan', headers=_headers(case, key=True), json={
+            'cutoff_at': cutoff.isoformat(), 'horizon_end': (cutoff+timedelta(days=7)).isoformat(),
+            'reason': 'Disposable reconciliation lifecycle',
+        })
+        assert proposal.status_code == 201, proposal.text
+        scenario_id = proposal.json()['scenario_id']
+        scenario = client.get(f'/scenarios/{scenario_id}', headers=headers).json()
+        accepted = client.post(f'/scenarios/{scenario_id}/accept', headers=_headers(case, key=True), json={
+            'expected_promotion_lock_version': scenario['promotion_lock_version'],
+        })
+        assert accepted.status_code == 201, accepted.text
+
+    # The estimate is newer than CURRENT. A later segment makes the estimate
+    # strictly older than the next published state: the original regression.
+    assert needs_review()
+    end = case.cutoff_at+timedelta(minutes=10)
+    segment = client.post(f'/executions/{case.execution_id}/segments', headers=_headers(case, key=True), json={
+        'phase_id': str(case.phase_id), 'started_at': case.cutoff_at.isoformat(),
+        'ended_at': end.isoformat(), 'work_minutes': 10,
+        'humans': [{'employee_id': str(case.employee_id), 'work_minutes': 10}],
+        'physical_usages': [{'physical_resource_id': str(case.physical_resource_id), 'work_minutes': 10, 'capacity_units': 1}],
+    })
+    assert segment.status_code == 201, segment.text
+    publish(end)
+    assert not needs_review()
+    history = client.get(url+'/execution', headers=headers).json()['segments']
+
+    updated = client.post(url+'/execution/remaining-estimate', headers=_headers(case, key=True), json={
+        'expected_revision_no': 2, 'cutoff_at': end.isoformat(),
+        'remaining': [{'dimension': 'LABOR_WORK', 'phase_id': str(case.phase_id), 'minutes': 240}],
+        'reason': 'A later estimate must require another publication',
+    })
+    assert updated.status_code == 200, updated.text
+    assert needs_review()
+    publish(end)
+    assert not needs_review()
+    assert client.get(url+'/execution', headers=headers).json()['segments'] == history
+
+    # A finish event also changes planning even without a newer estimate.
+    finished = client.post(url+'/finish', headers=_headers(case, key=True), json={
+        'phase_id': str(case.phase_id), 'completed_at': end.isoformat(),
+    })
+    assert finished.status_code == 200, finished.text
+    assert needs_review()
+    publish(end)
+    assert not needs_review()
+    assert client.get(url+'/execution', headers=headers).json()['segments'] == history
