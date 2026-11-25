@@ -316,7 +316,17 @@ class PostgresApiQueries:
                          JOIN planning.planning_state_revisions remaining_state ON remaining_state.organization_id=r.organization_id AND remaining_state.id=r.planning_state_revision_id
                          JOIN planning.planning_state_revisions published_state ON published_state.organization_id=pv.organization_id AND published_state.id=pv.planning_state_revision_id
                         WHERE oe.organization_id=ro.organization_id AND oe.required_operation_id=ro.id
-                          AND p.id=:plant AND remaining_state.revision_no>published_state.revision_no)) AS plan_requires_reconciliation,
+                          AND p.id=:plant AND remaining_state.revision_no>published_state.revision_no)
+                       OR EXISTS(SELECT 1 FROM execution.operation_executions oe
+                         JOIN planning.effective_events e ON e.organization_id=oe.organization_id
+                           AND e.payload->>'operation_execution_id'=oe.id::text
+                         JOIN planning.planning_state_revisions changed ON changed.organization_id=e.organization_id AND changed.id=e.planning_state_revision_id
+                         JOIN core.plants p ON p.organization_id=oe.organization_id AND p.id=:plant
+                         JOIN planning.plan_versions pv ON pv.organization_id=p.organization_id AND pv.id=p.current_plan_version_id
+                         JOIN planning.planning_state_revisions published ON published.organization_id=pv.organization_id AND published.id=pv.planning_state_revision_id
+                        WHERE oe.organization_id=ro.organization_id AND oe.required_operation_id=ro.id
+                          AND e.event_type_code IN ('OPERATION_STARTED','PHASE_STARTED','EXECUTION_SEGMENT_REGISTERED','PHASE_COMPLETED','OPERATION_COMPLETED')
+                          AND changed.revision_no>published.revision_no)) AS plan_requires_reconciliation,
                        (SELECT nxt.name FROM production.operation_precedences op
                          JOIN production.required_operations nxt ON nxt.organization_id=op.organization_id AND nxt.id=op.successor_operation_id
                         WHERE op.organization_id=ro.organization_id AND op.predecessor_operation_id=ro.id AND op.active
